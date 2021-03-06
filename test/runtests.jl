@@ -1,6 +1,6 @@
 using Diffractor
+using Diffractor: var"'"
+
 using Test
 
-@testset "Diffractor.jl" begin
-    # Write your tests here.
-end
+@test sin'(1.0) == cos(1.0)

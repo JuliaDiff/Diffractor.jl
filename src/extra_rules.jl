@@ -86,12 +86,18 @@ function ChainRulesCore.rrule(::typeof(xsum), x::Vector)
     end
 end
 
-struct NonDiff{N}
-end
-(::NonDiff{N})(Δ) where {N} = ntuple(_->Zero(), N)
+struct NonDiffEven{N, O, P}; end
+struct NonDiffOdd{N, O, P}; end
+
+(::NonDiffOdd{N, O, P})(Δ) where {N, O, P} = (ntuple(_->Zero(), N), NonDiffEven{N, plus1(O), P}())
+(::NonDiffEven{N, O, P})(Δ...) where {N, O, P} = (Zero(), NonDiffOdd{N, plus1(O), P}())
+(::NonDiffOdd{N, O, O})(Δ) where {N, O} = ntuple(_->Zero(), N)
+
+# This should not happen
+(::NonDiffEven{N, O, O})(Δ...) where {N, O} = error()
 
 @Base.pure function ChainRulesCore.rrule(::typeof(Core.apply_type), head, args...)
-    Core.apply_type(head, args...), NonDiff{plus1(plus1(length(args)))}()
+    Core.apply_type(head, args...), NonDiffOdd{plus1(plus1(length(args))), 1, 1}()
 end
 
 function ChainRulesCore.rrule(::typeof(Core.tuple), args...)
@@ -121,3 +127,5 @@ end
 @Base.aggressive_constprop function ChainRulesCore.rrule(::typeof(Core.getfield), s, field::Int)
     getfield(s, field), ∂⃖getfield{nfields(s), field}()
 end
+
+ChainRulesCore.canonicalize(::ChainRulesCore.Zero) = ChainRulesCore.Zero()

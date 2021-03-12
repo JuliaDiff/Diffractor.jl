@@ -11,7 +11,11 @@ function perform_optic_transform(@nospecialize(ff::Type{∂⃖recurse{N}}), @nos
 
     # Check if we have an rrule for this function
     mthds = Base._methods_by_ftype(Tuple{args...}, -1, typemax(UInt))
-    @assert length(mthds) == 1
+    if length(mthds) != 1
+        @show args
+        @show mthds
+        error()
+    end
     match = mthds[1]
 
     mi = Core.Compiler.specialize_method(match)
@@ -94,6 +98,60 @@ end
         (NO_FIELDS, γ...), (Δ⁷...)->begin
             δ(Base.tail(Δ⁷)...), ((ccc, ddd),)->begin
                 (NO_FIELDS, ddd(ccc)...)
+            end
+        end
+    end
+end
+
+@eval function (::∂⃖{3})(::∂⃖{1}, args...)
+    @destruct a, b = ∂⃖{4}()(args...)
+    (a, $(Expr(:new, Protected{3}, :(@opaque Δ->begin
+        @destruct (x, y) = b(Δ)
+        x, @opaque Δ′′->begin
+            @destruct α, β = y(Δ′′...)
+            (β, α), @opaque ((Δ⁵, xx))->begin
+                yy, zz = Δ⁵(xx)
+                yy, Δ⁶->begin
+                    let (aaa, bbb) = zz(Δ⁶...)
+                        (bbb, aaa), ((Δ⁷, xx))->begin
+                            let (yy, zz) = Δ⁷(xx)
+                                yy, Δ⁶->begin
+                                    let (aaa, bbb) = zz(Δ⁶...)
+                                        (bbb, aaa), ((Δ⁷, xx))->begin
+                                            let (yy, zz) = Δ⁷(xx)
+                                                (yy, Δ⁶->begin
+                                                    let (aaa, bbb) = zz(Δ⁶...)
+                                                        (bbb, aaa)
+                                                    end
+                                                end)
+                                            end
+                                        end
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end)))), @opaque ((Δ′′′,Δ⁴),)->begin
+        (γ, δ) = Δ⁴(Δ′′′)
+        # Add trivial gradient w.r.t ∂⃖{1}
+        (NO_FIELDS, γ...), (Δ⁷...)->begin
+            δ(Base.tail(Δ⁷)...), ((ccc, ddd),)->begin
+                let (xx, yy) = ddd(ccc)
+                    (NO_FIELDS, xx...), (Δ⁸...)->begin
+                        yy(Base.tail(Δ⁸)...), ((eee, fff),)->begin
+                            let (xx, yy) = fff(eee)
+                                (NO_FIELDS, xx...), (Δ⁸...)->begin
+                                    yy(Base.tail(Δ⁸)...), ((ggg, hhh),)->begin
+                                        (NO_FIELDS, hhh(ggg)...)
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end
             end
         end
     end
@@ -189,32 +247,33 @@ struct ∂⃖rruleB{N, O}; ᾱ; ȳ̄ ; end
 struct ∂⃖rruleC{N, O}; ȳ̄ ; Δ′′′; β̄ ; end
 struct ∂⃖rruleD{N, O}; γ̄; β̄ ; end
 
-function (a::∂⃖rruleA{N, O})(Δ) where {N, O}
+@Base.aggressive_constprop function (a::∂⃖rruleA{N, O})(Δ) where {N, O}
     @destruct (α, ᾱ) = a.∂(a.ȳ, Δ)
     (α, ∂⃖rruleB{N, O}(ᾱ, a.ȳ̄))
 end
 
-function (b::∂⃖rruleB{N, O})(Δ′...) where {N, O}
+@Base.aggressive_constprop function (b::∂⃖rruleB{N, O})(Δ′...) where {N, O}
     @destruct ((Δ′′′, β), β̄) = b.ᾱ(Δ′)
     (β, ∂⃖rruleC{N, O}(b.ȳ̄, Δ′′′, β̄))
 end
 
-function (c::∂⃖rruleC{N, O})(Δ′′) where {N, O}
+@Base.aggressive_constprop function (c::∂⃖rruleC{N, O})(Δ′′) where {N, O}
     @destruct (γ, γ̄) = c.ȳ̄((Δ′′, c.Δ′′′))
     (Base.tail(γ), ∂⃖rruleD{N, O}(γ̄, c.β̄))
 end
 
-function (d::∂⃖rruleD{N, O})(Δ⁴...) where {N, O}
+@Base.aggressive_constprop function (d::∂⃖rruleD{N, O})(Δ⁴...) where {N, O}
     (δ₁, δ₂), δ̄  = d.γ̄(Zero(), Δ⁴...)
     (δ₁, ∂⃖rruleA{N, O+1}(d.β̄ , δ₂, δ̄ ))
 end
 
 # Terminal cases
-function (c::∂⃖rruleB{N, N})(Δ′...) where {N}
+@Base.aggressive_constprop function (c::∂⃖rruleB{N, N})(Δ′...) where {N}
     @destruct (Δ′′′, β) = c.ᾱ(Δ′)
     (β, ∂⃖rruleC{N, N}(c.ȳ̄, Δ′′′, nothing))
 end
-(c::∂⃖rruleC{N, N})(Δ′′) where {N} = Base.tail(c.ȳ̄((Δ′′, c.Δ′′′)))
+@Base.aggressive_constprop (c::∂⃖rruleC{N, N})(Δ′′) where {N} =
+    Base.tail(c.ȳ̄((Δ′′, c.Δ′′′)))
 (::∂⃖rruleD{N, N})(Δ...) where {N} = error("Should not be reached")
 
 # ∂⃖rrule
@@ -226,21 +285,23 @@ end
 
 # The static parameter on `f` disables the compileable_sig heuristic
 function (::∂⃖{N})(f::T, args...) where {T, N}
-    ∂⃖p = ∂⃖{minus1(N)}()
-    @destruct z, z̄ = ∂⃖p(rrule, f, args...)
-    if z === nothing
-        return ∂⃖recurse{N}()(f, args...)
+    if N == 1
+        # Base case (inlined to avoid ambiguities with manually specified
+        # higher order rules)
+        z = rrule(f, args...)
+        if z === nothing
+            return ∂⃖recurse{1}()(f, args...)
+        end
+        return z
     else
-        return ∂⃖rrule{N}()(z, z̄)
+        ∂⃖p = ∂⃖{minus1(N)}()
+        @destruct z, z̄ = ∂⃖p(rrule, f, args...)
+        if z === nothing
+            return ∂⃖recurse{N}()(f, args...)
+        else
+            return ∂⃖rrule{N}()(z, z̄)
+        end
     end
-end
-
-function (::∂⃖{1})(args...)
-    z = rrule(args...)
-    if z === nothing
-        return ∂⃖recurse{1}()(args...)
-    end
-    return z
 end
 
 struct UnApply{Spec}; end
@@ -261,10 +322,27 @@ function (this::∂⃖{1})(::typeof(Core._apply_iterate), iterate, f, args::Tupl
     end
 end
 
+function (this::∂⃖{2})(::typeof(Core._apply_iterate), iterate, f, args::Tuple...)
+    x, ∂⃖f = Core._apply_iterate(iterate, this, (f,), args...)
+    return x, let u=UnApply{map(length, args)}()
+        Δ->begin
+            r, ∂⃖∂⃖f = ∂⃖f(Δ)
+            u(r), (_, _, ff, args...)->begin
+                x, ∂⃖∂⃖∂⃖f = Core._apply_iterate(iterate, ∂⃖∂⃖f, (ff,), args...)
+                x, Δ->begin
+                    u(∂⃖∂⃖∂⃖f(Δ))
+                end
+            end
+        end
+    end
+end
+
+
 @Base.pure function (::∂⃖{1})(::typeof(Core.apply_type), head, args...)
     return rrule(Core.apply_type, head, args...)
 end
 
+#=
 function (::∂⃖{1})(::typeof(Core.tuple), args...)
     return rrule(Core.tuple, args...)
 end
@@ -296,7 +374,7 @@ function (::∂⃖{3})(::typeof(Core.tuple), args...)
         end
     end
 end
-
+=#
 
 @Base.aggressive_constprop function ChainRulesCore.rrule(::typeof(Core.getfield), s, field::Symbol)
     getfield(s, field), let P = typeof(s)
@@ -307,6 +385,7 @@ end
     end
 end
 
+#=
 @Base.aggressive_constprop function (::∂⃖{1})(::typeof(Core.getfield), s, field::Symbol)
     getfield(s, field), let P = typeof(s)
         @Base.aggressive_constprop Δ->begin
@@ -320,8 +399,8 @@ end
     getfield(s, field), let P = typeof(s)
         @Base.aggressive_constprop Δ->begin
             nt = NamedTuple{(field,)}((Δ,))
-            (NO_FIELDS, Composite{P, typeof(nt)}(nt), NO_FIELDS), (Δ...)->begin
-                getfield(s, field), Δ->begin
+            (NO_FIELDS, Composite{P, typeof(nt)}(nt), NO_FIELDS), (_, Δs, _)->begin
+                getfield(ChainRulesCore.backing(Δs), field), Δ->begin
                     nt = NamedTuple{(field,)}((Δ,))
                     (NO_FIELDS, Composite{P, typeof(nt)}(nt), NO_FIELDS)
                 end
@@ -330,20 +409,91 @@ end
     end
 end
 
-@Base.aggressive_constprop function (::∂⃖{N})(::typeof(Core.getfield), s, field::Symbol) where {N}
-    error("Implement me")
+@Base.aggressive_constprop function (::∂⃖{3})(::typeof(Core.getfield), s, field::Symbol)
+    getfield(s, field), let P = typeof(s)
+        @Base.aggressive_constprop Δ->begin
+            nt = NamedTuple{(field,)}((Δ,))
+            (NO_FIELDS, Composite{P, typeof(nt)}(nt), NO_FIELDS), (_, Δs, _)->begin
+                getfield(ChainRulesCore.backing(Δs), field), Δ->begin
+                    nt = NamedTuple{(field,)}((Δ,))
+                    (NO_FIELDS, Composite{P, typeof(nt)}(nt), NO_FIELDS), (_, Δs, _)->begin
+                        getfield(ChainRulesCore.backing(Δs), field), Δ->begin
+                            nt = NamedTuple{(field,)}((Δ,))
+                            (NO_FIELDS, Composite{P, typeof(nt)}(nt), NO_FIELDS), (_, Δs, _)->begin
+                                getfield(ChainRulesCore.backing(Δs), field), Δ->begin
+                                    nt = NamedTuple{(field,)}((Δ,))
+                                    (NO_FIELDS, Composite{P, typeof(nt)}(nt), NO_FIELDS)
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+end
+=#
+
+struct ∂⃖getfield{n, f}; end
+@Base.aggressive_constprop function (::∂⃖getfield{n, f})(Δ) where {n,f}
+    if @generated
+        return Expr(:call, tuple, NO_FIELDS,
+            Expr(:call, tuple, (i == f ? :(Δ) : DoesNotExist() for i = 1:n)...),
+            NO_FIELDS)
+    else
+        return (NO_FIELDS, ntuple(i->i == f ? Δ : DoesNotExist(), n), NO_FIELDS)
+    end
 end
 
-
-
-@Base.aggressive_constprop function (::∂⃖{1})(::typeof(Core.getfield), args...)
-    return rrule(Core.getfield, args...)
+@Base.aggressive_constprop function (::∂⃖{1})(::typeof(Core.getfield), s, field::Int)
+    getfield(s, field), ∂⃖getfield{nfields(s), field}()
 end
 
+@Base.aggressive_constprop function (::∂⃖{2})(::typeof(Core.getfield), s, field::Int)
+    getfield(s, field), let b = ∂⃖getfield{nfields(s), field}()
+        Δ->begin
+            b(Δ), (_, Δ, _)->begin
+                getfield(Δ, field), Δ->begin
+                    b(Δ)
+                end
+            end
+        end
+    end
+end
 
+struct EvenOddEven{O, P, F, G}; f::F; g::G; end
+EvenOddEven{O, P}(f::F, g::G) where {O, P, F, G} = EvenOddEven{O, P, F, G}(f, g)
+struct EvenOddOdd{O, P, F, G}; f::F; g::G; end
+EvenOddOdd{O, P}(f::F, g::G) where {O, P, F, G} = EvenOddOdd{O, P, F, G}(f, g)
+@Base.aggressive_constprop (o::EvenOddOdd{O, P, F, G})(Δ) where {O, P, F, G} = (o.f(Δ), EvenOddEven{plus1(O), P, F, G}(o.f, o.g))
+@Base.aggressive_constprop (e::EvenOddEven{O, P, F, G})(Δ...) where {O, P, F, G} = (e.g(Δ...), EvenOddOdd{plus1(O), P, F, G}(e.f, e.g))
+@Base.aggressive_constprop (o::EvenOddOdd{O, O})(Δ) where {N, O} = o.f(Δ)
+
+
+@Base.aggressive_constprop function (::∂⃖{N})(::typeof(Core.getfield), s, field::Int) where {N}
+    getfield(s, field), EvenOddOdd{1, c_order(N)}(
+        ∂⃖getfield{nfields(s), field}(),
+        @Base.aggressive_constprop (_, Δ, _)->getfield(Δ, field))
+end
+
+function (::∂⃖{N})(::typeof(Core.getfield), s, field::Symbol) where {N}
+    getfield(s, field), let P = typeof(s)
+        EvenOddOdd{1, c_order(N)}(
+            (@Base.aggressive_constprop Δ->begin
+                nt = NamedTuple{(field,)}((Δ,))
+                (NO_FIELDS, Composite{P, typeof(nt)}(nt), NO_FIELDS)
+            end),
+            (@Base.aggressive_constprop (_, Δs, _)->begin
+                getfield(ChainRulesCore.backing(Δs), field)
+            end))
+    end
+end
 
 function (::∂⃖{N})(::typeof(Core.tuple), args...) where {N}
-    error("TODO: Implement me")
+    Core.tuple(args...), EvenOddOdd{1, c_order(N)}(
+        Δ->Core.tuple(NO_FIELDS, Δ...),
+        (Δ...)->Core.tuple(Δ[2:end]...)
+    )
 end
 
 @Base.pure c_order(N::Int) = 2^N - 1

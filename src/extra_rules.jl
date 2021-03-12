@@ -104,28 +104,4 @@ function ChainRulesCore.rrule(::typeof(Core.tuple), args...)
     Core.tuple(args...), Δ->Core.tuple(NO_FIELDS, Δ...)
 end
 
-@Base.aggressive_constprop function ChainRulesCore.rrule(::typeof(Core.getfield), s, field::Symbol)
-    getfield(s, field), let P = typeof(s)
-        @Base.aggressive_constprop Δ->begin
-            nt = NamedTuple{(field,)}((Δ,))
-            (NO_FIELDS, Composite{P, typeof(nt)}(nt), NO_FIELDS)
-        end
-    end
-end
-
-struct ∂⃖getfield{n, f}; end
-@Base.aggressive_constprop function (::∂⃖getfield{n, f})(Δ) where {n,f}
-    if @generated
-        return Expr(:call, tuple, NO_FIELDS,
-            Expr(:call, tuple, (i == f ? :(Δ) : DoesNotExist() for i = 1:n)...),
-            NO_FIELDS)
-    else
-        return (NO_FIELDS, ntuple(i->i == f ? Δ : DoesNotExist(), n), NO_FIELDS)
-    end
-end
-
-@Base.aggressive_constprop function ChainRulesCore.rrule(::typeof(Core.getfield), s, field::Int)
-    getfield(s, field), ∂⃖getfield{nfields(s), field}()
-end
-
 ChainRulesCore.canonicalize(::ChainRulesCore.Zero) = ChainRulesCore.Zero()

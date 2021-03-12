@@ -26,7 +26,7 @@ function renumber_cfg!(cfg, code)
     end
 end
 
-cname(nc, N, name) = Symbol(string("∂⃖", superscript(N), subscript(nc+1), name))
+cname(nc, N, name) = Symbol(string("∂⃖", superscript(N), subscript(nc), name))
 
 using Core.Compiler: construct_domtree, scan_slot_def_use, construct_ssa!
 
@@ -38,7 +38,7 @@ Base.getindex(urs::Core.Compiler.UseRef, args...) = Core.Compiler.getindex(urs, 
 Base.setindex!(c::Core.Compiler.IncrementalCompact, args...) = Core.Compiler.setindex!(c, args...)
 Base.setindex!(urs::Core.Compiler.UseRef, args...) = Core.Compiler.setindex!(urs, args...)
 function transform!(ci, meth, nargs, sparams, N)
-    @assert N <= 3
+    @assert N <= 4
     n_closures = 2^N - 1
 
     code = ci.code
@@ -69,7 +69,6 @@ function transform!(ci, meth, nargs, sparams, N)
             opaque_ci.slotnames = Symbol[Symbol("#self#"), :Δ]
             opaque_ci.slotflags = UInt8[0, 0]
         else
-            @Core.Main.Base.show (ci.slotnames, ci.slotflags)
             opaque_ci.slotnames = [Symbol("#oc#"), ci.slotnames...]
             opaque_ci.slotflags = UInt8[0, ci.slotflags...]
         end
@@ -149,7 +148,6 @@ function transform!(ci, meth, nargs, sparams, N)
                 # No gradient accumulation for zero-argument structs
                 if length(stmt.args) != 1
                     # TODO: Use newT here?
-                    insert_node_rev!(Expr(:call, println, newT, Δ))
                     canon = insert_node_rev!(Expr(:call, ChainRulesCore.canonicalize, Δ))
                     nt = insert_node_rev!(Expr(:call, ChainRulesCore.backing, canon))
                     for (j, arg) in enumerate(stmt.args)
@@ -165,8 +163,6 @@ function transform!(ci, meth, nargs, sparams, N)
                 if nc != n_closures
                     revs[nc+1][i] = newT
                 end
-                insert_node_rev!(Expr(:call, println, "splatnew: ", newT, " ", Δ))
-                insert_node_rev!(Expr(:call, Core.Main.Base.display, copy(ci)))
                 canon = insert_node_rev!(Expr(:call, ChainRulesCore.canonicalize, Δ))
                 nt = insert_node_rev!(Expr(:call, ChainRulesCore.backing, canon))
                 arg = stmt.args[2]
@@ -176,9 +172,7 @@ function transform!(ci, meth, nargs, sparams, N)
             elseif isa(stmt, GlobalRef) || isexpr(stmt, :static_parameter)
                 # We drop gradients for globals and static parameters
             else
-                @show (N, meth)
-                @show stmt
-                error()
+                error((N, meth, stmt))
             end
         end
 
@@ -189,7 +183,7 @@ function transform!(ci, meth, nargs, sparams, N)
         end
         if nc != n_closures
             lno = LineNumberNode(1, :none)
-            next_oc = insert_node_rev!(Expr(:new_opaque_closure, Tuple{(Any for i = 1:nargs+1)...}, false, Union{}, Any,
+            next_oc = insert_node_rev!(Expr(:new_opaque_closure, Tuple{(Any for i = 1:nargs+1)...}, meth.isva, Union{}, Any,
                 Expr(:opaque_closure_method, cname(nc+1, N, meth.name), Int(meth.nargs), lno, opaque_cis[nc+1]), revs[nc+1]...))
             ret_tuple = insert_node_rev!(Expr(:call, tuple, arg_tuple, next_oc))
         end
@@ -221,12 +215,10 @@ function transform!(ci, meth, nargs, sparams, N)
                 val = op[]
                 if isa(val, Argument)
                     op[] = Argument(val.n + 1)
-                end
-                if isexpr(val, :static_parameter) || isa(val, GlobalRef)
-                    op[] = Zero()
-                end
-                if isa(val, SSAValue)
+                elseif isa(val, SSAValue)
                     op[] = fwds[val.id]
+                else
+                    op[] = Zero()
                 end
             end
             stmt = urs[]
@@ -258,6 +250,11 @@ function transform!(ci, meth, nargs, sparams, N)
                 compT = insert_node_here!(Expr(:call, Core.apply_type, Composite, newT, ntT))
                 fwds[i] = insert_node_here!(Expr(:new, compT, thent))
             elseif isexpr(stmt, :splatnew)
+                error()
+            elseif isa(stmt, GlobalRef)
+                fwds[i] = Zero()
+            elseif !isa(stmt, Expr)
+                @show stmt
                 error()
             else
                 fwds[i] = insert_node_here!(stmt)

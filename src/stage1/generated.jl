@@ -63,103 +63,6 @@ macro destruct(arg)
     end
 end
 
-# This is a sort of inverse of ∂⃖rrule
-#=
-@eval function (::∂⃖{1})(::∂⃖{1}, args...)
-    @destruct a, b = ∂⃖{2}()(args...)
-    (a, $(Expr(:new, Protected{1}, :(@opaque Δ->begin
-        @destruct (x, y) = b(Δ)
-        x, @opaque Δ′′->begin
-            @destruct α, β = y(Δ′′...)
-            (β, α)
-        end
-    end)))), @opaque ((Δ′′′,Δ⁴),)->begin
-        # Add trivial gradient w.r.t ∂⃖{1}
-        (NO_FIELDS, Δ⁴(Δ′′′)...)
-    end
-end
-
-
-@eval function (::∂⃖{2})(::∂⃖{1}, args...)
-    @destruct a, b = ∂⃖{3}()(args...)
-    (a, $(Expr(:new, Protected{2}, :(@opaque Δ->begin
-        @destruct (x, y) = b(Δ)
-        x, @opaque Δ′′->begin
-            @destruct α, β = y(Δ′′...)
-            (β, α), @opaque ((Δ⁵, xx))->begin
-                yy, zz = Δ⁵(xx)
-                yy, Δ⁶->begin
-                    aaa, bbb = zz(Δ⁶...)
-                    (bbb, aaa)
-                end
-            end
-        end
-    end)))), @opaque ((Δ′′′,Δ⁴),)->begin
-        (γ, δ) = Δ⁴(Δ′′′)
-        # Add trivial gradient w.r.t ∂⃖{1}
-        (NO_FIELDS, γ...), (Δ⁷...)->begin
-            δ(Base.tail(Δ⁷)...), ((ccc, ddd),)->begin
-                (NO_FIELDS, ddd(ccc)...)
-            end
-        end
-    end
-end
-
-@eval function (::∂⃖{3})(::∂⃖{1}, args...)
-    @destruct a, b = ∂⃖{4}()(args...)
-    (a, $(Expr(:new, Protected{3}, :(@opaque Δ->begin
-        @destruct (x, y) = b(Δ)
-        x, @opaque Δ′′->begin
-            @destruct α, β = y(Δ′′...)
-            (β, α), @opaque ((Δ⁵, xx))->begin
-                yy, zz = Δ⁵(xx)
-                yy, Δ⁶->begin
-                    let (aaa, bbb) = zz(Δ⁶...)
-                        (bbb, aaa), ((Δ⁷, xx))->begin
-                            let (yy, zz) = Δ⁷(xx)
-                                yy, Δ⁶->begin
-                                    let (aaa, bbb) = zz(Δ⁶...)
-                                        (bbb, aaa), ((Δ⁷, xx))->begin
-                                            let (yy, zz) = Δ⁷(xx)
-                                                (yy, Δ⁶->begin
-                                                    let (aaa, bbb) = zz(Δ⁶...)
-                                                        (bbb, aaa)
-                                                    end
-                                                end)
-                                            end
-                                        end
-                                    end
-                                end
-                            end
-                        end
-                    end
-                end
-            end
-        end
-    end)))), @opaque ((Δ′′′,Δ⁴),)->begin
-        (γ, δ) = Δ⁴(Δ′′′)
-        # Add trivial gradient w.r.t ∂⃖{1}
-        (NO_FIELDS, γ...), (Δ⁷...)->begin
-            δ(Base.tail(Δ⁷)...), ((ccc, ddd),)->begin
-                let (xx, yy) = ddd(ccc)
-                    (NO_FIELDS, xx...), (Δ⁸...)->begin
-                        yy(Base.tail(Δ⁸)...), ((eee, fff),)->begin
-                            let (xx, yy) = fff(eee)
-                                (NO_FIELDS, xx...), (Δ⁸...)->begin
-                                    yy(Base.tail(Δ⁸)...), ((ggg, hhh),)->begin
-                                        (NO_FIELDS, hhh(ggg)...)
-                                    end
-                                end
-                            end
-                        end
-                    end
-                end
-            end
-        end
-    end
-end
-=#
-
 @eval function (::∂⃖{1})(::∂⃖{2}, args...)
     @destruct a, b = ∂⃖{3}()(args...)
     (a, $(Expr(:new, Protected{1}, :(Δ->begin
@@ -238,48 +141,6 @@ macro OpticBundle(a, b)
     end)
 end
 
-#=
-function (::∂⃖rrule{2})(z, z̄)
-    @destruct (y, ȳ) = z
-    @OpticBundle(y, @opaque Δ->begin
-        @destruct (α, ᾱ) = ∂⃖{1}()(ȳ, Δ)
-        @OpticBundle(α, @opaque (Δ′...)->begin
-            @destruct (Δ′′′, β) = ᾱ(Δ′)
-            @OpticBundle(β, @opaque Δ′′->begin
-                # Drop gradient w.r.t. `rrule`
-                return Base.tail(z̄((Δ′′, Δ′′′)))
-            end)
-        end)
-    end)
-end
-
-function (::∂⃖rrule{3})(z, z̄)
-    @destruct (y, ȳ) = z
-    @OpticBundle(y, @opaque Δ->begin # A
-        @destruct (α, ᾱ) = ∂⃖{2}()(ȳ, Δ)
-        @OpticBundle(α, @opaque (Δ′...)->begin # B
-            (Δ′′′, β), β̄  = ᾱ(Δ′)
-            @OpticBundle(β, @opaque Δ′′->begin # C
-                # Drop gradient w.r.t. `rrule`
-                (γ, γ̄) = z̄((Δ′′, Δ′′′))
-                @OpticBundle(Base.tail(γ), @opaque (Δ⁴...)->begin # D
-                    (δ₁, δ₂), δ̄ = γ̄(Zero(), Δ⁴...)
-                    δ₁, Δ⁵->begin #A
-                        ϵ, ϵ̄ = β̄(δ₂, Δ⁵)
-                        ϵ, (Δ⁶...)->begin
-                            (ζ₁, ζ₂) = ϵ̄(Δ⁶)
-                            ζ₂, Δ⁷->begin
-                                return Base.tail(δ̄((Δ⁷, ζ₁)))
-                            end
-                        end
-                    end
-                end)
-            end)
-        end)
-    end)
-end
-=#
-
 # ∂⃖rrule has a 4-recurrence - we model this as 4 separate structs that we
 # cycle between. N.B.: These names match the names that these variables
 # have in Snippet 19 of the terminology guide. They are probably not ideal,
@@ -352,40 +213,6 @@ end
     return rrule(Core.apply_type, head, args...)
 end
 
-#=
-function (::∂⃖{1})(::typeof(Core.tuple), args...)
-    return rrule(Core.tuple, args...)
-end
-
-function (::∂⃖{2})(::typeof(Core.tuple), args...)
-    return Core.tuple(args...), Δ->begin
-        Core.tuple(NO_FIELDS, Δ...), (Δ...)->begin
-            Core.tuple(Δ[2:end]...), Δ->begin
-                Core.tuple(NO_FIELDS, Δ...)
-            end
-        end
-    end
-end
-
-function (::∂⃖{3})(::typeof(Core.tuple), args...)
-    return Core.tuple(args...), Δ->begin
-        Core.tuple(NO_FIELDS, Δ...), (Δ...)->begin
-            Core.tuple(Δ[2:end]...), Δ->begin
-                Core.tuple(NO_FIELDS, Δ...), (Δ...)->begin
-                    Core.tuple(Δ[2:end]...), Δ->begin
-                        Core.tuple(NO_FIELDS, Δ...), (Δ...)->begin
-                            Core.tuple(Δ[2:end]...), Δ->begin
-                                Core.tuple(NO_FIELDS, Δ...)
-                            end
-                        end
-                    end
-                end
-            end
-        end
-    end
-end
-=#
-
 @Base.aggressive_constprop function ChainRulesCore.rrule(::typeof(Core.getfield), s, field::Symbol)
     getfield(s, field), let P = typeof(s)
         @Base.aggressive_constprop Δ->begin
@@ -394,55 +221,6 @@ end
         end
     end
 end
-
-#=
-@Base.aggressive_constprop function (::∂⃖{1})(::typeof(Core.getfield), s, field::Symbol)
-    getfield(s, field), let P = typeof(s)
-        @Base.aggressive_constprop Δ->begin
-            nt = NamedTuple{(field,)}((Δ,))
-            (NO_FIELDS, Composite{P, typeof(nt)}(nt), NO_FIELDS)
-        end
-    end
-end
-
-@Base.aggressive_constprop function (::∂⃖{2})(::typeof(Core.getfield), s, field::Symbol)
-    getfield(s, field), let P = typeof(s)
-        @Base.aggressive_constprop Δ->begin
-            nt = NamedTuple{(field,)}((Δ,))
-            (NO_FIELDS, Composite{P, typeof(nt)}(nt), NO_FIELDS), (_, Δs, _)->begin
-                getfield(ChainRulesCore.backing(Δs), field), Δ->begin
-                    nt = NamedTuple{(field,)}((Δ,))
-                    (NO_FIELDS, Composite{P, typeof(nt)}(nt), NO_FIELDS)
-                end
-            end
-        end
-    end
-end
-
-@Base.aggressive_constprop function (::∂⃖{3})(::typeof(Core.getfield), s, field::Symbol)
-    getfield(s, field), let P = typeof(s)
-        @Base.aggressive_constprop Δ->begin
-            nt = NamedTuple{(field,)}((Δ,))
-            (NO_FIELDS, Composite{P, typeof(nt)}(nt), NO_FIELDS), (_, Δs, _)->begin
-                getfield(ChainRulesCore.backing(Δs), field), Δ->begin
-                    nt = NamedTuple{(field,)}((Δ,))
-                    (NO_FIELDS, Composite{P, typeof(nt)}(nt), NO_FIELDS), (_, Δs, _)->begin
-                        getfield(ChainRulesCore.backing(Δs), field), Δ->begin
-                            nt = NamedTuple{(field,)}((Δ,))
-                            (NO_FIELDS, Composite{P, typeof(nt)}(nt), NO_FIELDS), (_, Δs, _)->begin
-                                getfield(ChainRulesCore.backing(Δs), field), Δ->begin
-                                    nt = NamedTuple{(field,)}((Δ,))
-                                    (NO_FIELDS, Composite{P, typeof(nt)}(nt), NO_FIELDS)
-                                end
-                            end
-                        end
-                    end
-                end
-            end
-        end
-    end
-end
-=#
 
 struct ∂⃖getfield{n, f}; end
 @Base.aggressive_constprop function (::∂⃖getfield{n, f})(Δ) where {n,f}

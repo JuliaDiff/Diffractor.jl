@@ -64,6 +64,7 @@ macro destruct(arg)
 end
 
 # This is a sort of inverse of ∂⃖rrule
+#=
 @eval function (::∂⃖{1})(::∂⃖{1}, args...)
     @destruct a, b = ∂⃖{2}()(args...)
     (a, $(Expr(:new, Protected{1}, :(@opaque Δ->begin
@@ -77,6 +78,7 @@ end
         (NO_FIELDS, Δ⁴(Δ′′′)...)
     end
 end
+
 
 @eval function (::∂⃖{2})(::∂⃖{1}, args...)
     @destruct a, b = ∂⃖{3}()(args...)
@@ -156,6 +158,7 @@ end
         end
     end
 end
+=#
 
 @eval function (::∂⃖{1})(::∂⃖{2}, args...)
     @destruct a, b = ∂⃖{3}()(args...)
@@ -182,7 +185,47 @@ end
     end
 end
 
+struct ∂⃖weaveInnerOdd{N, O}; b̄; end
+@Base.aggressive_constprop function (w::∂⃖weaveInnerOdd{N, N})(Δ) where {N}
+    @destruct c, c̄ = w.b̄(Δ...)
+    return (c̄, c)
+end
+@Base.aggressive_constprop function (w::∂⃖weaveInnerOdd{N, O})(Δ) where {N, O}
+    @destruct c, c̄ = w.b̄(Δ...)
+    return (c̄, c), ∂⃖weaveInnerEven{plus1(N), O}()
+end
+struct ∂⃖weaveInnerEven{N, O}; end
+@Base.aggressive_constprop function (w::∂⃖weaveInnerEven{N, O})(Δ′, x...) where {N, O}
+    @destruct y, ȳ  = Δ′(x...)
+    return y, ∂⃖weaveInnerOdd{plus1(N), O}(ȳ)
+end
+
+struct ∂⃖weaveOuterOdd{N, O}; end
+@Base.aggressive_constprop function (w::∂⃖weaveOuterOdd{N, N})((Δ′′, Δ′′′)) where {N}
+    return (NO_FIELDS, Δ′′′(Δ′′)...)
+end
+@Base.aggressive_constprop function (w::∂⃖weaveOuterOdd{N, O})((Δ′′, Δ′′′)) where {N, O}
+    @destruct α, ᾱ = Δ′′′(Δ′′)
+    return (NO_FIELDS, α...), ∂⃖weaveOuterEven{plus1(N), O}(ᾱ)
+end
+struct ∂⃖weaveOuterEven{N, O}; ᾱ end
+@Base.aggressive_constprop function (w::∂⃖weaveOuterEven{N, O})(Δ⁴...) where {N, O}
+    return w.ᾱ(Base.tail(Δ⁴)...), ∂⃖weaveOuterOdd{plus1(N), O}()
+end
+
+function (::∂⃖{N})(::∂⃖{1}, args...) where {N}
+    @destruct (a, ā) = ∂⃖{plus1(N)}()(args...)
+    let O = c_order(N)
+        (a, Protected{N}(@opaque Δ->begin
+                (b, b̄) = ā(Δ)
+                b, ∂⃖weaveInnerOdd{1, O}(b̄)
+            end
+        )), ∂⃖weaveOuterOdd{1, O}()
+    end
+end
+
 function (::∂⃖{N})(::∂⃖{M}, args...) where {N, M}
+    # TODO
     @destruct (a, b) = ∂⃖{N+M}()(args...)
     error("Not implemented yet ($N, $M)")
 end
@@ -285,6 +328,7 @@ end
 
 # The static parameter on `f` disables the compileable_sig heuristic
 function (::∂⃖{N})(f::T, args...) where {T, N}
+    @Core.Main.Base.show (N, f)
     if N == 1
         # Base case (inlined to avoid ambiguities with manually specified
         # higher order rules)
@@ -303,40 +347,6 @@ function (::∂⃖{N})(f::T, args...) where {T, N}
         end
     end
 end
-
-struct UnApply{Spec}; end
-@generated function (::UnApply{Spec})(Δ) where Spec
-    args = Any[NO_FIELDS, NO_FIELDS, :(Δ[1])]
-    start = 2
-    for l in Spec
-        push!(args, :(Δ[$(start:(start+l-1))]))
-        start += l
-    end
-    :(Core.tuple($(args...)))
-end
-
-function (this::∂⃖{1})(::typeof(Core._apply_iterate), iterate, f, args::Tuple...)
-    x, ∂⃖f = Core._apply_iterate(iterate, this, (f,), args...)
-    return x, let u=UnApply{map(length, args)}()
-        Δ->u(∂⃖f(Δ))
-    end
-end
-
-function (this::∂⃖{2})(::typeof(Core._apply_iterate), iterate, f, args::Tuple...)
-    x, ∂⃖f = Core._apply_iterate(iterate, this, (f,), args...)
-    return x, let u=UnApply{map(length, args)}()
-        Δ->begin
-            r, ∂⃖∂⃖f = ∂⃖f(Δ)
-            u(r), (_, _, ff, args...)->begin
-                x, ∂⃖∂⃖∂⃖f = Core._apply_iterate(iterate, ∂⃖∂⃖f, (ff,), args...)
-                x, Δ->begin
-                    u(∂⃖∂⃖∂⃖f(Δ))
-                end
-            end
-        end
-    end
-end
-
 
 @Base.pure function (::∂⃖{1})(::typeof(Core.apply_type), head, args...)
     return rrule(Core.apply_type, head, args...)
@@ -445,29 +455,13 @@ struct ∂⃖getfield{n, f}; end
     end
 end
 
-@Base.aggressive_constprop function (::∂⃖{1})(::typeof(Core.getfield), s, field::Int)
-    getfield(s, field), ∂⃖getfield{nfields(s), field}()
-end
-
-@Base.aggressive_constprop function (::∂⃖{2})(::typeof(Core.getfield), s, field::Int)
-    getfield(s, field), let b = ∂⃖getfield{nfields(s), field}()
-        Δ->begin
-            b(Δ), (_, Δ, _)->begin
-                getfield(Δ, field), Δ->begin
-                    b(Δ)
-                end
-            end
-        end
-    end
-end
-
 struct EvenOddEven{O, P, F, G}; f::F; g::G; end
 EvenOddEven{O, P}(f::F, g::G) where {O, P, F, G} = EvenOddEven{O, P, F, G}(f, g)
 struct EvenOddOdd{O, P, F, G}; f::F; g::G; end
 EvenOddOdd{O, P}(f::F, g::G) where {O, P, F, G} = EvenOddOdd{O, P, F, G}(f, g)
 @Base.aggressive_constprop (o::EvenOddOdd{O, P, F, G})(Δ) where {O, P, F, G} = (o.f(Δ), EvenOddEven{plus1(O), P, F, G}(o.f, o.g))
 @Base.aggressive_constprop (e::EvenOddEven{O, P, F, G})(Δ...) where {O, P, F, G} = (e.g(Δ...), EvenOddOdd{plus1(O), P, F, G}(e.f, e.g))
-@Base.aggressive_constprop (o::EvenOddOdd{O, O})(Δ) where {N, O} = o.f(Δ)
+@Base.aggressive_constprop (o::EvenOddOdd{O, O})(Δ) where {O} = o.f(Δ)
 
 
 @Base.aggressive_constprop function (::∂⃖{N})(::typeof(Core.getfield), s, field::Int) where {N}
@@ -495,6 +489,39 @@ function (::∂⃖{N})(::typeof(Core.tuple), args...) where {N}
         (Δ...)->Core.tuple(Δ[2:end]...)
     )
 end
+
+struct UnApply{Spec}; end
+@generated function (::UnApply{Spec})(Δ) where Spec
+    args = Any[NO_FIELDS, NO_FIELDS, :(Δ[1])]
+    start = 2
+    for l in Spec
+        push!(args, :(Δ[$(start:(start+l-1))]))
+        start += l
+    end
+    :(Core.tuple($(args...)))
+end
+
+struct ApplyOdd{O, P}; u; ∂⃖f; end
+struct ApplyEven{O, P}; u; ∂⃖∂⃖f; end
+@Base.aggressive_constprop function (a::ApplyOdd{O, P})(Δ) where {O, P}
+    r, ∂⃖∂⃖f = a.∂⃖f(Δ)
+    (a.u(r), ApplyEven{plus1(O), P}(a.u, ∂⃖∂⃖f))
+end
+@Base.aggressive_constprop function (a::ApplyEven{O, P})(_, _, ff, args...) where {O, P}
+    r, ∂⃖∂⃖∂⃖f = Core._apply_iterate(iterate, a.∂⃖∂⃖f, (ff,), args...)
+    (r, ApplyOdd{plus1(O), P}(a.u, ∂⃖∂⃖∂⃖f))
+end
+@Base.aggressive_constprop function (a::ApplyOdd{O, O})(Δ) where {O}
+    r = a.∂⃖f(Δ)
+    a.u(r)
+end
+
+function (this::∂⃖{N})(::typeof(Core._apply_iterate), iterate, f, args::Tuple...) where {N}
+    @assert iterate === Base.iterate
+    x, ∂⃖f = Core._apply_iterate(iterate, this, (f,), args...)
+    return x, ApplyOdd{1, c_order(N)}(UnApply{map(length, args)}(), ∂⃖f)
+end
+
 
 @Base.pure c_order(N::Int) = 2^N - 1
 

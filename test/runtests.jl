@@ -43,6 +43,9 @@ ChainRules.rrule(::typeof(my_tuple), args...) = args, Δ->Core.tuple(NO_FIELDS, 
 @test @inferred(sin'(1.0)) == cos(1.0)
 @test @inferred(sin''(1.0)) == -sin(1.0)
 @test sin'''(1.0) == -cos(1.0)
+@test sin''''(1.0) == sin(1.0)
+@test sin'''''(1.0) == cos(1.0)
+@test sin''''''(1.0) == -sin(1.0)
 
 f_getfield(x) = getfield((x,), 1)
 @test f_getfield'(1) == 1

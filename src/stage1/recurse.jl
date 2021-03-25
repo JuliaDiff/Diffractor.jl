@@ -28,7 +28,8 @@ end
 
 cname(nc, N, name) = Symbol(string("∂⃖", superscript(N), subscript(nc), name))
 
-using Core.Compiler: construct_domtree, scan_slot_def_use, construct_ssa!
+using Core.Compiler: construct_domtree, scan_slot_def_use, construct_ssa!,
+    NewInstruction, effect_free
 
 Base.iterate(c::IncrementalCompact, args...) = Core.Compiler.iterate(c, args...)
 Base.iterate(p::Core.Compiler.Pair, args...) = Core.Compiler.iterate(p, args...)
@@ -38,7 +39,6 @@ Base.getindex(urs::Core.Compiler.UseRef, args...) = Core.Compiler.getindex(urs, 
 Base.setindex!(c::Core.Compiler.IncrementalCompact, args...) = Core.Compiler.setindex!(c, args...)
 Base.setindex!(urs::Core.Compiler.UseRef, args...) = Core.Compiler.setindex!(urs, args...)
 function transform!(ci, meth, nargs, sparams, N)
-    @assert N <= 4
     n_closures = 2^N - 1
 
     code = ci.code
@@ -47,11 +47,11 @@ function transform!(ci, meth, nargs, sparams, N)
     slotnames = Symbol[Symbol("#self#"), :args, ci.slotnames...]
     slotflags = UInt8[(0x00 for i = 1:2)..., ci.slotflags...]
     slottypes = UInt8[(0x00 for i = 1:2)..., ci.slotflags...]
+
     ir = IRCode(Core.Compiler.InstructionStream(code, Any[],
         Any[nothing for i = 1:length(code)],
         ci.codelocs, UInt8[0 for i = 1:length(code)]), cfg, Core.LineInfoNode[ci.linetable...],
-        Any[Any for i = 1:length(nargs)], Any[], Any[sparams...])
-
+        Any[Any for i = 1:2], Any[], Any[sparams...])
 
     # SSA conversion
     domtree = construct_domtree(ir.cfg.blocks)
@@ -271,8 +271,7 @@ function transform!(ci, meth, nargs, sparams, N)
     arg_mapping = Any[]
     for argno in 1:nfixedargs
         push!(arg_mapping, insert_node_here!(compact,
-            Expr(:call, getfield, Argument(2), argno),
-            Any, Int32(0)))
+            NewInstruction(Expr(:call, getfield, Argument(2), argno), Any, Int32(0))))
     end
 
 
@@ -280,12 +279,11 @@ function transform!(ci, meth, nargs, sparams, N)
         # Extract the rest of the arguments and make a tuple out of them
         ssas = map((nfixedargs+1):(nargs+1)) do i
             insert_node_here!(compact,
-                Expr(:call, getfield, Argument(2), i),
-                Any, Int32(0))
+                NewInstruction(Expr(:call, getfield, Argument(2), i), Any, Int32(0)))
         end
         push!(arg_mapping,
             insert_node_here!(compact,
-                Expr(:call, tuple, ssas...), Any, Int32(0)))
+                NewInstruction(Expr(:call, tuple, ssas...), Any, Int32(0))))
     end
 
     rev = revs[1]
@@ -314,8 +312,12 @@ function transform!(ci, meth, nargs, sparams, N)
                 orig_stmt.args[2] = stmt
                 stmt = orig_stmt
             end
-            compact.ssa_rename[compact.idx-1] = insert_node_here!(compact, Expr(:call, getfield, SSAValue(idx), 1), Any, compact.result[idx][:line], true)
-            rev[old_idx] = insert_node_here!(compact, Expr(:call, getfield, SSAValue(idx), 2), Any, compact.result[idx][:line], true)
+            compact.ssa_rename[compact.idx-1] = insert_node_here!(compact,
+                NewInstruction(Expr(:call, getfield, SSAValue(idx), 1), Any, compact.result[idx][:line]),
+                true)
+            rev[old_idx] = insert_node_here!(compact,
+                NewInstruction(Expr(:call, getfield, SSAValue(idx), 2), Any, compact.result[idx][:line]),
+                true)
         elseif isexpr(stmt, :static_parameter)
             stmt = sparams[stmt.args[1]]
             if isexpr(orig_stmt, :(=))
@@ -329,10 +331,17 @@ function transform!(ci, meth, nargs, sparams, N)
             lno = LineNumberNode(1, :none)
             compact[idx] = Expr(:new_opaque_closure, Tuple{Any}, false, Union{}, Any,
                 Expr(:opaque_closure_method, cname(1, N, meth.name), 1, lno, opaque_cis[1]), rev...)
-            argty = insert_node_here!(compact, Expr(:call, typeof, stmt.val), Any, compact.result[idx][:line], true)
-            applyty = insert_node_here!(compact, Expr(:call, Core.apply_type, OpticBundle, argty), Any, compact.result[idx][:line], true)
-            retval = insert_node_here!(compact, Expr(:new, applyty, stmt.val, SSAValue(idx)), Any, compact.result[idx][:line], true)
-            compact.ssa_rename[compact.idx-1] = insert_node_here!(compact, Core.ReturnNode(retval), Any, compact.result[idx][:line], true)
+            argty = insert_node_here!(compact,
+                NewInstruction(Expr(:call, typeof, stmt.val), Any, compact.result[idx][:line]), true)
+            applyty = insert_node_here!(compact,
+                NewInstruction(Expr(:call, Core.apply_type, OpticBundle, argty), Any, compact.result[idx][:line]),
+                true)
+            retval = insert_node_here!(compact,
+                NewInstruction(Expr(:new, applyty, stmt.val, SSAValue(idx)), Any, compact.result[idx][:line]),
+                true)
+            compact.ssa_rename[compact.idx-1] = insert_node_here!(compact,
+                NewInstruction(Core.ReturnNode(retval), Any, compact.result[idx][:line]),
+                true)
         end
     end
 

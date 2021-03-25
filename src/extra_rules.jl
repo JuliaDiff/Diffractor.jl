@@ -61,14 +61,16 @@ function ChainRulesCore.rrule(::typeof(*), A::AbstractMatrix{<:Real}, B::Abstrac
 end
 
 
+#=
 function ChainRulesCore.rrule(::typeof(map), f, xs::Vector)
     assert_gf(f)
     arrs = reversediff_array(f, xs)
     primal = getfield(arrs, 1)
     primal, let dual = getfield(arrs, 2)
-        Δ->(NO_FIELDS, NO_FIELDS, map(*, dual, Δ))
+        Δ->(NO_FIELDS, NO_FIELDS, map(*, dual, unthunk(Δ)))
     end
 end
+=#
 
 function ChainRulesCore.rrule(::typeof(map), f, xs::Vector, ys::Vector)
     assert_gf(f)
@@ -105,3 +107,33 @@ function ChainRulesCore.rrule(::typeof(Core.tuple), args...)
 end
 
 ChainRulesCore.canonicalize(::ChainRulesCore.Zero) = ChainRulesCore.Zero()
+
+# Skip AD'ing through the axis computation
+function ChainRules.rrule(::typeof(Base.Broadcast.instantiate), bc::Base.Broadcast.Broadcasted)
+    return Base.Broadcast.instantiate(bc), Δ->begin
+        Core.tuple(NO_FIELDS, Δ)
+    end
+end
+
+
+using StaticArrays
+
+# Force the static arrays constructor to use a vector representation of
+# the cotangent space.
+
+struct to_tuple{N}; end
+@generated function (::to_tuple{N})(Δ) where {N}
+    :( (NO_FIELDS, Core.tuple( $( ( :(Δ[$i]) for i = 1:N )...) )) )
+end
+
+function ChainRules.rrule(::Type{SArray{S, T, N, L}}, x::NTuple{L,T}) where {S, T, N, L}
+    SArray{S, T, N, L}(x), to_tuple{L}()
+end
+
+function ChainRules.rrule(::typeof(map), ::typeof(+), A::Array, B::Array)
+    map(+, A, B), Δ->(NO_FIELDS, NO_FIELDS, Δ, Δ)
+end
+
+function ChainRules.rrule(::typeof(map), ::typeof(+), A::Vector, B::Vector)
+    map(+, A, B), Δ->(NO_FIELDS, NO_FIELDS, Δ, Δ)
+end

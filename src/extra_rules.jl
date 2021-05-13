@@ -137,10 +137,10 @@ function ChainRules.rrule(::Type{SArray{S, T, N, L}}, x::NTuple{L,T}) where {S, 
     SArray{S, T, N, L}(x), to_tuple{L}()
 end
 
-function ChainRules.rrule(::typeof(map), ::typeof(+), A::Array, B::Array)
+function ChainRules.rrule(::typeof(map), ::typeof(+), A::AbstractArray, B::AbstractArray)
     map(+, A, B), Δ->(NO_FIELDS, NO_FIELDS, Δ, Δ)
 end
 
-function ChainRules.rrule(::typeof(map), ::typeof(+), A::Vector, B::Vector)
+function ChainRules.rrule(::typeof(map), ::typeof(+), A::AbstractVector, B::AbstractVector)
     map(+, A, B), Δ->(NO_FIELDS, NO_FIELDS, Δ, Δ)
 end

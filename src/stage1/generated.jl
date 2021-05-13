@@ -250,7 +250,7 @@ end
 @Base.aggressive_constprop function (::∂⃖{N})(::typeof(Base.getindex), s::Tuple, field::Int) where {N}
     getfield(s, field), EvenOddOdd{1, c_order(N)}(
         ∂⃖getfield{nfields(s), field}(),
-        @Base.aggressive_constprop (_, Δ, _)->getfield(Δ, field))
+        @Base.aggressive_constprop (_, Δ, _)->lifted_getfield(Δ, field))
 end
 
 function (::∂⃖{N})(::typeof(Core.getfield), s, field::Symbol) where {N}

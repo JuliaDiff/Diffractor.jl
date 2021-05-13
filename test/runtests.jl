@@ -59,3 +59,6 @@ complicated_2sin(x) = (x = map(sin, Diffractor.xfill(x, 2)); x[1] + x[2])
 @test @inferred(complicated_2sin''(1.0)) == 2sin''(1.0)
 @test @inferred(complicated_2sin'''(1.0)) == 2sin'''(1.0)
 @test @inferred(complicated_2sin''''(1.0)) == 2sin''''(1.0)
+
+
+include("pinn.jl")

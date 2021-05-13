@@ -189,7 +189,6 @@ end
 
 # The static parameter on `f` disables the compileable_sig heuristic
 function (::∂⃖{N})(f::T, args...) where {T, N}
-    @Core.Main.Base.show (N, f)
     if N == 1
         # Base case (inlined to avoid ambiguities with manually specified
         # higher order rules)
@@ -248,6 +247,12 @@ EvenOddOdd{O, P}(f::F, g::G) where {O, P, F, G} = EvenOddOdd{O, P, F, G}(f, g)
         @Base.aggressive_constprop (_, Δ, _)->getfield(Δ, field))
 end
 
+@Base.aggressive_constprop function (::∂⃖{N})(::typeof(Base.getindex), s::Tuple, field::Int) where {N}
+    getfield(s, field), EvenOddOdd{1, c_order(N)}(
+        ∂⃖getfield{nfields(s), field}(),
+        @Base.aggressive_constprop (_, Δ, _)->getfield(Δ, field))
+end
+
 function (::∂⃖{N})(::typeof(Core.getfield), s, field::Symbol) where {N}
     getfield(s, field), let P = typeof(s)
         EvenOddOdd{1, c_order(N)}(
@@ -256,7 +261,22 @@ function (::∂⃖{N})(::typeof(Core.getfield), s, field::Symbol) where {N}
                 (NO_FIELDS, Composite{P, typeof(nt)}(nt), NO_FIELDS)
             end),
             (@Base.aggressive_constprop (_, Δs, _)->begin
-                getfield(ChainRulesCore.backing(Δs), field)
+                isa(Δs, Union{Zero, DoesNotExist}) ? Δs : getfield(ChainRulesCore.backing(Δs), field)
+            end))
+    end
+end
+
+# TODO: Temporary - make better
+function (::∂⃖{N})(::typeof(Base.getindex), a::Array, inds...) where {N}
+    getindex(a, inds...), let
+        EvenOddOdd{1, c_order(N)}(
+            (@Base.aggressive_constprop Δ->begin
+                BB = zero(a)
+                BB[inds...] = Δ
+                (NO_FIELDS, BB, map(x->NO_FIELDS, inds)...)
+            end),
+            (@Base.aggressive_constprop (_, Δ, _)->begin
+                getindex(Δ, inds...)
             end))
     end
 end
@@ -306,6 +326,13 @@ end
 @Base.pure function (::∂⃖{N})(::typeof(Core.apply_type), head, args...) where {N}
     Core.apply_type(head, args...), NonDiffOdd{plus1(plus1(length(args))), 1, c_order(N)}()
 end
+
+@Base.aggressive_constprop lifted_getfield(x, s) = getfield(x, s)
+lifted_getfield(x::Zero, s) = Zero()
+lifted_getfield(x::DoesNotExist, s) = DoesNotExist()
+
+ChainRulesCore.backing(::Zero) = Zero()
+ChainRulesCore.backing(::DoesNotExist) = DoesNotExist()
 
 function reload()
     Core.eval(Diffractor, quote

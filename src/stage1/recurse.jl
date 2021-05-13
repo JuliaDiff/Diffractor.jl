@@ -153,7 +153,7 @@ function transform!(ci, meth, nargs, sparams, N)
                     for (j, arg) in enumerate(stmt.args)
                         j == 1 && continue
                         if is_accumable(arg)
-                            accum!(arg, insert_node_rev!(Expr(:call, getfield, nt, j-1)))
+                            accum!(arg, insert_node_rev!(Expr(:call, lifted_getfield, nt, j-1)))
                         end
                     end
                 end

@@ -72,6 +72,7 @@ function ChainRulesCore.rrule(::typeof(map), f, xs::Vector)
 end
 =#
 
+#=
 function ChainRulesCore.rrule(::typeof(map), f, xs::Vector, ys::Vector)
     assert_gf(f)
     arrs = reversediff_array(f, xs, ys)
@@ -80,12 +81,18 @@ function ChainRulesCore.rrule(::typeof(map), f, xs::Vector, ys::Vector)
         Δ->(NO_FIELDS, NO_FIELDS, map(*, getfield(dual, 1), Δ), map(*, getfield(dual, 2), Δ))
     end
 end
+=#
 
 xsum(x::Vector) = sum(x)
 function ChainRulesCore.rrule(::typeof(xsum), x::Vector)
     xsum(x), let xdims=size(x)
-        Δ->(NO_FIELDS, fill(Δ, xdims...))
+        Δ->(NO_FIELDS, xfill(Δ, xdims...))
     end
+end
+
+xfill(x, dims...) = fill(x, dims...)
+function ChainRulesCore.rrule(::typeof(xfill), x, dim)
+    xfill(x, dim), Δ->(NO_FIELDS, xsum(Δ), NO_FIELDS)
 end
 
 struct NonDiffEven{N, O, P}; end

@@ -60,5 +60,7 @@ complicated_2sin(x) = (x = map(sin, Diffractor.xfill(x, 2)); x[1] + x[2])
 @test @inferred(complicated_2sin'''(1.0)) == 2sin'''(1.0)
 @test @inferred(complicated_2sin''''(1.0)) == 2sin''''(1.0)
 
+# Minimal 2-nd order forward smoke test
+@test Diffractor.∂⃗{2}()(Diffractor.ZeroBundle{2}(sin), Diffractor.TangentBundle{2}(1.0, (1.0, 1.0, 0.0))).partials[1] == sin'(1.0)
 
 include("pinn.jl")

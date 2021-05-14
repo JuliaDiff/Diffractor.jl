@@ -25,6 +25,16 @@ const ∂⃖¹ = ∂⃖{1}()
 (::Type{∂⃖})(args...) = ∂⃖¹(args...)
 
 """
+    ∂⃗{N}
+
+∂⃗{N} is the forward-mode AD optic functor of order `N`. A call
+`(::∂⃗{N})(f, args...)` evaluating a function `f: A -> B` is lifted to its
+pushforward on the N-th order tangent bundle `f⋆: Tⁿ A -> Tⁿ B`.
+"""
+struct ∂⃗{N}; end
+const ∂⃗¹ = ∂⃗{1}()
+
+"""
     dx(x)
 
 dx represents the trival differential one-form of a one dimensional

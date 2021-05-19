@@ -127,8 +127,8 @@ lower_pd(f::PrimeDerivative{N,T}) where {N,T} = PrimeDerivative{minus1(N),T}(get
 lower_pd(f::PrimeDerivative{1}) = getfield(f, :f)
 raise_pd(f::PrimeDerivative{N,T}) where {N,T} = PrimeDerivative{plus1(N),T}(getfield(f, :f))
 
-ChainRulesCore.rrule(::typeof(lower_pd), f) = lower_pd(f), Δ->(Zero(), Δ)
-ChainRulesCore.rrule(::typeof(raise_pd), f) = lower_pd(f), Δ->(Zero(), Δ)
+ChainRulesCore.rrule(::typeof(lower_pd), f) = lower_pd(f), Δ->(ZeroTangent(), Δ)
+ChainRulesCore.rrule(::typeof(raise_pd), f) = lower_pd(f), Δ->(ZeroTangent(), Δ)
 
 PrimeDerivative(f) = PrimeDerivative{1, typeof(f)}(f)
 PrimeDerivative(f::PrimeDerivative{N, T}) where {N, T} = raise_pd(f)

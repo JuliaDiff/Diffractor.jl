@@ -114,7 +114,7 @@ function transform!(ci, meth, nargs, sparams, N)
 
         function do_accum(this_accums)
             if this_accums === nothing || isempty(this_accums)
-                return ChainRulesCore.Zero()
+                return ChainRulesCore.ZeroTangent()
             elseif length(this_accums) == 1
                 return this_accums[]
             else
@@ -218,7 +218,7 @@ function transform!(ci, meth, nargs, sparams, N)
                 elseif isa(val, SSAValue)
                     op[] = fwds[val.id]
                 else
-                    op[] = Zero()
+                    op[] = ZeroTangent()
                 end
             end
             stmt = urs[]
@@ -252,7 +252,7 @@ function transform!(ci, meth, nargs, sparams, N)
             elseif isexpr(stmt, :splatnew)
                 error()
             elseif isa(stmt, GlobalRef)
-                fwds[i] = Zero()
+                fwds[i] = ZeroTangent()
             elseif !isa(stmt, Expr)
                 @show stmt
                 error()

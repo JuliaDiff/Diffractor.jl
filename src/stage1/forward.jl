@@ -1,8 +1,8 @@
 partial(x::TangentBundle, i) = x.partials[i]
-partial(x::ZeroBundle, i) = Zero()
-partial(x::Zero, i) = Zero()
+partial(x::ZeroBundle, i) = ZeroTangent()
+partial(x::ZeroTangent, i) = ZeroTangent()
 primal(x::AbstractTangentBundle) = x.primal
-primal(z::Zero) = Zero()
+primal(z::ZeroTangent) = ZeroTangent()
 
 # TODO: Which version do we want in ChainRules?
 function my_frule(args...)

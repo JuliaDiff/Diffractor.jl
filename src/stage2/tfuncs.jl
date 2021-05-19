@@ -11,7 +11,7 @@ function backwards_tfunc(@nospecialize(f), primal::IRCode, inst::Expr, @nospecia
             else
                 idxt = argextype(inst.args[3], primal, primal.sptypes)
                 isa(idxt, Const) || error()
-                args = Any[Zero for i = 1:length(ot.parameters)]
+                args = Any[ZeroTangent for i = 1:length(ot.parameters)]
                 args[idxt.val] = Δ
                 rt = tuple_tfunc(args)
             end
@@ -35,13 +35,13 @@ function backwards_tfunc(@nospecialize(f), primal::IRCode, inst::Expr, @nospecia
     elseif f == Core.apply_type
         return tuple_tfunc(Any[NoTangent for i = 1:length(inst.args)])
     elseif f == Core.typeof
-        return tuple_tfunc(Any[Zero for i = 1:length(inst.args)])
+        return tuple_tfunc(Any[ZeroTangent for i = 1:length(inst.args)])
     elseif f == (===)
-        return tuple_tfunc(Any[Zero for i = 1:length(inst.args)])
+        return tuple_tfunc(Any[ZeroTangent for i = 1:length(inst.args)])
     elseif f == nfields
-        return tuple_tfunc(Any[Zero for i = 1:length(inst.args)])
+        return tuple_tfunc(Any[ZeroTangent for i = 1:length(inst.args)])
     elseif f == fieldtype
-        return tuple_tfunc(Any[Zero for i = 1:length(inst.args)])
+        return tuple_tfunc(Any[ZeroTangent for i = 1:length(inst.args)])
     elseif f === Core._apply_iterate
         ft = argextype(inst.args[3], primal, primal.sptypes)
         f = singleton_type(ft)
@@ -59,8 +59,8 @@ function forward_tfunc(@nospecialize(f), primal::IRCode, inst::Expr, @nospeciali
         idxt = argextype(inst.args[3], primal, primal.sptypes)
         isa(idxt, Const) || error()
         val = getfield_tfunc(Δ, Const(2))
-        fieldval = (isa(val, Const) && (isa(val.val, Zero) || isa(val.val, NoTangent))) ?
-            Const(Zero()) : getfield_tfunc(val, idxt)
+        fieldval = (isa(val, Const) && (isa(val.val, ZeroTangent) || isa(val.val, NoTangent))) ?
+            Const(ZeroTangent()) : getfield_tfunc(val, idxt)
         return fieldval
     elseif f === Core.apply_type || f === Core.typeof
         return NoTangent
@@ -71,11 +71,11 @@ end
 
 function getfield_prop_zero_tfunc(@nospecialize(s), @nospecialize(x))
     if isa(s, Const)
-        if isa(s.val, NoTangent) || isa(s.val, Zero)
+        if isa(s.val, NoTangent) || isa(s.val, ZeroTangent)
             return s
         end
     end
-    if s === Zero || s === NoTangent
+    if s === ZeroTangent || s === NoTangent
         return s
     end
     return getfield_tfunc(s, x)

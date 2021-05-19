@@ -167,7 +167,7 @@ end
 end
 
 @Base.aggressive_constprop function (d::∂⃖rruleD{N, O})(Δ⁴...) where {N, O}
-    (δ₁, δ₂), δ̄  = d.γ̄(Zero(), Δ⁴...)
+    (δ₁, δ₂), δ̄  = d.γ̄(ZeroTangent(), Δ⁴...)
     (δ₁, ∂⃖rruleA{N, O+1}(d.β̄ , δ₂, δ̄ ))
 end
 
@@ -261,7 +261,7 @@ function (::∂⃖{N})(::typeof(Core.getfield), s, field::Symbol) where {N}
                 (NO_FIELDS, Tangent{P, typeof(nt)}(nt), NO_FIELDS)
             end),
             (@Base.aggressive_constprop (_, Δs, _)->begin
-                isa(Δs, Union{Zero, NoTangent}) ? Δs : getfield(ChainRulesCore.backing(Δs), field)
+                isa(Δs, Union{ZeroTangent, NoTangent}) ? Δs : getfield(ChainRulesCore.backing(Δs), field)
             end))
     end
 end
@@ -328,10 +328,10 @@ end
 end
 
 @Base.aggressive_constprop lifted_getfield(x, s) = getfield(x, s)
-lifted_getfield(x::Zero, s) = Zero()
+lifted_getfield(x::ZeroTangent, s) = ZeroTangent()
 lifted_getfield(x::NoTangent, s) = NoTangent()
 
-ChainRulesCore.backing(::Zero) = Zero()
+ChainRulesCore.backing(::ZeroTangent) = ZeroTangent()
 ChainRulesCore.backing(::NoTangent) = NoTangent()
 
 function reload()

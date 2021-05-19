@@ -55,10 +55,10 @@ function abstract_call_gf_by_type(interp::ADInterpreter, @nospecialize(f), argty
 end
 
 function abstract_accum(interp::AbstractInterpreter, args::Vector{Any}, sv::InferenceState)
-    args = filter(x->!(widenconst(x) <: Union{Zero, NoTangent}), args)
+    args = filter(x->!(widenconst(x) <: Union{ZeroTangent, NoTangent}), args)
 
     if length(args) == 0
-        return CallMeta(Zero, nothing)
+        return CallMeta(ZeroTangent, nothing)
     end
 
     if length(args) == 1
@@ -206,7 +206,7 @@ function infer_cc_backward(interp::ADInterpreter, cc::AbstractCompClosure, @nosp
                 # TODO: This is wrong
                 rt = getfield_tfunc(Δ, Const(i-1))
                 # Struct gradients are allowed to be sparse
-                rt === Union{} && (rt = Zero)
+                rt === Union{} && (rt = ZeroTangent)
                 accum!(inst.args[i], rt)
             end
             accum!(inst.args[1], ChainRules.NoTangent)
@@ -378,7 +378,7 @@ function infer_cc_forward(interp::ADInterpreter, cc::AbstractCompClosure, @nospe
             T, exact = instanceof_tfunc(argextype(inst.args[1], primal, primal.sptypes))
             # Special case for empty structs
             if isempty(fieldnames(T))
-                accums[i] = Zero
+                accums[i] = ZeroTangent
                 continue
             end
             Δ = NamedTuple{fieldnames(T), widenconst(tuple_tfunc(args[2:end]))}

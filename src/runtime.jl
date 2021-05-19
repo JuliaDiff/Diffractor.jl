@@ -9,6 +9,6 @@ using ChainRulesCore
     Expr(:tuple, [:($f=accum($(gradx(f)), $(grady(f)))) for f in fnames]...)
 end
 @Base.aggressive_constprop accum(a, b, c, args...) = accum(accum(a, b), c, args...)
-@Base.aggressive_constprop accum(a::DoesNotExist, b) = b
-@Base.aggressive_constprop accum(a, b::DoesNotExist) = a
-@Base.aggressive_constprop accum(a::DoesNotExist, b::DoesNotExist) = DoesNotExist()
+@Base.aggressive_constprop accum(a::NoTangent, b) = b
+@Base.aggressive_constprop accum(a, b::NoTangent) = a
+@Base.aggressive_constprop accum(a::NoTangent, b::NoTangent) = NoTangent()

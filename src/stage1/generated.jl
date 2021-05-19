@@ -226,10 +226,10 @@ struct ∂⃖getfield{n, f}; end
 @Base.aggressive_constprop function (::∂⃖getfield{n, f})(Δ) where {n,f}
     if @generated
         return Expr(:call, tuple, NO_FIELDS,
-            Expr(:call, tuple, (i == f ? :(Δ) : Zero() for i = 1:n)...),
+            Expr(:call, tuple, (i == f ? :(Δ) : ZeroTangent() for i = 1:n)...),
             NO_FIELDS)
     else
-        return (NO_FIELDS, ntuple(i->i == f ? Δ : Zero(), n), NO_FIELDS)
+        return (NO_FIELDS, ntuple(i->i == f ? Δ : ZeroTangent(), n), NO_FIELDS)
     end
 end
 
@@ -262,7 +262,7 @@ function (::∂⃖{N})(::typeof(Core.getfield), s, field::Symbol) where {N}
                 (NO_FIELDS, Composite{P, typeof(nt)}(nt), NO_FIELDS)
             end),
             (@Base.aggressive_constprop (_, Δs, _)->begin
-                isa(Δs, Union{Zero, DoesNotExist}) ? Δs : getfield(ChainRulesCore.backing(Δs), field)
+                isa(Δs, Union{Zero, NoTangent}) ? Δs : getfield(ChainRulesCore.backing(Δs), field)
             end))
     end
 end
@@ -330,7 +330,7 @@ end
 
 @Base.aggressive_constprop lifted_getfield(x, s) = getfield(x, s)
 lifted_getfield(x::Zero, s) = Zero()
-lifted_getfield(x::DoesNotExist, s) = DoesNotExist()
+lifted_getfield(x::NoTangent, s) = NoTangent()
 
 function lifted_getfield(x::Composite, s)
     z = getfield(ChainRulesCore.backing(x), s)
@@ -344,7 +344,7 @@ function lifted_getfield(x::Composite{<:Composite{T}}, s) where T
 end
 
 ChainRulesCore.backing(::Zero) = Zero()
-ChainRulesCore.backing(::DoesNotExist) = DoesNotExist()
+ChainRulesCore.backing(::NoTangent) = NoTangent()
 
 function reload()
     Core.eval(Diffractor, quote

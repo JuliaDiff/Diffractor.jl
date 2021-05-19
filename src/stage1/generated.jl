@@ -216,7 +216,7 @@ end
     getfield(s, field), let P = typeof(s)
         @Base.aggressive_constprop Δ->begin
             nt = NamedTuple{(field,)}((Δ,))
-            (NO_FIELDS, Composite{P, typeof(nt)}(nt), NO_FIELDS)
+            (NO_FIELDS, Tangent{P, typeof(nt)}(nt), NO_FIELDS)
         end
     end
 end
@@ -258,7 +258,7 @@ function (::∂⃖{N})(::typeof(Core.getfield), s, field::Symbol) where {N}
         EvenOddOdd{1, c_order(N)}(
             (@Base.aggressive_constprop Δ->begin
                 nt = NamedTuple{(field,)}((Δ,))
-                (NO_FIELDS, Composite{P, typeof(nt)}(nt), NO_FIELDS)
+                (NO_FIELDS, Tangent{P, typeof(nt)}(nt), NO_FIELDS)
             end),
             (@Base.aggressive_constprop (_, Δs, _)->begin
                 isa(Δs, Union{Zero, NoTangent}) ? Δs : getfield(ChainRulesCore.backing(Δs), field)

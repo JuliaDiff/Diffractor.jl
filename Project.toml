@@ -1,7 +1,7 @@
 name = "Diffractor"
 uuid = "9f5e2b26-1114-432f-b630-d3fe2085c51c"
 authors = ["Keno Fischer <keno@juliacomputing.com> and contributors"]
-version = "0.1.0"
+version = "0.1.1"
 
 [deps]
 ChainRules = "082447d4-558c-5d27-93f4-14fc19e9eca2"
@@ -12,6 +12,7 @@ StructArrays = "09ab397b-f2b6-538f-b94a-2f83cf4a842a"
 TaylorSeries = "6aa5eb33-94cf-58f4-a9d0-e4b2c4fc25ea"
 
 [compat]
+ChainRulesCore = "0.9.44"
 julia = "1"
 
 [extras]

@@ -46,7 +46,7 @@ function expand_switch(code::Vector{Any}, bb_ranges::Vector{UnitRange{Int}}, slo
     new_code = Vector{Any}()
 
     for val in values(slot_map)
-        push!(new_code, Expr(:(=), val, ChainRulesCore.Zero()))
+        push!(new_code, Expr(:(=), val, ChainRulesCore.ZeroTangent()))
     end
 
     # First expand switches into sequences of branches
@@ -232,14 +232,14 @@ function transform!(ci, meth, nargs, sparams, N)
                 this_accums = isa(for_val, SSAValue) ? accums[for_val.id] :
                     arg_accums[for_val.n]
                 if this_accums === nothing || isempty(this_accums)
-                    return ChainRulesCore.Zero()
+                    return ChainRulesCore.ZeroTangent()
                 elseif length(this_accums) == 1
                     return this_accums[]
                 else
                     return insert_node_rev!(Expr(:call, accum, this_accums...))
                 end
             else
-                return get(slot_map, for_val, ChainRulesCore.Zero())
+                return get(slot_map, for_val, ChainRulesCore.ZeroTangent())
             end
         end
 
@@ -403,7 +403,7 @@ function transform!(ci, meth, nargs, sparams, N)
                 elseif isa(val, SSAValue)
                     op[] = fwds[val.id]
                 else
-                    op[] = Zero()
+                    op[] = ZeroTangent()
                 end
             end
             stmt = urs[]
@@ -437,7 +437,7 @@ function transform!(ci, meth, nargs, sparams, N)
             elseif isexpr(stmt, :splatnew)
                 error()
             elseif isa(stmt, GlobalRef)
-                fwds[i] = Zero()
+                fwds[i] = ZeroTangent()
             elseif !isa(stmt, Expr)
                 @show stmt
                 error()

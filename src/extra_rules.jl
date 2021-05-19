@@ -109,9 +109,9 @@ end
 struct NonDiffEven{N, O, P}; end
 struct NonDiffOdd{N, O, P}; end
 
-(::NonDiffOdd{N, O, P})(Δ) where {N, O, P} = (ntuple(_->Zero(), N), NonDiffEven{N, plus1(O), P}())
-(::NonDiffEven{N, O, P})(Δ...) where {N, O, P} = (Zero(), NonDiffOdd{N, plus1(O), P}())
-(::NonDiffOdd{N, O, O})(Δ) where {N, O} = ntuple(_->Zero(), N)
+(::NonDiffOdd{N, O, P})(Δ) where {N, O, P} = (ntuple(_->ZeroTangent(), N), NonDiffEven{N, plus1(O), P}())
+(::NonDiffEven{N, O, P})(Δ...) where {N, O, P} = (ZeroTangent(), NonDiffOdd{N, plus1(O), P}())
+(::NonDiffOdd{N, O, O})(Δ) where {N, O} = ntuple(_->ZeroTangent(), N)
 
 # This should not happen
 (::NonDiffEven{N, O, O})(Δ...) where {N, O} = error()
@@ -124,7 +124,7 @@ function ChainRulesCore.rrule(::typeof(Core.tuple), args...)
     Core.tuple(args...), Δ->Core.tuple(NO_FIELDS, Δ...)
 end
 
-ChainRulesCore.canonicalize(::ChainRulesCore.Zero) = ChainRulesCore.Zero()
+ChainRulesCore.canonicalize(::ChainRulesCore.ZeroTangent) = ChainRulesCore.ZeroTangent()
 
 # Skip AD'ing through the axis computation
 function ChainRules.rrule(::typeof(Base.Broadcast.instantiate), bc::Base.Broadcast.Broadcasted)

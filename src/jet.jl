@@ -39,7 +39,7 @@ function Base.:+(j::Jet, x::One)
 end
 
 function ChainRulesCore.rrule(::typeof(+), j::Jet, x::One)
-    j + x, Δ->(NO_FIELDS, One(), Zero())
+    j + x, Δ->(NO_FIELDS, One(), ZeroTangent())
 end
 
 function Base.zero(j::Jet{T, N}) where {T, N}
@@ -49,7 +49,7 @@ function Base.zero(j::Jet{T, N}) where {T, N}
     end
 end
 function ChainRulesCore.rrule(::typeof(Base.zero), j::Jet)
-    zero(j), Δ->(NO_FIELDS, Zero())
+    zero(j), Δ->(NO_FIELDS, ZeroTangent())
 end
 
 function Base.getindex(j::Jet{T, N}, i::Integer) where {T, N}
@@ -109,7 +109,7 @@ end
 domain_check(j::Jet, x::ATB) = domain_check(j, primal(x))
 
 function ChainRulesCore.rrule(::typeof(domain_check), j::Jet, x)
-    domain_check(j, x), Δ->(Zero(), Zero(), Zero())
+    domain_check(j, x), Δ->(ZeroTangent(), ZeroTangent(), ZeroTangent())
 end
 
 function (j::Jet)(x)
@@ -160,7 +160,7 @@ ChainRulesCore.rrule(::typeof(map), ::typeof(integrate), js::Array{<:Jet}) =
 struct derivBack
     js
 end
-(d::derivBack)(Δ::Union{Zero, DoesNotExist}) = (NO_FIELDS, NO_FIELDS, Δ)
+(d::derivBack)(Δ::Union{ZeroTangent, DoesNotExist}) = (NO_FIELDS, NO_FIELDS, Δ)
 (d::derivBack)(Δ::Array) = (NO_FIELDS, NO_FIELDS, broadcast(antideriv, d.js, Δ))
 
 ChainRulesCore.rrule(::typeof(map), ::typeof(deriv), js::Array{<:Jet}) =

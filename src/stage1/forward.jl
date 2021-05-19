@@ -2,9 +2,9 @@ partial(x::TangentBundle, i) = x.partials[i]
 partial(x::TaylorBundle{1}, i) = x.coeffs[i]
 partial(x::UniformBundle, i) = x.partial
 partial(x::CompositeBundle{N, B}, i) where {N, B} = Composite{B}(map(x->partial(x, i), x.tup)...)
-partial(x::Zero, i) = Zero()
+partial(x::ZeroTangent, i) = ZeroTangent()
 primal(x::AbstractTangentBundle) = x.primal
-primal(z::Zero) = Zero()
+primal(z::ZeroTangent) = ZeroTangent()
 
 first_partial(x::TangentBundle{1}) = getfield(getfield(x, :partials), 1)
 first_partial(x::TaylorBundle{1}) = getfield(getfield(x, :coeffs), 1)

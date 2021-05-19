@@ -1,7 +1,7 @@
 using Diffractor
 using Diffractor: var"'", ∂⃖
 using ChainRules
-using ChainRules: Zero
+using ChainRules: ZeroTangent
 using Symbolics
 
 using Test
@@ -10,15 +10,15 @@ using Test
 function tup2(f)
     a, b = ∂⃖{2}()(f, 1)
     c, d = b((2,))
-    e, f = d(Zero(), 3)
+    e, f = d(ZeroTangent(), 3)
     f((4,))
 end
 
-@test tup2(tuple) == (Zero(), 4)
+@test tup2(tuple) == (ZeroTangent(), 4)
 
 my_tuple(args...) = args
 ChainRules.rrule(::typeof(my_tuple), args...) = args, Δ->Core.tuple(NO_FIELDS, Δ...)
-@test tup2(my_tuple) == (Zero(), 4)
+@test tup2(my_tuple) == (ZeroTangent(), 4)
 
 # Check characteristic of exp rule
 @variables ω α β γ δ ϵ ζ η
@@ -26,15 +26,15 @@ ChainRules.rrule(::typeof(my_tuple), args...) = args, Δ->Core.tuple(NO_FIELDS, 
 @test simplify(x1 == exp(ω)).val
 ((_, x2), c2) = c1(α)
 @test simplify(x2 == α*exp(ω)).val
-(x3, c3) = c2(Zero(), β)
+(x3, c3) = c2(ZeroTangent(), β)
 @test simplify(x3 == β*exp(ω)).val
 ((_, x4), c4) = c3(γ)
 @test simplify(x4 == exp(ω)*(γ + (α*β))).val
-(x5, c5) = c4(Zero(), δ)
+(x5, c5) = c4(ZeroTangent(), δ)
 @test simplify(x5 == δ*exp(ω)).val
 ((_, x6), c6) = c5(ϵ)
 @test simplify(x6 == ϵ*exp(ω) + α*δ*exp(ω)).val
-(x7, c7) = c6(Zero(), ζ)
+(x7, c7) = c6(ZeroTangent(), ζ)
 @test simplify(x7 == ζ*exp(ω) + β*δ*exp(ω)).val
 (_, x8) = c7(η)
 @test simplify(x8 == (η + (α*ζ) + (β*ϵ) + (δ*(γ + (α*β))))*exp(ω)).val

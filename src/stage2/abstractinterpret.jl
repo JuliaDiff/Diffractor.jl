@@ -55,7 +55,7 @@ function abstract_call_gf_by_type(interp::ADInterpreter, @nospecialize(f), argty
 end
 
 function abstract_accum(interp::AbstractInterpreter, args::Vector{Any}, sv::InferenceState)
-    args = filter(x->!(widenconst(x) <: Union{Zero, DoesNotExist}), args)
+    args = filter(x->!(widenconst(x) <: Union{Zero, NoTangent}), args)
 
     if length(args) == 0
         return CallMeta(Zero, nothing)
@@ -79,7 +79,7 @@ function abstract_accum(interp::AbstractInterpreter, args::Vector{Any}, sv::Infe
 end
 
 function repackage_apply_rt(info, Δ, argtypes)
-    argwise = Any[DoesNotExist, DoesNotExist, getfield_prop_zero_tfunc(Δ, Const(1))]
+    argwise = Any[NoTangent, NoTangent, getfield_prop_zero_tfunc(Δ, Const(1))]
     curarg = 2
     # Repackage this according to the arguments
     for argt in argtypes
@@ -209,7 +209,7 @@ function infer_cc_backward(interp::ADInterpreter, cc::AbstractCompClosure, @nosp
                 rt === Union{} && (rt = Zero)
                 accum!(inst.args[i], rt)
             end
-            accum!(inst.args[1], ChainRules.DoesNotExist)
+            accum!(inst.args[1], ChainRules.NoTangent)
             continue
         end
 
@@ -241,7 +241,7 @@ function infer_cc_backward(interp::ADInterpreter, cc::AbstractCompClosure, @nosp
                 arg = getfield_tfunc(Δ, Const(1))
                 call = abstract_call(interp, nothing, Any[clos, arg], sv)
                 # No derivative wrt the functor
-                call = CallMeta(tuple_tfunc(Any[DoesNotExist; tuple_type_fields(call.rt)...]), ReifyInfo(call.info))
+                call = CallMeta(tuple_tfunc(Any[NoTangent; tuple_type_fields(call.rt)...]), ReifyInfo(call.info))
             else
                 (level, close) = derive_closure_type(call_info)
                 call = abstract_call(change_level(interp, level), nothing, Any[close, Δ], sv)
@@ -281,7 +281,7 @@ function infer_cc_backward(interp::ADInterpreter, cc::AbstractCompClosure, @nosp
         let tup_push! = (mi.def.isva && i == length(arg_typs)) ? (a, t)->append!(a, tuple_type_fields(t)) : push!
             if length(this_arg_typs) <= 1
                 push!(arg_accums, nothing)
-                length(this_arg_typs) == 0 && tup_push!(tup_elemns, ChainRules.DoesNotExist)
+                length(this_arg_typs) == 0 && tup_push!(tup_elemns, ChainRules.NoTangent)
                 length(this_arg_typs) == 1 && tup_push!(tup_elemns, this_arg_typs[1])
                 continue
             end
@@ -345,7 +345,7 @@ function infer_cc_forward(interp::ADInterpreter, cc::AbstractCompClosure, @nospe
                 return getfield_tfunc(cc_Δ, Const(argn))
             end
         else
-            return DoesNotExist
+            return NoTangent
         end
     end
 
@@ -360,7 +360,7 @@ function infer_cc_forward(interp::ADInterpreter, cc::AbstractCompClosure, @nospe
         info = cc.prev_seq_infos[i]
 
         if isa(inst, GlobalRef)
-            accums[i] = DoesNotExist
+            accums[i] = NoTangent
             continue
         end
 
@@ -428,7 +428,7 @@ function infer_cc_forward(interp::ADInterpreter, cc::AbstractCompClosure, @nospe
             arg = getfield_tfunc(Δ, Const(2))
             call = abstract_call(interp, nothing, Any[clos, arg], sv)
             # No derivative wrt the functor
-            call = CallMeta(tuple_tfunc(Any[DoesNotExist; tuple_type_fields(call.rt)...]), ReifyInfo(call.info))
+            call = CallMeta(tuple_tfunc(Any[NoTangent; tuple_type_fields(call.rt)...]), ReifyInfo(call.info))
             #error()
         else
             (level, clos) = derive_closure_type(call_info)
@@ -495,7 +495,7 @@ function infer_prim_closure(interp::ADInterpreter, pc::PrimClosure, @nospecializ
         clos = AbstractCompClosure(info.clos.order, info.clos.seq + 1, info.clos.primal_info, info.infos)
 
         # Add back gradient w.r.t. rrule
-        Δ = tuple_tfunc(Any[DoesNotExist, tuple_type_fields(Δ)...])
+        Δ = tuple_tfunc(Any[NoTangent, tuple_type_fields(Δ)...])
         call = abstract_call(change_level(interp, pc.order), nothing, Any[clos, Δ], sv)
         rt = getfield_tfunc(call.rt, Const(1))
         @show (pc, Δ, rt)

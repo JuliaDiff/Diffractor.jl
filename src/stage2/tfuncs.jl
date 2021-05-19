@@ -1,6 +1,6 @@
 function backwards_tfunc(@nospecialize(f), primal::IRCode, inst::Expr, @nospecialize(Δ))
     if f === Core.tuple
-        return tuple_tfunc(Any[DoesNotExist, tuple_type_fields(Δ)...])
+        return tuple_tfunc(Any[NoTangent, tuple_type_fields(Δ)...])
     elseif f == Core.getfield
         tt = argextype(inst.args[2], primal, primal.sptypes)
         ot = widenconst(tt)
@@ -31,9 +31,9 @@ function backwards_tfunc(@nospecialize(f), primal::IRCode, inst::Expr, @nospecia
             end
             rt = NamedTuple{(symn,), Tuple{widenconst(Δ)}}
         end
-        return tuple_tfunc(Any[DoesNotExist, rt, DoesNotExist, DoesNotExist])
+        return tuple_tfunc(Any[NoTangent, rt, NoTangent, NoTangent])
     elseif f == Core.apply_type
-        return tuple_tfunc(Any[DoesNotExist for i = 1:length(inst.args)])
+        return tuple_tfunc(Any[NoTangent for i = 1:length(inst.args)])
     elseif f == Core.typeof
         return tuple_tfunc(Any[Zero for i = 1:length(inst.args)])
     elseif f == (===)
@@ -59,11 +59,11 @@ function forward_tfunc(@nospecialize(f), primal::IRCode, inst::Expr, @nospeciali
         idxt = argextype(inst.args[3], primal, primal.sptypes)
         isa(idxt, Const) || error()
         val = getfield_tfunc(Δ, Const(2))
-        fieldval = (isa(val, Const) && (isa(val.val, Zero) || isa(val.val, DoesNotExist))) ?
+        fieldval = (isa(val, Const) && (isa(val.val, Zero) || isa(val.val, NoTangent))) ?
             Const(Zero()) : getfield_tfunc(val, idxt)
         return fieldval
     elseif f === Core.apply_type || f === Core.typeof
-        return DoesNotExist
+        return NoTangent
     end
     @show f
     error()
@@ -71,11 +71,11 @@ end
 
 function getfield_prop_zero_tfunc(@nospecialize(s), @nospecialize(x))
     if isa(s, Const)
-        if isa(s.val, DoesNotExist) || isa(s.val, Zero)
+        if isa(s.val, NoTangent) || isa(s.val, Zero)
             return s
         end
     end
-    if s === Zero || s === DoesNotExist
+    if s === Zero || s === NoTangent
         return s
     end
     return getfield_tfunc(s, x)

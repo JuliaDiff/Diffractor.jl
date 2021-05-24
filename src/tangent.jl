@@ -1,7 +1,7 @@
 """
     abstract type TangentBundle{N, B}; end
 
-This type represents the `N`-th order tangent bundle [1] `TⁿB` over some base
+This type represents the `N`-th order (iterated) tangent bundle [1] `TⁿB` over some base
 (Riemannian) manifold `B`. Note that `TⁿB` is itself another manifold and thus
 in particular a vector space (over ℝ). As such, subtypes of this abstract type
 are expected to support the usual vector space operations.
@@ -64,8 +64,22 @@ basespace(::Type{<:AbstractTangentBundle{N, B} where N}) where {B} = B
 
 const ATB = AbstractTangentBundle
 
+abstract type TangentIndex; end
+
+struct CanonicalTangentIndex <: TangentIndex
+    i::Int
+end
+
+struct TaylorTangentIndex <: TangentIndex
+    i::Int
+end
+
+function Base.getindex(a::AbstractTangentBundle, b::TaylorTangentIndex)
+    error("$(typeof(a)) is not taylor-like. Taylor indexing is ambiguous")
+end
+
 """
-    struct ConcreteTangentBundle{N, B, P}
+    struct TangentBundle{N, B, P}
 
 A fully explicit coordinate representation of the tangent bundle.
 Represented by a primal value in `B` and a vector of `2^(N-1)` partials.
@@ -124,20 +138,35 @@ struct TaylorBundle{N, B, P} <: AbstractTangentBundle{N, B}
         if isa(primal, TangentBundle)
             @assert isa(coeffs[1], TangentBundle)
         end
-        new{N, B, P}(primal, coeffs)
+        new{N, Core.Typeof(primal), P}(primal, coeffs)
     end
 end
 
-"""
-    struct ZeroBundle{N, B}
+Base.getindex(tb::TaylorBundle, tti::TaylorTangentIndex) = tb.coeffs[tti.i]
+function Base.getindex(tb::TaylorBundle, tti::CanonicalTangentIndex)
+    tb.coeffs[count_ones(tti.i)]
+end
 
-Represents an N-th order tangent bundle with all zero partials. Particularly
+"""
+    struct UniformBundle{N, B}
+
+Represents an N-th order tangent bundle with all unform partials. Particularly
 useful for representing singleton values.
 """
-struct ZeroBundle{N, B} <: AbstractTangentBundle{N, B}
+struct UniformBundle{N, B, U} <: AbstractTangentBundle{N, B}
     primal::B
+    partial::U
 end
-ZeroBundle{N}(primal) where {N} = ZeroBundle{N, Core.Typeof(primal)}(primal)
+UniformBundle{N, B, U}(primal::B) where {N,B,U} = UniformBundle{N, B, U}(primal, U.instance)
+UniformBundle{N, B}(primal::B, partial::U) where {N,B,U} = UniformBundle{N, Core.Typeof(primal), U}(primal, partial)
+UniformBundle{N}(primal, partial::U) where {N,U} = UniformBundle{N, Core.Typeof(primal), U}(primal, partial)
+UniformBundle{N, <:Any, U}(primal, partial::U) where {N, U} = UniformBundle{N, Core.Typeof(primal), U}(primal, U.instance)
+UniformBundle{N, <:Any, U}(primal) where {N, U} = UniformBundle{N, Core.Typeof(primal), U}(primal, U.instance)
+
+const ZeroBundle{N, B} = UniformBundle{N, B, Zero}
+const DNEBundle{N, B} = UniformBundle{N, B, DoesNotExist}
+
+Base.getindex(u::UniformBundle, ::TaylorTangentIndex) = u.partial
 
 """
     TupleTangentBundle{N, B <: Tuple}
@@ -151,5 +180,18 @@ struct CompositeBundle{N, B, T<:Tuple{Vararg{AbstractTangentBundle{N}}}} <: Abst
 end
 CompositeBundle{N, B}(tup::T) where {N, B, T} = CompositeBundle{N, B, T}(tup)
 
+function Base.getindex(tb::CompositeBundle{N, B} where N, tti::TaylorTangentIndex) where {B}
+    Composite{B}(map(tb.tup) do el
+        el[tti]
+    end...)
+end
+
+
+primal(b::CompositeBundle{N, <:Tuple} where N) = map(primal, b.tup)
+function primal(b::CompositeBundle{N, T} where N) where T<:CompositeBundle
+    T(map(primal, b.tup)...)
+end
 @generated primal(b::CompositeBundle{N, B} where N) where {B} =
-    Expr(:splatnew, B, :(map(primal, b.tup)))
+    quote
+        $(Expr(:splatnew, B, :(map(primal, b.tup))))
+    end

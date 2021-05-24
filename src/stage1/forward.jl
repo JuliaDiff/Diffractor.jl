@@ -1,15 +1,15 @@
 partial(x::TangentBundle, i) = x.partials[i]
 partial(x::TaylorBundle{1}, i) = x.coeffs[i]
-partial(x::ZeroBundle, i) = Zero()
-partial(x::CompositeBundle{N, B}, i) where {N, B} = Composite{B}(map(x->partial(x, i), x.tup))
+partial(x::UniformBundle, i) = x.partial
+partial(x::CompositeBundle{N, B}, i) where {N, B} = Composite{B}(map(x->partial(x, i), x.tup)...)
 partial(x::Zero, i) = Zero()
 primal(x::AbstractTangentBundle) = x.primal
 primal(z::Zero) = Zero()
 
 first_partial(x::TangentBundle{1}) = getfield(getfield(x, :partials), 1)
 first_partial(x::TaylorBundle{1}) = getfield(getfield(x, :coeffs), 1)
-first_partial(x::ZeroBundle) = Zero()
-first_partial(x::CompositeBundle) = map(first_partial, x.tup)
+first_partial(x::UniformBundle) = getfield(x, :partial)
+first_partial(x::CompositeBundle) = map(first_partial, getfield(x, :tup))
 
 # TODO: Which version do we want in ChainRules?
 function my_frule(args::ATB{1}...)
@@ -35,43 +35,76 @@ function (∂☆p::∂☆{1})(::ZeroBundle{1, typeof(my_frule)}, args::AbstractT
 end
 =#
 
-shuffle_down(b::ZeroBundle{N, B}) where {N, B} =
-    ZeroBundle{minus1(N)}(ZeroBundle{1, B}(b.primal))
+shuffle_down(b::UniformBundle{N, B, U}) where {N, B, U} =
+    UniformBundle{minus1(N), <:Any, U}(UniformBundle{1, B, U}(b.primal, b.partial), b.partial)
 
-function shuffle_down(b::TangentBundle{2, B}) where {B}
-    TangentBundle{1}(
+function shuffle_down(b::TangentBundle{N, B}) where {N, B}
+    # N.B: This depends on the special properties of the canonical tangent index order
+    TangentBundle{N-1}(
         TangentBundle{1}(b.primal, (partial(b, 1),)),
-        (TangentBundle{1}(partial(b, 2), (partial(b, 3),)),))
+        ntuple(2^(N-1)-1) do i
+            TangentBundle{1}(partial(b, 2*i), (partial(b, 2*i+1),))
+        end)
 end
 
-function shuffle_down(b::TaylorBundle{2, B}) where {B}
-    TangentBundle{1}(
-        TaylorBundle{1}(b.primal, (b.coeffs[1],)),
-        (TaylorBundle{1}(b.coeffs[1], (b.coeffs[2],)),))
-end
-
-function shuffle_down(b::TaylorBundle{3, B}) where {B}
-    TaylorBundle{2}(
+function shuffle_down(b::TaylorBundle{N, B}) where {N, B}
+    TaylorBundle{N-1}(
         TangentBundle{1}(b.primal, (b.coeffs[1],)),
-        (TangentBundle{1}(b.coeffs[1], (b.coeffs[2],)),
-        TangentBundle{1}(b.coeffs[2], (b.coeffs[3],))
-        ))
+        ntuple(N-1) do i
+            TangentBundle{1}(b.coeffs[i], (b.coeffs[i+1],))
+        end)
 end
 
 function shuffle_down(b::CompositeBundle{N, B}) where {N, B}
-    CompositeBundle{N-1, B}(
-        map(shuffle_down, b.tup)
+    z = CompositeBundle{N-1, CompositeBundle{1, B}}(
+        (CompositeBundle{N-1, Tuple}(
+            map(shuffle_down, b.tup)
+        ),)
     )
+    z
 end
 
 function shuffle_up(r::CompositeBundle{1})
-    TangentBundle{2}(primal(r.tup[1]), (partial(r.tup[1], 1), primal(r.tup[2]), partial(r.tup[2], 1)))
+    z₀ = primal(r.tup[1])
+    z₁ = partial(r.tup[1], 1)
+    z₂ = primal(r.tup[2])
+    z₁₂ = partial(r.tup[2], 1)
+    if z₁ == z₂
+        return TaylorBundle{2}(z₀, (z₁, z₁₂))
+    else
+        return TangentBundle{2}(z₀, (z₁, z₂, z₁₂))
+    end
 end
 
-function shuffle_up(r::CompositeBundle{2})
-    TangentBundle{3}(r.tup[1].primal,
-        (r.tup[1].partials..., r.tup[2].primal, r.tup[2].partials...))
+function taylor_compatible(a::AbstractTangentBundle{N}, b::AbstractTangentBundle{N}) where {N}
+    primal(b) === a[TaylorTangentIndex(1)] || return false
+    for i = 1:(N-1)
+        (b[TaylorTangentIndex(i)] === a[TaylorTangentIndex(i+1)]) || return false
+    end
+    return true
 end
+
+# Check whether the tangent bundle element is taylor-like
+isswifty(::TaylorBundle) = true
+isswifty(::UniformBundle) = true
+isswifty(b::CompositeBundle) = all(isswifty, b.tup)
+isswifty(::Any) = false
+
+
+function shuffle_up(r::CompositeBundle{N}) where {N}
+    a, b = r.tup
+    if isswifty(a) && isswifty(b) && taylor_compatible(a, b)
+        return TaylorBundle{N+1}(primal(a),
+            ntuple(i->i == N+1 ?
+                b[TaylorTangentIndex(i-1)] : a[TaylorTangentIndex(i)],
+            N+1))
+    else
+        return TangentBundle{N+1}(r.tup[1].primal,
+            (r.tup[1].partials..., primal(b),
+            ntuple(i->partial(b,i), 2^(N+1)-1)...))
+    end
+end
+
 
 function (::∂☆{N})(args::AbstractTangentBundle{N}...) where {N}
     # N = 1 case manually inlined to avoid ambiguities
@@ -101,7 +134,7 @@ end
 @Base.aggressive_constprop function (::∂☆{N})(f::ATB{N, typeof(getfield)}, x::TangentBundle{N}, s::AbstractTangentBundle{N}) where {N}
     s = primal(s)
     TangentBundle{N}(getfield(primal(x), s),
-        map(x->lifted_getfield(ChainRulesCore.backing(x), s), x.partials))
+        map(x->lifted_getfield(x, s), x.partials))
 end
 
 @Base.aggressive_constprop function (::∂☆{N})(f::ATB{N, typeof(getfield)}, x::TaylorBundle{N}, s::AbstractTangentBundle{N}) where {N}
@@ -115,21 +148,21 @@ end
 end
 
 @Base.aggressive_constprop function (::∂☆{N})(::ATB{N, typeof(getfield)}, x::CompositeBundle{N, B}, s::AbstractTangentBundle{N, Symbol}) where {N, B}
-    x.tup[fieldindex(B, s)]
+    x.tup[Base.fieldindex(B, primal(s))]
 end
 
 @Base.aggressive_constprop function (::∂☆{N})(f::ATB{N, typeof(getfield)}, x::ATB{N}, s::ATB{N}, inbounds::ATB{N}) where {N}
     s = primal(s)
     TangentBundle{N}(getfield(primal(x), s, primal(inbounds)),
-        map(x->getfield(ChainRulesCore.backing(x), s), x.partials))
+        map(x->lifted_getfield(x, s), x.partials))
 end
 
-@Base.aggressive_constprop function (::∂☆{N})(f::ATB{N, typeof(getfield)}, x::ZeroBundle{N}, s::AbstractTangentBundle{N}) where {N}
-    ZeroBundle{N}(getfield(primal(x), primal(s)))
+@Base.aggressive_constprop function (::∂☆{N})(f::ATB{N, typeof(getfield)}, x::UniformBundle{N, <:Any, U}, s::AbstractTangentBundle{N}) where {N, U}
+    UniformBundle{N,<:Any,U}(getfield(primal(x), primal(s)), x.partial)
 end
 
-@Base.aggressive_constprop function (::∂☆{N})(f::ATB{N, typeof(getfield)}, x::ZeroBundle{N}, s::AbstractTangentBundle{N}, inbounds::AbstractTangentBundle{N}) where {N}
-    ZeroBundle{N}(getfield(primal(x), primal(s), primal(inbounds)))
+@Base.aggressive_constprop function (::∂☆{N})(f::ATB{N, typeof(getfield)}, x::UniformBundle{N, <:Any, U}, s::AbstractTangentBundle{N}, inbounds::AbstractTangentBundle{N}) where {N, U}
+    UniformBundle{N,<:Any,U}(getfield(primal(x), primal(s), primal(inbounds)), x.partial)
 end
 
 function (::∂☆{N})(f::ATB{N, typeof(tuple)}, args::AbstractTangentBundle{N}...) where {N}
@@ -144,6 +177,11 @@ end
 function (::∂☆{N})(::ZeroBundle{N, typeof(map)}, f::ATB{N}, tup::CompositeBundle{N, <:Tuple}) where {N}
     ∂vararg{N}()(map(FwdMap(f), tup.tup)...)
 end
+
+function (::∂☆{N})(::ZeroBundle{N, typeof(map)}, f::ATB{N}, args::ATB{N}...) where {N}
+    ∂☆recurse{N}()(ZeroBundle{N, typeof(map)}(map), f, args...)
+end
+
 
 function (::∂☆{N})(f::ZeroBundle{N, typeof(ifelse)}, arg::ATB{N, Bool}, args::ATB{N}...) where {N}
     ifelse(arg.primal, args...)
@@ -187,4 +225,8 @@ end
 
 function (this::∂☆{N})(::ZeroBundle{N, typeof(getindex)}, t::CompositeBundle{N, <:Tuple}, i::ZeroBundle) where {N}
     t.tup[primal(i)]
+end
+
+function (this::∂☆{N})(::ZeroBundle{N, typeof(typeof)}, x::ATB{N}) where {N}
+    DNEBundle{N}(typeof(primal(x)))
 end

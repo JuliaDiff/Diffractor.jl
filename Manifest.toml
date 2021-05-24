@@ -25,7 +25,7 @@ version = "0.7.54"
 
 [[ChainRulesCore]]
 deps = ["Compat", "LinearAlgebra", "SparseArrays"]
-git-tree-sha1 = "45e4dde88c3da5e2868479438ef692d89b99d226"
+git-tree-sha1 = "ba6879fe37c9fa7cf5b12c90871aaad700236c65"
 repo-rev = "kf/diffractorwip"
 repo-url = "https://github.com/Keno/ChainRulesCore.jl"
 uuid = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"

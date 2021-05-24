@@ -331,6 +331,17 @@ end
 lifted_getfield(x::Zero, s) = Zero()
 lifted_getfield(x::DoesNotExist, s) = DoesNotExist()
 
+function lifted_getfield(x::Composite, s)
+    z = getfield(ChainRulesCore.backing(x), s)
+    z
+end
+
+function lifted_getfield(x::Composite{<:Composite{T}}, s) where T
+    bb = getfield(x.backing, 1)
+    z = lifted_getfield(bb, s)
+    z
+end
+
 ChainRulesCore.backing(::Zero) = Zero()
 ChainRulesCore.backing(::DoesNotExist) = DoesNotExist()
 

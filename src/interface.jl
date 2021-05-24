@@ -168,7 +168,7 @@ end
 
 function (f::PrimeDerivativeFwd{N})(x) where N
     z = ∂☆{N}()(ZeroBundle{N}(getfield(f, :f)), TaylorBundle{N}(x, (one(x), (zero(x) for i = 1:(N-1))...,)))
-    z.partials[end]
+    isa(z, TaylorBundle) ? z.coeffs[end] : z.partials[end]
 end
 
 # Polyalgorithm prime derivative
@@ -201,7 +201,7 @@ It is also available using the @∂ macro:
 @∂ f'(x)
 ```
 """
-var"'"(f) = PrimeDerivative(f)
+var"'"(f) = PrimeDerivativeBack(f)
 
 """
     @∂

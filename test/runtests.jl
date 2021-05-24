@@ -39,8 +39,12 @@ ChainRules.rrule(::typeof(my_tuple), args...) = args, Δ->Core.tuple(NO_FIELDS, 
 (_, x8) = c7(η)
 @test simplify(x8 == (η + (α*ζ) + (β*ϵ) + (δ*(γ + (α*β))))*exp(ω)).val
 
+# Minimal 2-nd order forward smoke test
+@test Diffractor.∂☆{2}()(Diffractor.ZeroBundle{2}(sin),
+    Diffractor.TangentBundle{2}(1.0, (1.0, 1.0, 0.0)))[Diffractor.CanonicalTangentIndex(1)] == sin'(1.0)
+
 # Simple Reverse Mode tests
-let var"'"(f) = Diffractor.PrimeDerivativeBack
+let var"'" = Diffractor.PrimeDerivativeBack
     # Integration tests
     @test @inferred(sin'(1.0)) == cos(1.0)
     @test @inferred(sin''(1.0)) == -sin(1.0)
@@ -63,7 +67,18 @@ let var"'"(f) = Diffractor.PrimeDerivativeBack
     @test @inferred(complicated_2sin''''(1.0)) == 2sin''''(1.0)
 end
 
-# Minimal 2-nd order forward smoke test
-@test Diffractor.∂☆{2}()(Diffractor.ZeroBundle{2}(sin), Diffractor.TangentBundle{2}(1.0, (1.0, 1.0, 0.0))).partials[1] == sin'(1.0)
+# Simple Forward Mode tests
+let var"'" = Diffractor.PrimeDerivativeFwd
+    recursive_sin(x) = sin(x)
+    ChainRulesCore.frule(∂, ::typeof(recursive_sin), x) = frule(∂, sin, x)
+
+    # Integration tests
+    @test recursive_sin'(1.0) == cos(1.0)
+    @test recursive_sin''(1.0) == -sin(1.0)
+    @test recursive_sin'''(1.0) == -cos(1.0)
+    @test recursive_sin''''(1.0) == sin(1.0)
+    @test recursive_sin'''''(1.0) == cos(1.0)
+    @test recursive_sin''''''(1.0) == -sin(1.0)
+end
 
 include("pinn.jl")

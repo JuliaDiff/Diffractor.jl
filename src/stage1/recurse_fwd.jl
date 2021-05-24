@@ -81,7 +81,6 @@ function transform_fwd!(ci, meth, nargs, sparams, N)
 
     ci.code = new_code
     ci.codelocs = new_codelocs
-    @show ci
     ci
 end
 
@@ -89,16 +88,14 @@ end
 
 function perform_fwd_transform(@nospecialize(ff::Type{∂☆recurse{N}}), @nospecialize(args)) where {N}
     # Check if we have an rrule for this function
-    mthds = Base._methods_by_ftype(Tuple{map(π, args)...}, -1, typemax(UInt))
+    sig = Tuple{map(π, args)...}
+    mthds = Base._methods_by_ftype(sig, -1, typemax(UInt))
     if length(mthds) != 1
-        @show args
-        @show mthds
         error()
     end
     match = mthds[1]
 
     mi = Core.Compiler.specialize_method(match)
-    @show mi
     ci = Core.Compiler.retrieve_code_info(mi)
 
     ci′ = copy(ci)

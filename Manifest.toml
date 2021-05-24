@@ -17,7 +17,7 @@ uuid = "2a0f44e3-6c83-55bd-87e4-b1978d98bd5f"
 
 [[ChainRules]]
 deps = ["ChainRulesCore", "Compat", "LinearAlgebra", "Random", "Reexport", "Requires", "Statistics"]
-git-tree-sha1 = "db009a45c547c66dacf9c8a135d2d14596c50209"
+git-tree-sha1 = "a153f9bb2d35965e07bc84e72db16447848ecc47"
 repo-rev = "kf/diffractorwip"
 repo-url = "https://github.com/Keno/ChainRules.jl"
 uuid = "082447d4-558c-5d27-93f4-14fc19e9eca2"

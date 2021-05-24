@@ -60,6 +60,9 @@ underlying manifold and thus `TⁿB` is a vector bundle over `B` for all `N`.
 [1] https://en.wikipedia.org/wiki/Tangent_bundle
 """
 abstract type AbstractTangentBundle{N, B}; end
+basespace(::Type{<:AbstractTangentBundle{N, B} where N}) where {B} = B
+
+const ATB = AbstractTangentBundle
 
 """
     struct ConcreteTangentBundle{N, B, P}
@@ -74,13 +77,19 @@ end
 
 function TangentBundle{N}(primal::B, partials::P) where {N, B, P}
     @assert length(partials) == 2^N - 1
-    TangentBundle{N, B, P}(primal, partials)
+    TangentBundle{N, Core.Typeof(primal), P}(primal, partials)
 end
 
 function Base.show(io::IO, x::TangentBundle)
     print(io, x.primal)
     print(io, " + ")
     print(io, x.partials[1], " ∂₁")
+    length(x.partials) >= 2 && print(io, " + ", x.partials[2], " ∂₂")
+    length(x.partials) >= 3 && print(io, " + ", x.partials[3], " ∂₁ ∂₂")
+    length(x.partials) >= 4 && print(io, " + ", x.partials[4], " ∂₃")
+    length(x.partials) >= 5 && print(io, " + ", x.partials[5], " ∂₁ ∂₃")
+    length(x.partials) >= 6 && print(io, " + ", x.partials[6], " ∂₂ ∂₃")
+    length(x.partials) >= 7 && print(io, " + ", x.partials[7], " ∂₁ ∂₂ ∂₃")
 end
 
 """
@@ -96,15 +105,27 @@ we have a tuple (c₀, c₁, c₂, c₃) corresponding to the full element
 
     c₀ + c₁ ∂₁ + c₁ ∂₂ + c₁ ∂₃ + c₂ ∂₂ ∂₁ + c₂ ∂₃ ∂₁ + c₂ ∂₃ ∂₂ + c₃ ∂₃ ∂₂ ∂₁
 
+i.e.
+
+    c₀ + c₁ (∂₁ + ∂₂ + ∂₃) + c₂ (∂₂ ∂₁ + ∂₃ ∂₁ + ∂₃ ∂₂) + c₃ ∂₃ ∂₂ ∂₁
+
+
 This restriction forms a submanifold of the original manifold. The naming is
 by analogy with the (truncated) Taylor series
 
-    c₀ + c₁ x + 1/2 c₂ x² + 1/3! c₃ x⁴ + O(x^5)
+    c₀ + c₁ x + 1/2 c₂ x² + 1/3! c₃ x³ + O(x⁴)
 
 """
 struct TaylorBundle{N, B, P} <: AbstractTangentBundle{N, B}
     primal::B
     coeffs::P
+    function TaylorBundle{N}(primal::B, coeffs::P) where {N, B, P}
+        @assert length(coeffs) == N
+        if isa(primal, TangentBundle)
+            @assert isa(coeffs[1], TangentBundle)
+        end
+        new{N, B, P}(primal, coeffs)
+    end
 end
 
 """
@@ -116,4 +137,19 @@ useful for representing singleton values.
 struct ZeroBundle{N, B} <: AbstractTangentBundle{N, B}
     primal::B
 end
-ZeroBundle{N}(primal::B) where {N, B} = ZeroBundle{N, B}(primal)
+ZeroBundle{N}(primal) where {N} = ZeroBundle{N, Core.Typeof(primal)}(primal)
+
+"""
+    TupleTangentBundle{N, B <: Tuple}
+
+Represents the tagent bundle where the base space is some tuple type.
+Mathematically, this tangent bundle is the product bundle of the individual
+element bundles.
+"""
+struct CompositeBundle{N, B, T<:Tuple{Vararg{AbstractTangentBundle{N}}}} <: AbstractTangentBundle{N, B}
+    tup::T
+end
+CompositeBundle{N, B}(tup::T) where {N, B, T} = CompositeBundle{N, B, T}(tup)
+
+@generated primal(b::CompositeBundle{N, B} where N) where {B} =
+    Expr(:splatnew, B, :(map(primal, b.tup)))

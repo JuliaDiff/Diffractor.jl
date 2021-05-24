@@ -25,14 +25,14 @@ const ∂⃖¹ = ∂⃖{1}()
 (::Type{∂⃖})(args...) = ∂⃖¹(args...)
 
 """
-    ∂⃗{N}
+    ∂☆{N}
 
-∂⃗{N} is the forward-mode AD optic functor of order `N`. A call
-`(::∂⃗{N})(f, args...)` evaluating a function `f: A -> B` is lifted to its
+∂☆{N} is the forward-mode AD functor of order `N`. A call
+`(::∂☆{N})(f, args...)` evaluating a function `f: A -> B` is lifted to its
 pushforward on the N-th order tangent bundle `f⋆: Tⁿ A -> Tⁿ B`.
 """
-struct ∂⃗{N}; end
-const ∂⃗¹ = ∂⃗{1}()
+struct ∂☆{N}; end
+const ∂☆¹ = ∂☆{1}()
 
 """
     dx(x)
@@ -56,6 +56,14 @@ dx(x::Real) = one(x)
 dx(x::Complex) = error("Tried to take the gradient of a complex-valued function.")
 dx(x) = error("Cotangent space not defined for `$(typeof(x))`. Try a real-valued function.")
 
+"""
+    ∂x(x)
+
+For `x` in a one dimensional manifold, map x to the trivial, unital, 1st order
+tangent bundle. It should hold that `∀x ⟨∂x(x), dx(x)⟩ = 1`
+"""
+∂x(x::Real) = TangentBundle{1}(x, (one(x),))
+∂x(x) = error("Tangent space not defined for `$(typeof(x)).")
 
 """
     ∇(f, args...)
@@ -114,30 +122,63 @@ end
 const gradient = ∇
 
 # Star Trek has their prime directive. We have the...
-struct PrimeDerivative{N, T}
+abstract type AbstractPrimeDerivative{N, T}; end
+
+# Backwards first order derivative
+struct PrimeDerivativeBack{N, T} <: AbstractPrimeDerivative{N, T}
     f::T
 end
-Base.show(io::IO, f::PrimeDerivative{N}) where {N} = print(io, f.f, "'"^N)
+Base.show(io::IO, f::PrimeDerivativeBack{N}) where {N} = print(io, f.f, "'"^N)
 
 # This improves performance for nested derivatives by short cutting some
 # recursion into the PrimeDerivative constructor
 @Base.pure minus1(N) = N - 1
 @Base.pure plus1(N) = N + 1
-lower_pd(f::PrimeDerivative{N,T}) where {N,T} = PrimeDerivative{minus1(N),T}(getfield(f, :f))
-lower_pd(f::PrimeDerivative{1}) = getfield(f, :f)
-raise_pd(f::PrimeDerivative{N,T}) where {N,T} = PrimeDerivative{plus1(N),T}(getfield(f, :f))
+lower_pd(f::PrimeDerivativeBack{N,T}) where {N,T} = PrimeDerivativeBack{minus1(N),T}(getfield(f, :f))
+lower_pd(f::PrimeDerivativeBack{1}) = getfield(f, :f)
+raise_pd(f::PrimeDerivativeBack{N,T}) where {N,T} = PrimeDerivativeBack{plus1(N),T}(getfield(f, :f))
 
 ChainRulesCore.rrule(::typeof(lower_pd), f) = lower_pd(f), Δ->(ZeroTangent(), Δ)
 ChainRulesCore.rrule(::typeof(raise_pd), f) = lower_pd(f), Δ->(ZeroTangent(), Δ)
 
-PrimeDerivative(f) = PrimeDerivative{1, typeof(f)}(f)
-PrimeDerivative(f::PrimeDerivative{N, T}) where {N, T} = raise_pd(f)
+PrimeDerivativeBack(f) = PrimeDerivativeBack{1, typeof(f)}(f)
+PrimeDerivativeBack(f::PrimeDerivativeBack{N, T}) where {N, T} = raise_pd(f)
 
-function (f::PrimeDerivative)(x)
+function (f::PrimeDerivativeBack)(x)
     z = ∂⃖¹(lower_pd(f), x)
     y = getfield(z, 1)
     f☆ = getfield(z, 2)
     return getfield(f☆(dx(y)), 2)
+end
+
+# Forwards primal derivative
+struct PrimeDerivativeFwd{N, T}
+    f::T
+end
+
+PrimeDerivativeFwd(f) = PrimeDerivativeFwd{1, typeof(f)}(f)
+PrimeDerivativeFwd(f::PrimeDerivativeFwd{N, T}) where {N, T} = raise_pd(f)
+
+raise_pd(f::PrimeDerivativeFwd{N,T}) where {N,T} = PrimeDerivativeFwd{plus1(N),T}(getfield(f, :f))
+
+function (f::PrimeDerivativeFwd{1})(x)
+    z = ∂☆¹(ZeroBundle{1}(getfield(f, :f)), TangentBundle{1}(x, (one(x),)))
+    z.partials[1]
+end
+
+function (f::PrimeDerivativeFwd{N})(x) where N
+    z = ∂☆{N}()(ZeroBundle{N}(getfield(f, :f)), TaylorBundle{N}(x, (one(x), (zero(x) for i = 1:(N-1))...,)))
+    z.partials[end]
+end
+
+# Polyalgorithm prime derivative
+struct PrimeDerivative{N, T}
+    f::T
+end
+
+function (f::PrimeDerivative{N, T})(x) where {N, T}
+    # For now, this is backwards mode, since that's more fully implemented
+    return PrimeDerivativeBack{N, T}(f.f)(x)
 end
 
 """

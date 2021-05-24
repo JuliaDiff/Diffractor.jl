@@ -17,7 +17,7 @@ first(methods(Diffractor.∂⃖recurse{1}())).recursion_relation = function(meth
 	return Core.Compiler.type_more_complex(new_sig, parent_sig, Core.svec(parent_sig), 1, 3, length(method1.sig.parameters)+1)
 end
 
-first(methods(sin')).recursion_relation = function(method1, method2, parent_sig, new_sig)
+first(methods(PrimeDerivativeBack(sin))).recursion_relation = function(method1, method2, parent_sig, new_sig)
 	# Recursion from a higher to a lower order is always allowed
 	parent_order = parent_sig.parameters[1].parameters[1]
 	child_order = new_sig.parameters[1].parameters[1]

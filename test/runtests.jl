@@ -39,28 +39,31 @@ ChainRules.rrule(::typeof(my_tuple), args...) = args, Δ->Core.tuple(NO_FIELDS, 
 (_, x8) = c7(η)
 @test simplify(x8 == (η + (α*ζ) + (β*ϵ) + (δ*(γ + (α*β))))*exp(ω)).val
 
-# Integration tests
-@test @inferred(sin'(1.0)) == cos(1.0)
-@test @inferred(sin''(1.0)) == -sin(1.0)
-@test sin'''(1.0) == -cos(1.0)
-@test sin''''(1.0) == sin(1.0)
-@test sin'''''(1.0) == cos(1.0)
-@test sin''''''(1.0) == -sin(1.0)
+# Simple Reverse Mode tests
+let var"'"(f) = Diffractor.PrimeDerivativeBack
+    # Integration tests
+    @test @inferred(sin'(1.0)) == cos(1.0)
+    @test @inferred(sin''(1.0)) == -sin(1.0)
+    @test sin'''(1.0) == -cos(1.0)
+    @test sin''''(1.0) == sin(1.0)
+    @test sin'''''(1.0) == cos(1.0)
+    @test sin''''''(1.0) == -sin(1.0)
 
-f_getfield(x) = getfield((x,), 1)
-@test f_getfield'(1) == 1
-@test f_getfield''(1) == 0
-@test f_getfield'''(1) == 0
+    f_getfield(x) = getfield((x,), 1)
+    @test f_getfield'(1) == 1
+    @test f_getfield''(1) == 0
+    @test f_getfield'''(1) == 0
 
-# Higher order mixed mode tests
+    # Higher order mixed mode tests
 
-complicated_2sin(x) = (x = map(sin, Diffractor.xfill(x, 2)); x[1] + x[2])
-@test @inferred(complicated_2sin'(1.0)) == 2sin'(1.0)
-@test @inferred(complicated_2sin''(1.0)) == 2sin''(1.0)
-@test @inferred(complicated_2sin'''(1.0)) == 2sin'''(1.0)
-@test @inferred(complicated_2sin''''(1.0)) == 2sin''''(1.0)
+    complicated_2sin(x) = (x = map(sin, Diffractor.xfill(x, 2)); x[1] + x[2])
+    @test @inferred(complicated_2sin'(1.0)) == 2sin'(1.0)
+    @test @inferred(complicated_2sin''(1.0)) == 2sin''(1.0)
+    @test @inferred(complicated_2sin'''(1.0)) == 2sin'''(1.0)
+    @test @inferred(complicated_2sin''''(1.0)) == 2sin''''(1.0)
+end
 
 # Minimal 2-nd order forward smoke test
-@test Diffractor.∂⃗{2}()(Diffractor.ZeroBundle{2}(sin), Diffractor.TangentBundle{2}(1.0, (1.0, 1.0, 0.0))).partials[1] == sin'(1.0)
+@test Diffractor.∂☆{2}()(Diffractor.ZeroBundle{2}(sin), Diffractor.TangentBundle{2}(1.0, (1.0, 1.0, 0.0))).partials[1] == sin'(1.0)
 
 include("pinn.jl")

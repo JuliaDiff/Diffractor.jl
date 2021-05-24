@@ -2,7 +2,7 @@ partial(x::TangentBundle, i) = x.partials[i]
 partial(x::TaylorBundle{1}, i) = x.coeffs[i]
 partial(x::ZeroBundle, i) = ZeroTangent()
 partial(x::CompositeBundle{N, B}, i) where {N, B} = Tangent{B}(map(x->partial(x, i), x.tup))
-partial(x::Zero, i) = ZeroTangent()
+partial(x::ZeroTangent, i) = ZeroTangent()
 
 primal(x::AbstractTangentBundle) = x.primal
 primal(z::ZeroTangent) = ZeroTangent()

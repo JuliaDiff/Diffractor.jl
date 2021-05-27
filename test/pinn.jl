@@ -41,6 +41,9 @@ end
 #g(NNODE,t,x,y) = ((((t*(1-x))*x)*(1-y))*y)*NNODE(@SVector [t,x,y]) + sin(2π*y)*sin(2π*x)
 g(NNODE, t, x, y) = NNODE(@SVector [t,x,y])
 loss(NNODE, at=0.5) = (x->g(NNODE, -0.1, 0.1, x))''(at)
+let var"'" = Diffractor.PrimeDerivativeFwd
+    loss_fwd_diff(NNODE, at=0.5) = (x->g(NNODE, -0.1, 0.1, x))''(at)
+end
 loss_fwd(NNODE, at=0.5) = ForwardDiff.derivative(x->ForwardDiff.derivative(x->g(NNODE, -0.1, 0.1, x), x), at)
 NNODE = Chain(Dense(3,256,tanh),
            Dense(256,256,tanh),
@@ -51,6 +54,8 @@ training_step(NNODE) = gradient(NNODE->loss(NNODE), NNODE)
 
 @test loss(NNODE, 0.1) ≈ loss_fwd(NNODE, 0.1)
 @test loss(NNODE, 0.5) ≈ loss_fwd(NNODE, 0.5)
+#@test loss(NNODE, 0.1) ≈ loss_fwd_diff(NNODE, 0.1)
+#@test loss(NNODE, 0.5) ≈ loss_fwd_diff(NNODE, 0.5)
 
 # How to test that this is actually the right answer?
 training_step(NNODE)

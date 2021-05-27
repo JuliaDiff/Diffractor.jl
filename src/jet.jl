@@ -29,11 +29,11 @@ end
 
 function Base.:+(j1::Jet{T, N}, j2::Jet{T, N}) where {T, N}
     @assert j1.a === j2.a
-    Jet{T, N}(j1.a, map(+, j1.fₙ, j2.fₙ))
+    Jet{T, N}(j1.a, j1.f₀ + j2.f₀, map(+, j1.fₙ, j2.fₙ))
 end
 
 function Base.:+(j::Jet{T, N}, x::T) where {T, N}
-    Jet{T, N}(j.a, tuple(j[0] + x, j.fₙ[2:end]...))
+    Jet{T, N}(j.a, j.f₀+x, j.fₙ)
 end
 
 function Base.:+(j::Jet, x::One)
@@ -45,9 +45,10 @@ function ChainRulesCore.rrule(::typeof(+), j::Jet, x::One)
 end
 
 function Base.zero(j::Jet{T, N}) where {T, N}
-    Jet{T, N}(j.a, let z = zero(j[0])
-        ntuple(_->z, N)
-    end)
+    let z = zero(j[0])
+        Jet{T, N}(j.a, z,
+            ntuple(_->z, N))
+    end
 end
 function ChainRulesCore.rrule(::typeof(Base.zero), j::Jet)
     zero(j), Δ->(NO_FIELDS, Zero())
@@ -60,11 +61,11 @@ function Base.getindex(j::Jet{T, N}, i::Integer) where {T, N}
 end
 
 function deriv(j::Jet{T, N}) where {T, N}
-    Jet{T, N-1}(j.a, j.fₙ[2:end])
+    Jet{T, N-1}(j.a, j.fₙ[1], Base.tail(j.fₙ))
 end
 
 function integrate(j::Jet{T, N}) where {T, N}
-    Jet{T, N+1}(j.a, tuple(zero(j.fₙ[1]), j.fₙ...))
+    Jet{T, N+1}(j.a, zero(j.f₀), tuple(j.f₀, j.fₙ...))
 end
 
 deriv(::DoesNotExist) = DoesNotExist()
@@ -158,8 +159,8 @@ function (∂⃖ₙ::∂⃖{N})(::typeof(map), f, a::Array) where {N}
     t = map(a) do x
         f(x + Taylor1(typeof(x), N))
     end
-    js = map((x, t)->Jet{typeof(x), N+1}(
-        x, tuple(map(i->t.coeffs[i]*factorial(i-1), 1:(N+1))...)), a, t)
+    js = map((x, t)->Jet{typeof(x), N}(
+        x, t.coeffs[1], tuple(map(i->t.coeffs[i]*factorial(i-1), 2:(N+1))...)), a, t)
     ∂⃖ₙ(mapev, js, a)
 end
 

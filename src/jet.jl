@@ -19,6 +19,7 @@ For a jet `j`, several operations are supported:
 """
 struct Jet{T, N}
     a::T
+    f₀::T
     fₙ::NTuple{N, T}
 end
 
@@ -53,8 +54,9 @@ function ChainRulesCore.rrule(::typeof(Base.zero), j::Jet)
 end
 
 function Base.getindex(j::Jet{T, N}, i::Integer) where {T, N}
-    (0 <= i <= N-1) || throw(BoundsError(j, i))
-    @inbounds j.fₙ[i + 1]
+    (0 <= i <= N) || throw(BoundsError(j, i))
+    i == 0 && return j.f₀
+    @inbounds j.fₙ[i]
 end
 
 function deriv(j::Jet{T, N}) where {T, N}
@@ -166,4 +168,62 @@ for f in (integrate, deriv, antideriv)
     function (∂⃖ₙ::∂⃖{N})(m::typeof(map), f::typeof(f), a::Array) where {N}
         invoke(∂⃖ₙ, Tuple{Any, Vararg{Any}}, m, f, a)
     end
+end
+
+
+"""
+    jet_taylor_ev(::Val{}, jet, taylor)
+
+Generates a closed form arithmetic expression for the N-th component
+of the action of a 1d jet (of order at least N) on a maximally symmetric
+(i.e. taylor) tangent bundle element. In particular, if we represent both
+the `jet` and the `taylor` tangent bundle element by their associated canonical
+taylor series:
+
+    j = j₀ + j₁ (x - a) + j₂ 1/2 (x - a)^2 + ... + jₙ 1/n! (x - a)^n
+    t = t₀ + t₁ (x - t₀) + t₂ 1/2 (x - t₀)^2 + ... + tₙ 1/n! (x - t₀)^n
+
+then the action of evaluating `j` on `t`, is some other taylor series
+
+    t′ = a + t′₁ (x - a) + t′₂ 1/2 (x - a)^2 + ... + t′ₙ 1/n! (x - a)^n
+
+The t′ᵢ can be found by explicitly plugging in `t` for every `x` and expanding
+out, dropping terms of orders that are higher. This computes closed form
+expressions for the t′ᵢ that are hopefully easier on the compiler.
+"""
+@generated function jet_taylor_ev(::Val{N}, jet, taylor) where {N}
+    elements = Any[nothing for _ = 1:N]
+    for part in partitions(N)
+        coeff = (factorial(N) ÷ (prod(factorial, values(countmap(part))) *
+            prod(factorial, part)))
+        factor = mapreduce((a,b)->:($a*$b), part) do i
+            :(taylor[$i])
+        end
+        summand = coeff == 1 ? factor : :($coeff*$factor)
+        let e = elements[length(part)]
+            elements[length(part)] = e === nothing ? summand : :($summand + $e)
+        end
+    end
+    return Expr(:call, +, map(enumerate(elements)) do (i, e)
+        :(jet[$i]*$e)
+    end...)
+end
+
+@generated function (j::Jet{T, N} where T)(x::TaylorBundle{N}) where {N}
+    quote
+        domain_check(j, x.primal)
+        coeffs = x.coeffs
+        TaylorBundle{N}(j[0],
+            ($((:(jet_taylor_ev(Val{$i}(), coeffs, j)) for i = 1:N)...),))
+    end
+end
+
+function (j::Jet{T, 1} where T)(x::TangentBundle{1})
+    domain_check(j, x.primal)
+    coeffs = x.partials
+    TangentBundle{1}(j[0], (jet_taylor_ev(Val{1}(), coeffs, j),))
+end
+
+function (j::Jet{T, N} where T)(x::TangentBundle{N}) where {N}
+    error("TODO")
 end

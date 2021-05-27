@@ -79,6 +79,11 @@ let var"'" = Diffractor.PrimeDerivativeFwd
     @test recursive_sin''''(1.0) == sin(1.0)
     @test recursive_sin'''''(1.0) == cos(1.0)
     @test recursive_sin''''''(1.0) == -sin(1.0)
+
+    # Test the special rules for sin/cos/exp
+    @test sin''''''(1.0) == -sin(1.0)
+    @test cos''''''(1.0) == -cos(1.0)
+    @test exp''''''(1.0) == exp(1.0)
 end
 
 include("pinn.jl")

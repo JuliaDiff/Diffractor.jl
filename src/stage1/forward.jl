@@ -76,12 +76,11 @@ function shuffle_up(r::CompositeBundle{1})
     end
 end
 
-function taylor_compatible(a::AbstractTangentBundle{N}, b::AbstractTangentBundle{N}) where {N}
+function taylor_compatible(a::ATB{N}, b::ATB{N}) where {N}
     primal(b) === a[TaylorTangentIndex(1)] || return false
-    for i = 1:(N-1)
-        (b[TaylorTangentIndex(i)] === a[TaylorTangentIndex(i+1)]) || return false
+    return all(1:(N-1)) do i
+        b[TaylorTangentIndex(i)] === a[TaylorTangentIndex(i+1)]
     end
-    return true
 end
 
 # Check whether the tangent bundle element is taylor-like
@@ -89,7 +88,6 @@ isswifty(::TaylorBundle) = true
 isswifty(::UniformBundle) = true
 isswifty(b::CompositeBundle) = all(isswifty, b.tup)
 isswifty(::Any) = false
-
 
 function shuffle_up(r::CompositeBundle{N}) where {N}
     a, b = r.tup

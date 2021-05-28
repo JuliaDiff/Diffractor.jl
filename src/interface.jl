@@ -215,7 +215,7 @@ julia> @∂ f(∂x, ∂y)
 Will compute the partial derivative ∂^2 f/∂x∂y at `(x, y)``. And similarly
 
 ```
-julia> @∂ f(∂x^2, ∂y)
+julia> @∂ f(∂²x, ∂y)
 ```
 
 will compute the derivative `∂^3 f/∂x^2 ∂y` at `(x,y)`.

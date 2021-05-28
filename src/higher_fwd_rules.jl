@@ -23,3 +23,7 @@ function (this::∂☆{N})(::ZeroBundle{N, typeof(exp)}, x::TaylorBundle{N}) whe
     j = Jet(x₀, exped, tuple(take(repeated(exped), N)...))
     j(x)
 end
+
+function (::Diffractor.∂☆new{N})(B::ATB{N, Type{T}}, args::ATB{N}...) where {N, T<:SArray}
+    error("Should have intercepted the constructor")
+end

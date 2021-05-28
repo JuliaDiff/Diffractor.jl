@@ -94,6 +94,11 @@ function TangentBundle{N}(primal::B, partials::P) where {N, B, P}
     TangentBundle{N, Core.Typeof(primal), P}(primal, partials)
 end
 
+function TangentBundle{N,B}(primal::B, partials::P) where {N, B, P}
+    @assert length(partials) == 2^N - 1
+    TangentBundle{N, B, P}(primal, partials)
+end
+
 function Base.show(io::IO, x::TangentBundle)
     print(io, x.primal)
     print(io, " + ")
@@ -133,13 +138,18 @@ by analogy with the (truncated) Taylor series
 struct TaylorBundle{N, B, P} <: AbstractTangentBundle{N, B}
     primal::B
     coeffs::P
-    function TaylorBundle{N}(primal::B, coeffs::P) where {N, B, P}
+
+    function TaylorBundle{N, B}(primal::B, coeffs::P) where {N, B, P}
         @assert length(coeffs) == N
         if isa(primal, TangentBundle)
             @assert isa(coeffs[1], TangentBundle)
         end
-        new{N, Core.Typeof(primal), P}(primal, coeffs)
+        new{N, B, P}(primal, coeffs)
     end
+end
+
+function TaylorBundle{N}(primal, coeffs) where {N}
+    TaylorBundle{N, Core.Typeof(primal)}(primal, coeffs)
 end
 
 Base.getindex(tb::TaylorBundle, tti::TaylorTangentIndex) = tb.coeffs[tti.i]
@@ -181,6 +191,7 @@ end
 CompositeBundle{N, B}(tup::T) where {N, B, T} = CompositeBundle{N, B, T}(tup)
 
 function Base.getindex(tb::CompositeBundle{N, B} where N, tti::TaylorTangentIndex) where {B}
+    B <: SArray && error()
     Composite{B}(map(tb.tup) do el
         el[tti]
     end...)
@@ -195,3 +206,56 @@ end
     quote
         $(Expr(:splatnew, B, :(map(primal, b.tup))))
     end
+
+function unbundle(atb::TangentBundle{Order, A}) where {Order, Dim, T, A<:AbstractArray{T, Dim}}
+    StructArray{TangentBundle{Order, T}}((atb.primal, atb.partials...))
+end
+
+function StructArrays.staticschema(::Type{<:TangentBundle{N, B, T}}) where {N, B, T}
+    Tuple{B, T.parameters...}
+end
+
+function StructArrays.createinstance(T::Type{<:TangentBundle}, args...)
+    T(first(args), Base.tail(args))
+end
+
+function unbundle(atb::TaylorBundle{Order, A}) where {Order, Dim, T, A<:AbstractArray{T, Dim}}
+    StructArray{TaylorBundle{Order, T}}((atb.primal, atb.coeffs...))
+end
+
+function StructArrays.staticschema(::Type{<:TaylorBundle{N, B, T}}) where {N, B, T}
+    Tuple{B, T.parameters...}
+end
+
+function StructArrays.staticschema(::Type{<:TaylorBundle{N, B}}) where {N, B}
+    Tuple{B, Vararg{Any, N}}
+end
+
+
+function StructArrays.createinstance(T::Type{<:TaylorBundle}, args...)
+    T(first(args), Base.tail(args))
+end
+
+function unbundle(zb::ZeroBundle{N, A}) where {N,T,Dim,A<:AbstractArray{T, Dim}}
+    StructArray{ZeroBundle{N, T}}((zb.primal, fill(zb.partial, size(zb.primal)...)))
+end
+
+function StructArrays.createinstance(T::Type{<:ZeroBundle}, args...)
+    T(args[1], args[2])
+end
+
+function rebundle(A::AbstractArray{<:TangentBundle{N}}) where {N}
+    TangentBundle{N}(
+        map(x->x.primal, A),
+        ntuple(2^N-1) do i
+            map(x->x.partials[i], A)
+        end)
+end
+
+function rebundle(A::AbstractArray{<:TaylorBundle{N}}) where {N}
+    TaylorBundle{N}(
+        map(x->x.primal, A),
+        ntuple(N) do i
+            map(x->x.coeffs[i], A)
+        end)
+end

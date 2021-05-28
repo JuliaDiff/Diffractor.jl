@@ -103,6 +103,17 @@ function shuffle_up(r::CompositeBundle{N}) where {N}
     end
 end
 
+function shuffle_up(r::UniformBundle{N, B, U}) where {N, B, U}
+    (a, b) = primal(r)
+    if r.partial === b
+        u = b
+    elseif b == DoesNotExist() && U === Zero
+        u = b
+    else
+        error()
+    end
+    UniformBundle{N+1}(a, u)
+end
 
 function (::∂☆{N})(args::AbstractTangentBundle{N}...) where {N}
     # N = 1 case manually inlined to avoid ambiguities
@@ -172,6 +183,11 @@ function (::∂☆{N})(::ZeroBundle{N, typeof(map)}, f::ATB{N}, tup::CompositeBu
     ∂vararg{N}()(map(FwdMap(f), tup.tup)...)
 end
 
+function (::∂☆{N})(::ZeroBundle{N, typeof(map)}, f::ATB{N}, args::ATB{N, <:AbstractArray}...) where {N}
+    # TODO: This could do an inplace map! to avoid the extra rebundling
+    rebundle(map(FwdMap(f), map(unbundle, args)...))
+end
+
 function (::∂☆{N})(::ZeroBundle{N, typeof(map)}, f::ATB{N}, args::ATB{N}...) where {N}
     ∂☆recurse{N}()(ZeroBundle{N, typeof(map)}(map), f, args...)
 end
@@ -223,4 +239,13 @@ end
 
 function (this::∂☆{N})(::ZeroBundle{N, typeof(typeof)}, x::ATB{N}) where {N}
     DNEBundle{N}(typeof(primal(x)))
+end
+
+function (this::∂☆{N})(f::ZeroBundle{N, Core.IntrinsicFunction}, args::ATB{N}...) where {N}
+    ff = primal(f)
+    if ff === Base.not_int
+        DNEBundle{N}(ff(map(primal, args)...))
+    else
+        error("Missing rule for intrinsic function $ff")
+    end
 end

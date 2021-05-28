@@ -60,6 +60,9 @@ function ChainRulesCore.rrule(::typeof(*), A::AbstractMatrix{<:Real}, B::Abstrac
     return A * B, times_pullback
 end
 
+function ChainRulesCore.frule((_, ∂A, ∂B), ::typeof(*), A::AbstractMatrix{<:Real}, B::AbstractVector{<:Real})
+    return (A * B, ∂A * B + A * ∂B)
+end
 
 #=
 function ChainRulesCore.rrule(::typeof(map), f, xs::Vector)
@@ -137,6 +140,18 @@ function ChainRules.rrule(::Type{SArray{S, T, N, L}}, x::NTuple{L,T}) where {S, 
     SArray{S, T, N, L}(x), to_tuple{L}()
 end
 
+function ChainRules.frule((_, ∂x), ::Type{SArray{S, T, N, L}}, x::NTuple{L,T}) where {S, T, N, L}
+    SArray{S, T, N, L}(x), SArray{S, T, N, L}(∂x)
+end
+
+function ChainRules.frule((_, ∂x), ::Type{SArray{S, T, N, L}}, x::NTuple{L,Any}) where {S, T, N, L}
+    SArray{S, T, N, L}(x), SArray{S}(∂x)
+end
+
+function ChainRules.frule((_, ∂A), ::typeof(getindex), A::AbstractArray, args...)
+    getindex(A, args...), getindex(∂A, args...)
+end
+
 function ChainRules.rrule(::typeof(map), ::typeof(+), A::AbstractArray, B::AbstractArray)
     map(+, A, B), Δ->(NO_FIELDS, NO_FIELDS, Δ, Δ)
 end
@@ -151,3 +166,4 @@ end
 
 @ChainRules.non_differentiable Base.:(|)(a::Integer, b::Integer)
 @ChainRules.non_differentiable Base.throw(err)
+@ChainRules.non_differentiable Core.Compiler.return_type(args...)

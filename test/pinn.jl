@@ -55,8 +55,8 @@ training_step(NNODE) = gradient(NNODE->loss(NNODE), NNODE)
 
 @test loss(NNODE, 0.1) ≈ loss_fwd(NNODE, 0.1)
 @test loss(NNODE, 0.5) ≈ loss_fwd(NNODE, 0.5)
-#@test loss(NNODE, 0.1) ≈ loss_fwd_diff(NNODE, 0.1)
-#@test loss(NNODE, 0.5) ≈ loss_fwd_diff(NNODE, 0.5)
+@test loss(NNODE, 0.1) ≈ loss_fwd_diff(NNODE, 0.1)
+@test loss(NNODE, 0.5) ≈ loss_fwd_diff(NNODE, 0.5)
 
 # How to test that this is actually the right answer?
 training_step(NNODE)

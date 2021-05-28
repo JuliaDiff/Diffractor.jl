@@ -22,6 +22,7 @@ function transform_fwd!(ci, meth, nargs, sparams, N)
     new_code = Any[]
     new_codelocs = Any[]
     ssa_mapping = Int[]
+    loc_mapping = Int[]
 
     function emit!(stmt)
         (isexpr(stmt, :call) || isexpr(stmt, :(=)) || isexpr(stmt, :new)) || return stmt
@@ -59,6 +60,10 @@ function transform_fwd!(ci, meth, nargs, sparams, N)
             return ZeroBundle{N}(sparams[stmt.args[1]])
         elseif isexpr(stmt, :foreigncall)
             return Expr(:call, error, "Attempted to AD a foreigncall. Missing rule?")
+        elseif isexpr(stmt, :meta)
+            # Can't trust that meta annotations are still valid in the AD'd
+            # version.
+            return nothing
         else
             return Expr(:call, ZeroBundle{N}, stmt)
         end
@@ -76,6 +81,7 @@ function transform_fwd!(ci, meth, nargs, sparams, N)
     end
 
     for (stmt, codeloc) in zip(ci.code, ci.codelocs)
+        push!(loc_mapping, length(new_code)+1)
         push!(new_codelocs, codeloc)
         push!(new_code, mapstmt!(stmt))
         push!(ssa_mapping, length(new_code))
@@ -84,9 +90,9 @@ function transform_fwd!(ci, meth, nargs, sparams, N)
     # Rewrite control flow
     for (i, stmt) in enumerate(new_code)
         if isa(stmt, GotoNode)
-            new_code[i] = GotoNode(ssa_mapping[stmt.label])
+            new_code[i] = GotoNode(loc_mapping[stmt.label])
         elseif isa(stmt, GotoIfNot)
-            new_code[i] = GotoIfNot(stmt.cond, ssa_mapping[stmt.dest])
+            new_code[i] = GotoIfNot(stmt.cond, loc_mapping[stmt.dest])
         end
     end
 
@@ -100,6 +106,10 @@ end
 ∂☆passthrough(args::Tuple{Vararg{ATB{N}}}) where {N} =
     ZeroBundle{N}(primal(getfield(args, 1))(map(primal, Base.tail(args))...))
 
+function ∂☆nomethd(@nospecialize(args))
+    throw(MethodError(primal(args[1]), map(primal, Base.tail(args))))
+end
+
 function perform_fwd_transform(@nospecialize(ff::Type{∂☆recurse{N}}), @nospecialize(args)) where {N}
     if all(x->x <: ZeroBundle, args)
         return :(∂☆passthrough(args))
@@ -109,7 +119,7 @@ function perform_fwd_transform(@nospecialize(ff::Type{∂☆recurse{N}}), @nospe
     sig = Tuple{map(π, args)...}
     mthds = Base._methods_by_ftype(sig, -1, typemax(UInt))
     if length(mthds) != 1
-        return :(throw(MethodError(primal(args[1]), map(primal, Base.tail(args)))))
+        return :(∂☆nomethd(args))
     end
     match = mthds[1]
 
@@ -129,6 +139,7 @@ function perform_fwd_transform(@nospecialize(ff::Type{∂☆recurse{N}}), @nospe
     ci′.slotnames = slotnames
     ci′.slotflags = slotflags
     ci′.slottypes = slottypes
+
     ci′
 end
 

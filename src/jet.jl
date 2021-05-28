@@ -1,5 +1,3 @@
-using TaylorSeries
-
 """
     struct Jet{T, N}
 
@@ -155,12 +153,14 @@ end
 
 function (∂⃖ₙ::∂⃖{N})(::typeof(map), f, a::Array) where {N}
     @assert Base.issingletontype(typeof(f))
-    # TODO: Built-in taylor mode
-    t = map(a) do x
-        f(x + Taylor1(typeof(x), N))
+    js = map(a) do x
+        ∂f = ∂☆{N}()(ZeroBundle{N}(f),
+                     TaylorBundle{N}(x,
+                       (one(x), (zero(x) for i = 1:(N-1))...,)))
+        @assert isa(∂f, TaylorBundle) || isa(∂f, TangentBundle{1})
+        Jet{typeof(x), N}(x, ∂f.primal,
+            isa(∂f, TangentBundle) ? ∂f.partials : ∂f.coeffs)
     end
-    js = map((x, t)->Jet{typeof(x), N}(
-        x, t.coeffs[1], tuple(map(i->t.coeffs[i]*factorial(i-1), 2:(N+1))...)), a, t)
     ∂⃖ₙ(mapev, js, a)
 end
 

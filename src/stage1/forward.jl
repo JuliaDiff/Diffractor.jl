@@ -124,10 +124,6 @@ function (::∂☆{N})(args::AbstractTangentBundle{N}...) where {N}
     end
 end
 
-function (::∂☆{N})(args::ZeroBundle{N}...) where {N}
-    ZeroBundle{N}(primal(getfield(args, 1))(map(primal, Base.tail(args))...))
-end
-
 # Special case rules for performance
 @Base.aggressive_constprop function (::∂☆{N})(f::ATB{N, typeof(getfield)}, x::TangentBundle{N}, s::AbstractTangentBundle{N}) where {N}
     s = primal(s)

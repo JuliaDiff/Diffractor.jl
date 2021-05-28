@@ -144,3 +144,10 @@ end
 function ChainRules.rrule(::typeof(map), ::typeof(+), A::AbstractVector, B::AbstractVector)
     map(+, A, B), Δ->(NO_FIELDS, NO_FIELDS, Δ, Δ)
 end
+
+function ChainRules.frule(_, ::Type{Vector{T}}, undef::UndefInitializer, dims::Int...) where {T}
+    Vector{T}(undef, dims...), zeros(T, dims...)
+end
+
+@ChainRules.non_differentiable Base.:(|)(a::Integer, b::Integer)
+@ChainRules.non_differentiable Base.throw(err)

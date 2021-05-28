@@ -42,6 +42,7 @@ end
 g(NNODE, t, x, y) = NNODE(@SVector [t,x,y])
 loss(NNODE, at=0.5) = (x->g(NNODE, -0.1, 0.1, x))''(at)
 let var"'" = Diffractor.PrimeDerivativeFwd
+    global loss_fwd_diff
     loss_fwd_diff(NNODE, at=0.5) = (x->g(NNODE, -0.1, 0.1, x))''(at)
 end
 loss_fwd(NNODE, at=0.5) = ForwardDiff.derivative(x->ForwardDiff.derivative(x->g(NNODE, -0.1, 0.1, x), x), at)

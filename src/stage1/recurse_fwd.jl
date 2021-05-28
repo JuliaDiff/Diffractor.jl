@@ -39,10 +39,10 @@ function transform_fwd!(ci, meth, nargs, sparams, N)
             end
             return Expr(:call, ∂☆{N}(), args...)
         elseif isexpr(stmt, :new)
-            args = map(stmt.args[2:end]) do stmt
+            args = map(stmt.args) do stmt
                 emit!(mapstmt!(stmt))
             end
-            return Expr(:call, ∂☆new{N}(), stmt.args[1], args...)
+            return Expr(:call, ∂☆new{N}(), args...)
         elseif isa(stmt, SSAValue)
             return SSAValue(ssa_mapping[stmt.id])
         elseif isa(stmt, Core.SlotNumber)
@@ -54,9 +54,11 @@ function transform_fwd!(ci, meth, nargs, sparams, N)
         elseif isa(stmt, GotoNode)
             return stmt
         elseif isa(stmt, GotoIfNot)
-            return GotoIfNot(emit!(Expr(:call, primal, stmt.cond)), stmt.dest)
+            return GotoIfNot(emit!(Expr(:call, primal, emit!(mapstmt!(stmt.cond)))), stmt.dest)
         elseif isexpr(stmt, :static_parameter)
             return ZeroBundle{N}(sparams[stmt.args[1]])
+        elseif isexpr(stmt, :foreigncall)
+            return Expr(:call, error, "Attempted to AD a foreigncall. Missing rule?")
         else
             return Expr(:call, ZeroBundle{N}, stmt)
         end
@@ -79,6 +81,15 @@ function transform_fwd!(ci, meth, nargs, sparams, N)
         push!(ssa_mapping, length(new_code))
     end
 
+    # Rewrite control flow
+    for (i, stmt) in enumerate(new_code)
+        if isa(stmt, GotoNode)
+            new_code[i] = GotoNode(ssa_mapping[stmt.label])
+        elseif isa(stmt, GotoIfNot)
+            new_code[i] = GotoIfNot(stmt.cond, ssa_mapping[stmt.dest])
+        end
+    end
+
     ci.code = new_code
     ci.codelocs = new_codelocs
     ci
@@ -86,12 +97,19 @@ end
 
 π(::Type{<:AbstractTangentBundle{N, B}} where N) where {B} = B
 
+∂☆passthrough(args::Tuple{Vararg{ATB{N}}}) where {N} =
+    ZeroBundle{N}(primal(getfield(args, 1))(map(primal, Base.tail(args))...))
+
 function perform_fwd_transform(@nospecialize(ff::Type{∂☆recurse{N}}), @nospecialize(args)) where {N}
+    if all(x->x <: ZeroBundle, args)
+        return :(∂☆passthrough(args))
+    end
+
     # Check if we have an rrule for this function
     sig = Tuple{map(π, args)...}
     mthds = Base._methods_by_ftype(sig, -1, typemax(UInt))
     if length(mthds) != 1
-        error()
+        return :(throw(MethodError(primal(args[1]), map(primal, Base.tail(args)))))
     end
     match = mthds[1]
 

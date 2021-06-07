@@ -43,6 +43,14 @@ ChainRules.rrule(::typeof(my_tuple), args...) = args, Δ->Core.tuple(NO_FIELDS, 
 @test Diffractor.∂☆{2}()(Diffractor.ZeroBundle{2}(sin),
     Diffractor.TangentBundle{2}(1.0, (1.0, 1.0, 0.0)))[Diffractor.CanonicalTangentIndex(1)] == sin'(1.0)
 
+function simple_control_flow(b, x)
+    if b
+        return sin(x)
+    else
+        return cos(x)
+    end
+end
+
 # Simple Reverse Mode tests
 let var"'" = Diffractor.PrimeDerivativeBack
     # Integration tests
@@ -65,6 +73,9 @@ let var"'" = Diffractor.PrimeDerivativeBack
     @test @inferred(complicated_2sin''(1.0)) == 2sin''(1.0)
     @test @inferred(complicated_2sin'''(1.0)) == 2sin'''(1.0)
     @test @inferred(complicated_2sin''''(1.0)) == 2sin''''(1.0)
+
+    @test @inferred((x->simple_control_flow(true, x))'(1.0)) == sin'(1.0)
+    @test @inferred((x->simple_control_flow(false, x))'(1.0)) == cos'(1.0)
 end
 
 # Simple Forward Mode tests

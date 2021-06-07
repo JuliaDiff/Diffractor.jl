@@ -23,18 +23,6 @@ my_frule(::ZeroBundle{1, typeof(my_frule)}, args::ATB{1}...) = nothing
 (::∂☆{N})(::ZeroBundle{N, typeof(my_frule)}, ::ZeroBundle{N, ZeroBundle{1, typeof(frule)}}, args::ATB{N}...) where {N} = ZeroBundle{N}(nothing)
 (::∂☆{N})(::ZeroBundle{N, typeof(my_frule)}, ::ZeroBundle{N, ZeroBundle{1, typeof(my_frule)}}, args::ATB{N}...) where {N} = ZeroBundle{N}(nothing)
 
-#=
-function (∂☆p::∂☆{1})(::ZeroBundle{1, typeof(my_frule)}, args::AbstractTangentBundle{1}...)
-    ∂☆p(ZeroBundle{1}(frule),
-        TangentBundle{1}(map(args) do arg
-            primal(partial(arg, 1))
-        end, (map(args) do arg
-            partial(partial(arg, 1), 1)
-        end,)),
-        map(primal, args)...)
-end
-=#
-
 shuffle_down(b::UniformBundle{N, B, U}) where {N, B, U} =
     UniformBundle{minus1(N), <:Any, U}(UniformBundle{1, B, U}(b.primal, b.partial), b.partial)
 

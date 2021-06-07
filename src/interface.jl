@@ -65,6 +65,15 @@ tangent bundle. It should hold that `∀x ⟨∂x(x), dx(x)⟩ = 1`
 ∂x(x::Real) = TangentBundle{1}(x, (one(x),))
 ∂x(x) = error("Tangent space not defined for `$(typeof(x)).")
 
+struct ∂xⁿ{N}; end
+
+(::∂xⁿ{N})(x::Real) where {N} = TaylorBundle{N}(x, (one(x), (zero(x) for i = 1:(N-1))...,))
+(::∂xⁿ)(x) = error("Tangent space not defined for `$(typeof(x)).")
+
+function ChainRules.rrule(∂::∂xⁿ, x)
+    ∂(x), Δ->(NO_FIELDS, getproperty(backing(Δ), :primal))
+end
+
 """
     ∇(f, args...)
 
@@ -139,7 +148,7 @@ lower_pd(f::PrimeDerivativeBack{1}) = getfield(f, :f)
 raise_pd(f::PrimeDerivativeBack{N,T}) where {N,T} = PrimeDerivativeBack{plus1(N),T}(getfield(f, :f))
 
 ChainRulesCore.rrule(::typeof(lower_pd), f) = lower_pd(f), Δ->(Zero(), Δ)
-ChainRulesCore.rrule(::typeof(raise_pd), f) = lower_pd(f), Δ->(Zero(), Δ)
+ChainRulesCore.rrule(::typeof(raise_pd), f) = raise_pd(f), Δ->(Zero(), Δ)
 
 PrimeDerivativeBack(f) = PrimeDerivativeBack{1, typeof(f)}(f)
 PrimeDerivativeBack(f::PrimeDerivativeBack{N, T}) where {N, T} = raise_pd(f)
@@ -159,16 +168,19 @@ end
 PrimeDerivativeFwd(f) = PrimeDerivativeFwd{1, typeof(f)}(f)
 PrimeDerivativeFwd(f::PrimeDerivativeFwd{N, T}) where {N, T} = raise_pd(f)
 
+lower_pd(f::PrimeDerivativeFwd{N,T}) where {N,T} = (error(); PrimeDerivativeFwd{minus1(N),T}(getfield(f, :f)))
 raise_pd(f::PrimeDerivativeFwd{N,T}) where {N,T} = PrimeDerivativeFwd{plus1(N),T}(getfield(f, :f))
 
+(f::PrimeDerivativeFwd{0})(x) = getfield(f, :f)(x)
+
 function (f::PrimeDerivativeFwd{1})(x)
-    z = ∂☆¹(ZeroBundle{1}(getfield(f, :f)), TangentBundle{1}(x, (one(x),)))
+    z = ∂☆¹(ZeroBundle{1}(getfield(f, :f)), ∂x(x))
     z.partials[1]
 end
 
 function (f::PrimeDerivativeFwd{N})(x) where N
-    z = ∂☆{N}()(ZeroBundle{N}(getfield(f, :f)), TaylorBundle{N}(x, (one(x), (zero(x) for i = 1:(N-1))...,)))
-    isa(z, TaylorBundle) ? z.coeffs[end] : z.partials[end]
+    z = ∂☆{N}()(ZeroBundle{N}(getfield(f, :f)), ∂xⁿ{N}()(x))
+    z[TaylorTangentIndex(N)]
 end
 
 # Polyalgorithm prime derivative

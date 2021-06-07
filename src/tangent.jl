@@ -111,6 +111,13 @@ function Base.show(io::IO, x::TangentBundle)
     length(x.partials) >= 7 && print(io, " + ", x.partials[7], " ∂₁ ∂₂ ∂₃")
 end
 
+function Base.getindex(a::TangentBundle{N}, b::TaylorTangentIndex) where {N}
+    if b.i === N
+        return a.partials[end]
+    end
+    error("$(typeof(a)) is not taylor-like. Taylor indexing is ambiguous")
+end
+
 """
     struct TaylorBundle{N, B, P}
 

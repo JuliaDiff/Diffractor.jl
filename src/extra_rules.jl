@@ -53,12 +53,20 @@ function ChainRulesCore.rrule(::typeof(map), f, xs::Vector...)
 end
 =#
 
-function ChainRulesCore.rrule(::typeof(*), A::AbstractMatrix{<:Real}, B::AbstractVector{<:Real})
+function ChainRulesCore.rrule(::typeof(*), A::AbstractVecOrMat{<:ChainRules.CommutativeMulNumber}, B::AbstractVecOrMat{<:ChainRules.CommutativeMulNumber})
     function times_pullback(Ȳ)
         return (NO_FIELDS, Ȳ * Base.adjoint(B), Base.adjoint(A) * Ȳ)
     end
     return A * B, times_pullback
 end
+
+function ChainRulesCore.rrule(::typeof(*), A::AbstractVector{<:ChainRules.CommutativeMulNumber}, B::AbstractMatrix{<:ChainRules.CommutativeMulNumber})
+    function times_pullback(Ȳ)
+        return (NO_FIELDS, Ȳ * Base.adjoint(B), Base.adjoint(A) * Ȳ)
+    end
+    return A * B, times_pullback
+end
+
 
 function ChainRulesCore.frule((_, ∂A, ∂B), ::typeof(*), A::AbstractMatrix{<:Real}, B::AbstractVector{<:Real})
     return (A * B, ∂A * B + A * ∂B)

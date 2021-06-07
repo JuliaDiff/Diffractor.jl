@@ -60,3 +60,4 @@ training_step(NNODE) = gradient(NNODE->loss(NNODE), NNODE)
 
 # How to test that this is actually the right answer?
 training_step(NNODE)
+#gradient(NNODE->loss_fwd_diff(NNODE), NNODE)

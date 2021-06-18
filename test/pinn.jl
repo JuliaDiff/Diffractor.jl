@@ -3,6 +3,7 @@ using Diffractor: var"'", ∂⃖
 using ForwardDiff
 using StaticArrays
 using Random
+using Test
 
 nfan() = 1, 1 # fan_in, fan_out
 nfan(n) = 1, n # A vector is treated as a n×1 matrix

@@ -102,26 +102,36 @@ function shuffle_up(r::UniformBundle{N, B, U}) where {N, B, U}
     end
     UniformBundle{N+1}(a, u)
 end
+@ChainRulesCore.non_differentiable shuffle_up(r::UniformBundle)
 
-function (::∂☆{N})(args::AbstractTangentBundle{N}...) where {N}
-    # N = 1 case manually inlined to avoid ambiguities
-    if N === 1
-        r = my_frule(args...)
-        if r === nothing
-            return ∂☆recurse{1}()(args...)
-        else
-            return TangentBundle{1}(r[1], (r[2],))
-        end
+struct ∂☆internal{N}; end
+struct ∂☆shuffle{N}; end
+
+shuffle_base(r) = TangentBundle{1}(r[1], (r[2],))
+
+function (::∂☆internal{1})(args::AbstractTangentBundle{1}...)
+    r = my_frule(args...)
+    if r === nothing
+        return ∂☆recurse{1}()(args...)
     else
-        ∂☆p = ∂☆{minus1(N)}()
-        r = ∂☆p(ZeroBundle{minus1(N)}(my_frule), map(shuffle_down, args)...)
-        if primal(r) === nothing
-            return ∂☆recurse{N}()(args...)
-        else
-            return shuffle_up(r)
-        end
+        return shuffle_base(r)
     end
 end
+
+function (::∂☆shuffle{N})(args::AbstractTangentBundle{N}...) where {N}
+    ∂☆p = ∂☆{minus1(N)}()
+    ∂☆p(ZeroBundle{minus1(N)}(my_frule), map(shuffle_down, args)...)
+end
+
+function (::∂☆internal{N})(args::AbstractTangentBundle{N}...) where {N}
+    r = ∂☆shuffle{N}()(args...)
+    if primal(r) === nothing
+        return ∂☆recurse{N}()(args...)
+    else
+        return shuffle_up(r)
+    end
+end
+(::∂☆{N})(args::AbstractTangentBundle{N}...) where {N} = ∂☆internal{N}()(args...)
 
 # Special case rules for performance
 @Base.aggressive_constprop function (::∂☆{N})(f::ATB{N, typeof(getfield)}, x::TangentBundle{N}, s::AbstractTangentBundle{N}) where {N}
@@ -205,14 +215,25 @@ function (this::∂☆{N})(::ZeroBundle{N, typeof(Core._apply_iterate)}, iterate
     Core._apply_iterate(FwdIterate(iterate), this, (f,), args...)
 end
 
-function (this::∂☆{N})(::ZeroBundle{N, typeof(iterate)}, t::CompositeBundle{N, <:Tuple}, args::ATB{N}...) where {N}
-    r = iterate(t.tup, (args === () ? () : map(primal, args))...)
+function (this::∂☆{N})(::ZeroBundle{N, typeof(iterate)}, t::CompositeBundle{N, <:Tuple}) where {N}
+    r = iterate(t.tup)
     r === nothing && return ZeroBundle{N}(nothing)
     ∂vararg{N}()(r[1], ZeroBundle{N}(r[2]))
 end
 
-function (this::∂☆{N})(::ZeroBundle{N, typeof(Base.indexed_iterate)}, t::CompositeBundle{N, <:Tuple}, i::ATB{N}, st::ATB{N}...) where {N}
-    r = Base.indexed_iterate(t.tup, primal(i), (st === () ? () : map(primal, st))...)
+function (this::∂☆{N})(::ZeroBundle{N, typeof(iterate)}, t::CompositeBundle{N, <:Tuple}, a::ATB{N}, args::ATB{N}...) where {N}
+    r = iterate(t.tup, primal(a), map(primal, args)...)
+    r === nothing && return ZeroBundle{N}(nothing)
+    ∂vararg{N}()(r[1], ZeroBundle{N}(r[2]))
+end
+
+function (this::∂☆{N})(::ZeroBundle{N, typeof(Base.indexed_iterate)}, t::CompositeBundle{N, <:Tuple}, i::ATB{N}) where {N}
+    r = Base.indexed_iterate(t.tup, primal(i))
+    ∂vararg{N}()(r[1], ZeroBundle{N}(r[2]))
+end
+
+function (this::∂☆{N})(::ZeroBundle{N, typeof(Base.indexed_iterate)}, t::CompositeBundle{N, <:Tuple}, i::ATB{N}, st1::ATB{N}, st::ATB{N}...) where {N}
+    r = Base.indexed_iterate(t.tup, primal(i), primal(st1), map(primal, st)...)
     ∂vararg{N}()(r[1], ZeroBundle{N}(r[2]))
 end
 

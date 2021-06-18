@@ -3,25 +3,29 @@ using StatsBase
 
 using Base.Iterators
 
-function (this::∂☆{N})(::ZeroBundle{N, typeof(sin)}, x::TaylorBundle{N}) where {N}
-    x₀ = primal(x)
+function njet(::Val{N}, ::typeof(sin), x₀) where {N}
     (s, c) = sincos(x₀)
-    j = Jet(x₀, s, tuple(take(cycle((c, -s, -c, s)), N)...))
-    j(x)
+    Jet(x₀, s, tuple(take(cycle((c, -s, -c, s)), N)...))
 end
 
-function (this::∂☆{N})(::ZeroBundle{N, typeof(cos)}, x::TaylorBundle{N}) where {N}
-    x₀ = primal(x)
+function njet(::Val{N}, ::typeof(cos), x₀) where {N}
     (s, c) = sincos(x₀)
-    j = Jet(x₀, s, tuple(take(cycle((-s, -c, s, c)), N)...))
-    j(x)
+    Jet(x₀, s, tuple(take(cycle((-s, -c, s, c)), N)...))
 end
 
-function (this::∂☆{N})(::ZeroBundle{N, typeof(exp)}, x::TaylorBundle{N}) where {N}
-    x₀ = primal(x)
+function njet(::Val{N}, ::typeof(exp), x₀) where {N}
     exped = exp(x₀)
-    j = Jet(x₀, exped, tuple(take(repeated(exped), N)...))
-    j(x)
+    Jet(x₀, exped, tuple(take(repeated(exped), N)...))
+end
+
+jeval(j, x) = j(x)
+for f in (sin, cos, exp)
+    function (∂☆ₙ::∂☆{N})(fb::ZeroBundle{N, typeof(f)}, x::TaylorBundle{N}) where {N}
+        njet(Val{N}(), primal(fb), primal(x))(x)
+    end
+    function (∂⃖ₙ::∂⃖{N})(∂☆ₘ::∂☆{M}, fb::ZeroBundle{M, typeof(f)}, x::TaylorBundle{M}) where {N, M}
+        ∂⃖ₙ(jeval, njet(Val{N+M}(), primal(fb), primal(x)), x)
+    end
 end
 
 function (::Diffractor.∂☆new{N})(B::ATB{N, Type{T}}, args::ATB{N}...) where {N, T<:SArray}

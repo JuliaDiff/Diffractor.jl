@@ -106,6 +106,7 @@ function domain_check(j::Jet, x)
         throw(DomainError("Evaluation is only valid at a"))
     end
 end
+domain_check(j::Jet, x::ATB) = domain_check(j, primal(x))
 
 function ChainRulesCore.rrule(::typeof(domain_check), j::Jet, x)
     domain_check(j, x), Δ->(Zero(), Zero(), Zero())
@@ -116,9 +117,36 @@ function (j::Jet)(x)
     j[0]
 end
 
+function tderiv(bb::TaylorBundle{N}, i) where {N}
+    i == 0 && return bb
+    N-i == 0 && return bb.coeffs[i]
+    TaylorBundle{N-i}(bb.coeffs[i], bb.coeffs[i+1:end])
+end
+
+function aldot(a::TaylorBundle{N}, b::TaylorBundle{M}) where {M,N}
+    a.primal * b.primal +
+        sum(1:min(M,N)) do i
+            a.coeffs[i] * b.coeffs[i]
+        end
+end
+aldot(a, b::TaylorBundle) = a * b.primal
+
+*ₐₗ(a, b) = a * b
+function *ₐₗ(a::Composite{T}, b::TaylorBundle) where {N,B,T<:TaylorBundle{N,B}}
+    # TODO: More general implementation of this
+    bb = TaylorBundle{N}(a.primal, a.coeffs)
+    cs = ntuple(1 + length(bb.coeffs)) do i
+        aldot(tderiv(bb, i-1), b)
+    end
+    Composite{T}(;primal = cs[1], coeffs = cs[2:end])
+end
+
 function ChainRulesCore.rrule(j::Jet, x)
-    j(x), let dj = deriv(j)
-        Δ->(DoesNotExist(), Δ*dj(x))
+    z = j(x)
+    z, let djx = deriv(j)(x)
+        function (Δ)
+            (DoesNotExist(), Δ *ₐₗ djx)
+        end
     end
 end
 
@@ -141,11 +169,11 @@ ChainRulesCore.rrule(::typeof(map), ::typeof(deriv), js::Array{<:Jet}) =
 ChainRulesCore.rrule(::typeof(map), ::typeof(antideriv), js::Array{<:Jet}, Δ) =
     map(antideriv, js, Δ), Δ->(NO_FIELDS, NO_FIELDS, map(deriv, Δ), One())
 
-function mapev(js::Array{<:Jet}, xs::Array)
+function mapev(js::Array{<:Jet}, xs::AbstractArray)
     map((j,x)->j(x), js, xs)
 end
 
-function ChainRulesCore.rrule(::typeof(mapev), js::Array{<:Jet}, xs::Array)
+function ChainRulesCore.rrule(::typeof(mapev), js::Array{<:Jet}, xs::AbstractArray)
     mapev(js, xs), let djs=map(deriv, js)
         Δ->(NO_FIELDS, DoesNotExist(), map(*, Δ, mapev(djs, xs)))
     end
@@ -170,7 +198,6 @@ for f in (integrate, deriv, antideriv)
         invoke(∂⃖ₙ, Tuple{Any, Vararg{Any}}, m, f, a)
     end
 end
-
 
 """
     jet_taylor_ev(::Val{}, jet, taylor)
@@ -210,12 +237,13 @@ expressions for the t′ᵢ that are hopefully easier on the compiler.
     end...)
 end
 
-@generated function (j::Jet{T, N} where T)(x::TaylorBundle{N}) where {N}
+@generated function (j::Jet{T, N} where T)(x::TaylorBundle{M}) where {N, M}
+    O = min(M,N)
     quote
         domain_check(j, x.primal)
         coeffs = x.coeffs
-        TaylorBundle{N}(j[0],
-            ($((:(jet_taylor_ev(Val{$i}(), coeffs, j)) for i = 1:N)...),))
+        TaylorBundle{$O}(j[0],
+            ($((:(jet_taylor_ev(Val{$i}(), coeffs, j)) for i = 1:O)...),))
     end
 end
 
@@ -225,6 +253,6 @@ function (j::Jet{T, 1} where T)(x::TangentBundle{1})
     TangentBundle{1}(j[0], (jet_taylor_ev(Val{1}(), coeffs, j),))
 end
 
-function (j::Jet{T, N} where T)(x::TangentBundle{N}) where {N}
+function (j::Jet{T, N} where T)(x::TangentBundle{N, M}) where {N, M}
     error("TODO")
 end

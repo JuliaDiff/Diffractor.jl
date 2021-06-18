@@ -76,6 +76,9 @@ function expand_switch(code::Vector{Any}, bb_ranges::Vector{UnitRange{Int}}, slo
             stmt = GotoNode(renumber[first(bb_ranges[stmt.label])].id)
         elseif isa(stmt, GotoIfNot)
             stmt = GotoIfNot(stmt.cond, renumber[first(bb_ranges[stmt.dest])].id)
+        elseif isa(stmt, PhiNode)
+            stmt = PhiNode(map(x->Int32(renumber[last(bb_ranges[x])].id), stmt.edges),
+                stmt.values)
         end
         new_code[i] = stmt
     end
@@ -141,10 +144,12 @@ function transform!(ci, meth, nargs, sparams, N)
             end
         end
 
-        # Now add a special control flow marker to every basic block with more
-        # than one predecessor.
+        # Now add a special control flow marker to every basic block
+        # TODO: This lowering of control flow is extremely simplistic.
+        # It needs to be improved in the very near future, but let's get
+        # something working for now.
         for block in cfg.blocks
-            if length(block.preds) > 1
+            if length(block.preds) != 0
                 insert_node!(ir, block.stmts.start,
                     non_effect_free(NewInstruction(Expr(:phi_placeholder, copy(block.preds)))))
             end
@@ -325,28 +330,26 @@ function transform!(ci, meth, nargs, sparams, N)
                     end
                 end
             elseif isa(stmt, GotoIfNot)
-                if bb == 1
-                    current_env = nothing
-                else
-                    error()
-                end
+                current_env = BBEnv(insert_node_rev!(PhiNode(Int32.(map(to_back_bb, Int32[bb+1, stmt.dest])),
+                    Any[ctx_map[bb+1], ctx_map[stmt.dest]])), first(ir.cfg.blocks[bb].stmts))
             elseif isexpr(stmt, :phi_placeholder)
                 @assert i == first_bb_idx
                 tup = retrieve_ctx_obj(current_env, i)
-                branch = insert_node_rev!(Expr(:call, getfield, tup, 1))
-                ctx = insert_node_rev!(Expr(:call, getfield, tup, 2))
-                insert_node_rev!(Expr(:switch, branch, collect(1:length(stmt.args[1])),
-                    map(to_back_bb, stmt.args[1])))
+                if length(stmt.args[1]) > 1
+                    branch = insert_node_rev!(Expr(:call, getfield, tup, 1))
+                    ctx = insert_node_rev!(Expr(:call, getfield, tup, 2))
+                    insert_node_rev!(Expr(:switch, branch, collect(1:length(stmt.args[1])),
+                        map(to_back_bb, stmt.args[1])))
+                else
+                    ctx = tup
+                    insert_node_rev!(GotoNode(to_back_bb(stmt.args[1][1])))
+                end
                 ctx_map[bb] = ctx
             else
                 error((N, meth, stmt))
             end
             if i == first_bb_idx && bb != 1
-                if !isexpr(stmt, :phi_placeholder)
-                    preds = ir.cfg.blocks[bb].preds
-                    @assert length(preds) == 1
-                    insert_node_rev!(GotoNode(to_back_bb(preds[1])))
-                end
+                @assert isexpr(stmt, :phi_placeholder)
             end
             if i == first_bb_idx
                 back_bb = to_back_bb(bb)
@@ -511,14 +514,22 @@ function transform!(ci, meth, nargs, sparams, N)
         elseif isexpr(stmt, :phi_placeholder)
             preds = stmt.args[1]
             values = Any[]
-            for (selector, pred) in enumerate(preds)
+
+            if length(preds) == 1
+                pred = preds[]
                 tup = my_insert_node!(compact, OldSSAValue(last(orig_bb_ranges[pred])),
                     effect_free(NewInstruction(Expr(:call, tuple, rev[orig_bb_ranges[pred]]...))))
-                ctx = my_insert_node!(compact, OldSSAValue(last(orig_bb_ranges[pred])),
-                    effect_free(NewInstruction(Expr(:call, tuple, selector, tup))))
-                push!(values, ctx)
+                compact[idx] = tup
+            else
+                for (selector, pred) in enumerate(preds)
+                    tup = my_insert_node!(compact, OldSSAValue(last(orig_bb_ranges[pred])),
+                        effect_free(NewInstruction(Expr(:call, tuple, rev[orig_bb_ranges[pred]]...))))
+                    ctx = my_insert_node!(compact, OldSSAValue(last(orig_bb_ranges[pred])),
+                        effect_free(NewInstruction(Expr(:call, tuple, selector, tup))))
+                    push!(values, ctx)
+                end
+                compact[idx] = PhiNode(map(Int32, preds), values)
             end
-            compact[idx] = PhiNode(map(Int32, preds), values)
             # TODO: This is a base julia bug
             push!(compact.late_fixup, idx)
             rev[old_idx] = SSAValue(idx)

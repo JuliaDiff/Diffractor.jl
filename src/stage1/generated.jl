@@ -12,9 +12,7 @@ function perform_optic_transform(@nospecialize(ff::Type{∂⃖recurse{N}}), @nos
     # Check if we have an rrule for this function
     mthds = Base._methods_by_ftype(Tuple{args...}, -1, typemax(UInt))
     if length(mthds) != 1
-        @show args
-        @show mthds
-        error()
+        return :(throw(MethodError(ff, args)))
     end
     match = mthds[1]
 
@@ -44,6 +42,9 @@ struct OpticBundle{T}
     x::T
     clos
 end
+Base.getindex(o::OpticBundle, i::Int) = i == 1 ? o.x :
+                                        i == 2 ? o.clos :
+                                        throw(BoundsError(o, i))
 Base.iterate(o::OpticBundle) = (o.x, nothing)
 Base.iterate(o::OpticBundle, ::Nothing) = (o.clos, missing)
 Base.iterate(o::OpticBundle, ::Missing) = nothing
@@ -225,10 +226,10 @@ struct ∂⃖getfield{n, f}; end
 @Base.aggressive_constprop function (::∂⃖getfield{n, f})(Δ) where {n,f}
     if @generated
         return Expr(:call, tuple, NO_FIELDS,
-            Expr(:call, tuple, (i == f ? :(Δ) : DoesNotExist() for i = 1:n)...),
+            Expr(:call, tuple, (i == f ? :(Δ) : Zero() for i = 1:n)...),
             NO_FIELDS)
     else
-        return (NO_FIELDS, ntuple(i->i == f ? Δ : DoesNotExist(), n), NO_FIELDS)
+        return (NO_FIELDS, ntuple(i->i == f ? Δ : Zero(), n), NO_FIELDS)
     end
 end
 

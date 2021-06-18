@@ -89,13 +89,16 @@ struct TangentBundle{N, B, P} <: AbstractTangentBundle{N, B}
     partials::P
 end
 
+check_tangent_invariant(lp, N) = @assert lp == 2^N - 1
+@ChainRulesCore.non_differentiable check_tangent_invariant(lp, N)
+
 function TangentBundle{N}(primal::B, partials::P) where {N, B, P}
-    @assert length(partials) == 2^N - 1
+    check_tangent_invariant(length(partials), N)
     TangentBundle{N, Core.Typeof(primal), P}(primal, partials)
 end
 
 function TangentBundle{N,B}(primal::B, partials::P) where {N, B, P}
-    @assert length(partials) == 2^N - 1
+    check_tangent_invariant(length(partials), N)
     TangentBundle{N, B, P}(primal, partials)
 end
 
@@ -147,13 +150,18 @@ struct TaylorBundle{N, B, P} <: AbstractTangentBundle{N, B}
     coeffs::P
 
     function TaylorBundle{N, B}(primal::B, coeffs::P) where {N, B, P}
-        @assert length(coeffs) == N
-        if isa(primal, TangentBundle)
-            @assert isa(coeffs[1], TangentBundle)
-        end
+        check_taylor_invariants(coeffs, primal, N)
         new{N, B, P}(primal, coeffs)
     end
 end
+
+function check_taylor_invariants(coeffs, primal, N)
+    @assert length(coeffs) == N
+    if isa(primal, TangentBundle)
+        @assert isa(coeffs[1], TangentBundle)
+    end
+end
+@ChainRulesCore.non_differentiable check_taylor_invariants(coeffs, primal, N)
 
 function TaylorBundle{N}(primal, coeffs) where {N}
     TaylorBundle{N, Core.Typeof(primal)}(primal, coeffs)
@@ -230,6 +238,10 @@ function unbundle(atb::TaylorBundle{Order, A}) where {Order, Dim, T, A<:Abstract
     StructArray{TaylorBundle{Order, T}}((atb.primal, atb.coeffs...))
 end
 
+function ChainRulesCore.rrule(::typeof(unbundle), atb::TaylorBundle)
+    unbundle(atb), Δ->throw(Δ)
+end
+
 function StructArrays.staticschema(::Type{<:TaylorBundle{N, B, T}}) where {N, B, T}
     Tuple{B, T.parameters...}
 end
@@ -245,6 +257,10 @@ end
 
 function unbundle(zb::ZeroBundle{N, A}) where {N,T,Dim,A<:AbstractArray{T, Dim}}
     StructArray{ZeroBundle{N, T}}((zb.primal, fill(zb.partial, size(zb.primal)...)))
+end
+
+function ChainRulesCore.rrule(::typeof(unbundle), atb::ZeroBundle)
+    unbundle(atb), Δ->throw(Δ)
 end
 
 function StructArrays.createinstance(T::Type{<:ZeroBundle}, args...)
@@ -265,4 +281,8 @@ function rebundle(A::AbstractArray{<:TaylorBundle{N}}) where {N}
         ntuple(N) do i
             map(x->x.coeffs[i], A)
         end)
+end
+
+function ChainRulesCore.rrule(::typeof(rebundle), atb)
+    rebundle(atb), Δ->throw(Δ)
 end

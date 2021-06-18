@@ -51,6 +51,8 @@ function simple_control_flow(b, x)
     end
 end
 
+isa_control_flow(::Type{T}, x) where {T} = isa(x, T) ? x : T(x)
+
 # Simple Reverse Mode tests
 let var"'" = Diffractor.PrimeDerivativeBack
     # Integration tests
@@ -76,6 +78,7 @@ let var"'" = Diffractor.PrimeDerivativeBack
 
     @test @inferred((x->simple_control_flow(true, x))'(1.0)) == sin'(1.0)
     @test @inferred((x->simple_control_flow(false, x))'(1.0)) == cos'(1.0)
+    @test (x->sum(isa_control_flow(Matrix{Float64}, x)))'(Float32[1 2;]) == [1.0 1.0;]
 end
 
 # Simple Forward Mode tests
@@ -95,6 +98,16 @@ let var"'" = Diffractor.PrimeDerivativeFwd
     @test sin''''''(1.0) == -sin(1.0)
     @test cos''''''(1.0) == -cos(1.0)
     @test exp''''''(1.0) == exp(1.0)
+end
+
+# Some Basic Mixed Mode tests
+function sin_twice_fwd(x)
+    let var"'" = Diffractor.PrimeDerivativeFwd
+            sin''(x)
+    end
+end
+let var"'" = Diffractor.PrimeDerivativeFwd
+    @test sin_twice_fwd'(1.0) == sin'''(1.0)
 end
 
 include("pinn.jl")

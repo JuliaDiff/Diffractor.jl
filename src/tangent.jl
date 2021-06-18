@@ -188,8 +188,8 @@ UniformBundle{N}(primal, partial::U) where {N,U} = UniformBundle{N, Core.Typeof(
 UniformBundle{N, <:Any, U}(primal, partial::U) where {N, U} = UniformBundle{N, Core.Typeof(primal), U}(primal, U.instance)
 UniformBundle{N, <:Any, U}(primal) where {N, U} = UniformBundle{N, Core.Typeof(primal), U}(primal, U.instance)
 
-const ZeroBundle{N, B} = UniformBundle{N, B, Zero}
-const DNEBundle{N, B} = UniformBundle{N, B, DoesNotExist}
+const ZeroBundle{N, B} = UniformBundle{N, B, ZeroTangent}
+const DNEBundle{N, B} = UniformBundle{N, B, NoTangent}
 
 Base.getindex(u::UniformBundle, ::TaylorTangentIndex) = u.partial
 
@@ -207,7 +207,7 @@ CompositeBundle{N, B}(tup::T) where {N, B, T} = CompositeBundle{N, B, T}(tup)
 
 function Base.getindex(tb::CompositeBundle{N, B} where N, tti::TaylorTangentIndex) where {B}
     B <: SArray && error()
-    Composite{B}(map(tb.tup) do el
+    Tangent{B}(map(tb.tup) do el
         el[tti]
     end...)
 end

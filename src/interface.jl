@@ -71,7 +71,7 @@ struct ∂xⁿ{N}; end
 (::∂xⁿ)(x) = error("Tangent space not defined for `$(typeof(x)).")
 
 function ChainRules.rrule(∂::∂xⁿ, x)
-    ∂(x), Δ->(NO_FIELDS, Δ.primal)
+    ∂(x), Δ->(NoTangent(), Δ.primal)
 end
 
 """

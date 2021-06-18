@@ -1,7 +1,8 @@
 using Diffractor
 using Diffractor: var"'", ∂⃖
 using ChainRules
-using ChainRules: ZeroTangent
+using ChainRulesCore
+using ChainRules: ZeroTangent, NoTangent
 using Symbolics
 
 using Test
@@ -14,10 +15,10 @@ function tup2(f)
     f((4,))
 end
 
-@test tup2(tuple) == (ZeroTangent(), 4)
+@test tup2(tuple) == (NoTangent(), 4)
 
 my_tuple(args...) = args
-ChainRules.rrule(::typeof(my_tuple), args...) = args, Δ->Core.tuple(NO_FIELDS, Δ...)
+ChainRules.rrule(::typeof(my_tuple), args...) = args, Δ->Core.tuple(NoTangent(), Δ...)
 @test tup2(my_tuple) == (ZeroTangent(), 4)
 
 # Check characteristic of exp rule

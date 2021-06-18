@@ -1,4 +1,4 @@
-using ChainRulesCore: NO_FIELDS
+using ChainRulesCore: NoTangent
 using Base.Experimental: @opaque
 
 struct ∂⃖rrule{N}; end
@@ -85,7 +85,7 @@ end
             (x12, x11)
         end
     end)))), ((x11, x12),)->begin
-        (NO_FIELDS, x12(x11)...)
+        (NoTangent(), x12(x11)...)
     end
 end
 
@@ -106,11 +106,11 @@ end
 
 struct ∂⃖weaveOuterOdd{N, O}; end
 @Base.aggressive_constprop function (w::∂⃖weaveOuterOdd{N, N})((Δ′′, Δ′′′)) where {N}
-    return (NO_FIELDS, Δ′′′(Δ′′)...)
+    return (NoTangent(), Δ′′′(Δ′′)...)
 end
 @Base.aggressive_constprop function (w::∂⃖weaveOuterOdd{N, O})((Δ′′, Δ′′′)) where {N, O}
     @destruct α, ᾱ = Δ′′′(Δ′′)
-    return (NO_FIELDS, α...), ∂⃖weaveOuterEven{plus1(N), O}(ᾱ)
+    return (NoTangent(), α...), ∂⃖weaveOuterEven{plus1(N), O}(ᾱ)
 end
 struct ∂⃖weaveOuterEven{N, O}; ᾱ end
 @Base.aggressive_constprop function (w::∂⃖weaveOuterEven{N, O})(Δ⁴...) where {N, O}
@@ -217,7 +217,7 @@ end
     getfield(s, field), let P = typeof(s)
         @Base.aggressive_constprop Δ->begin
             nt = NamedTuple{(field,)}((Δ,))
-            (NO_FIELDS, Tangent{P, typeof(nt)}(nt), NO_FIELDS)
+            (NoTangent(), Tangent{P, typeof(nt)}(nt), NoTangent())
         end
     end
 end
@@ -225,11 +225,11 @@ end
 struct ∂⃖getfield{n, f}; end
 @Base.aggressive_constprop function (::∂⃖getfield{n, f})(Δ) where {n,f}
     if @generated
-        return Expr(:call, tuple, NO_FIELDS,
+        return Expr(:call, tuple, NoTangent(),
             Expr(:call, tuple, (i == f ? :(Δ) : ZeroTangent() for i = 1:n)...),
-            NO_FIELDS)
+            NoTangent())
     else
-        return (NO_FIELDS, ntuple(i->i == f ? Δ : ZeroTangent(), n), NO_FIELDS)
+        return (NoTangent(), ntuple(i->i == f ? Δ : ZeroTangent(), n), NoTangent())
     end
 end
 
@@ -259,7 +259,7 @@ function (::∂⃖{N})(::typeof(Core.getfield), s, field::Symbol) where {N}
         EvenOddOdd{1, c_order(N)}(
             (@Base.aggressive_constprop Δ->begin
                 nt = NamedTuple{(field,)}((Δ,))
-                (NO_FIELDS, Tangent{P, typeof(nt)}(nt), NO_FIELDS)
+                (NoTangent(), Tangent{P, typeof(nt)}(nt), NoTangent())
             end),
             (@Base.aggressive_constprop (_, Δs, _)->begin
                 isa(Δs, Union{ZeroTangent, NoTangent}) ? Δs : getfield(ChainRulesCore.backing(Δs), field)
@@ -274,7 +274,7 @@ function (::∂⃖{N})(::typeof(Base.getindex), a::Array, inds...) where {N}
             (@Base.aggressive_constprop Δ->begin
                 BB = zero(a)
                 BB[inds...] = Δ
-                (NO_FIELDS, BB, map(x->NO_FIELDS, inds)...)
+                (NoTangent(), BB, map(x->NoTangent(), inds)...)
             end),
             (@Base.aggressive_constprop (_, Δ, _)->begin
                 getindex(Δ, inds...)
@@ -284,14 +284,14 @@ end
 
 function (::∂⃖{N})(::typeof(Core.tuple), args...) where {N}
     Core.tuple(args...), EvenOddOdd{1, c_order(N)}(
-        Δ->Core.tuple(NO_FIELDS, Δ...),
+        Δ->Core.tuple(NoTangent(), Δ...),
         (Δ...)->Core.tuple(Δ[2:end]...)
     )
 end
 
 struct UnApply{Spec}; end
 @generated function (::UnApply{Spec})(Δ) where Spec
-    args = Any[NO_FIELDS, NO_FIELDS, :(Δ[1])]
+    args = Any[NoTangent(), NoTangent(), :(Δ[1])]
     start = 2
     for l in Spec
         push!(args, :(Δ[$(start:(start+l-1))]))

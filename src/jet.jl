@@ -34,12 +34,14 @@ function Base.:+(j::Jet{T, N}, x::T) where {T, N}
     Jet{T, N}(j.a, j.f₀+x, j.fₙ)
 end
 
+struct One; end
+
 function Base.:+(j::Jet, x::One)
     j + one(j[0])
 end
 
 function ChainRulesCore.rrule(::typeof(+), j::Jet, x::One)
-    j + x, Δ->(NO_FIELDS, One(), ZeroTangent())
+    j + x, Δ->(NoTangent(), One(), ZeroTangent())
 end
 
 function Base.zero(j::Jet{T, N}) where {T, N}
@@ -49,7 +51,7 @@ function Base.zero(j::Jet{T, N}) where {T, N}
     end
 end
 function ChainRulesCore.rrule(::typeof(Base.zero), j::Jet)
-    zero(j), Δ->(NO_FIELDS, ZeroTangent())
+    zero(j), Δ->(NoTangent(), ZeroTangent())
 end
 
 function Base.getindex(j::Jet{T, N}, i::Integer) where {T, N}
@@ -66,17 +68,17 @@ function integrate(j::Jet{T, N}) where {T, N}
     Jet{T, N+1}(j.a, zero(j.f₀), tuple(j.f₀, j.fₙ...))
 end
 
-deriv(::DoesNotExist) = DoesNotExist()
-integrate(::DoesNotExist) = DoesNotExist()
+deriv(::NoTangent) = NoTangent()
+integrate(::NoTangent) = NoTangent()
 
 antideriv(j, Δ) = integrate(zero(j) + Δ)
 
 function ChainRulesCore.rrule(::typeof(deriv), j::Jet)
-    deriv(j), Δ->(NO_FIELDS, antideriv(j, Δ))
+    deriv(j), Δ->(NoTangent(), antideriv(j, Δ))
 end
 
 function ChainRulesCore.rrule(::typeof(integrate), j::Jet)
-    integrate(j), Δ->(NO_FIELDS, deriv(Δ))
+    integrate(j), Δ->(NoTangent(), deriv(Δ))
 end
 
 function Base.show(io::IO, j::Jet)
@@ -132,42 +134,42 @@ end
 aldot(a, b::TaylorBundle) = a * b.primal
 
 *ₐₗ(a, b) = a * b
-function *ₐₗ(a::Composite{T}, b::TaylorBundle) where {N,B,T<:TaylorBundle{N,B}}
+function *ₐₗ(a::Tangent{T}, b::TaylorBundle) where {N,B,T<:TaylorBundle{N,B}}
     # TODO: More general implementation of this
     bb = TaylorBundle{N}(a.primal, a.coeffs)
     cs = ntuple(1 + length(bb.coeffs)) do i
         aldot(tderiv(bb, i-1), b)
     end
-    Composite{T}(;primal = cs[1], coeffs = cs[2:end])
+    Tangent{T}(;primal = cs[1], coeffs = cs[2:end])
 end
 
 function ChainRulesCore.rrule(j::Jet, x)
     z = j(x)
     z, let djx = deriv(j)(x)
         function (Δ)
-            (DoesNotExist(), Δ *ₐₗ djx)
+            (NoTangent(), Δ *ₐₗ djx)
         end
     end
 end
 
 function ChainRulesCore.rrule(::typeof(map), ::typeof(*), a, b)
-    map(*, a, b), Δ->(NO_FIELDS, NO_FIELDS, map(*, Δ, b), map(*, a, Δ))
+    map(*, a, b), Δ->(NoTangent(), NoTangent(), map(*, Δ, b), map(*, a, Δ))
 end
 
 ChainRulesCore.rrule(::typeof(map), ::typeof(integrate), js::Array{<:Jet}) =
-    map(integrate, js), Δ->(NO_FIELDS, NO_FIELDS, map(deriv, Δ))
+    map(integrate, js), Δ->(NoTangent(), NoTangent(), map(deriv, Δ))
 
 struct derivBack
     js
 end
-(d::derivBack)(Δ::Union{ZeroTangent, DoesNotExist}) = (NO_FIELDS, NO_FIELDS, Δ)
-(d::derivBack)(Δ::Array) = (NO_FIELDS, NO_FIELDS, broadcast(antideriv, d.js, Δ))
+(d::derivBack)(Δ::Union{ZeroTangent, NoTangent}) = (NoTangent(), NoTangent(), Δ)
+(d::derivBack)(Δ::Array) = (NoTangent(), NoTangent(), broadcast(antideriv, d.js, Δ))
 
 ChainRulesCore.rrule(::typeof(map), ::typeof(deriv), js::Array{<:Jet}) =
     map(deriv, js), derivBack(js)
 
 ChainRulesCore.rrule(::typeof(map), ::typeof(antideriv), js::Array{<:Jet}, Δ) =
-    map(antideriv, js, Δ), Δ->(NO_FIELDS, NO_FIELDS, map(deriv, Δ), One())
+    map(antideriv, js, Δ), Δ->(NoTangent(), NoTangent(), map(deriv, Δ), One())
 
 function mapev(js::Array{<:Jet}, xs::AbstractArray)
     map((j,x)->j(x), js, xs)
@@ -175,7 +177,7 @@ end
 
 function ChainRulesCore.rrule(::typeof(mapev), js::Array{<:Jet}, xs::AbstractArray)
     mapev(js, xs), let djs=map(deriv, js)
-        Δ->(NO_FIELDS, DoesNotExist(), map(*, Δ, mapev(djs, xs)))
+        Δ->(NoTangent(), NoTangent(), map(*, Δ, mapev(djs, xs)))
     end
 end
 

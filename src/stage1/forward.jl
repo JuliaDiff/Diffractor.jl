@@ -1,7 +1,7 @@
 partial(x::TangentBundle, i) = x.partials[i]
 partial(x::TaylorBundle{1}, i) = x.coeffs[i]
 partial(x::UniformBundle, i) = x.partial
-partial(x::CompositeBundle{N, B}, i) where {N, B} = Composite{B}(map(x->partial(x, i), x.tup)...)
+partial(x::CompositeBundle{N, B}, i) where {N, B} = Tangent{B}(map(x->partial(x, i), x.tup)...)
 partial(x::ZeroTangent, i) = ZeroTangent()
 primal(x::AbstractTangentBundle) = x.primal
 primal(z::ZeroTangent) = ZeroTangent()
@@ -95,7 +95,7 @@ function shuffle_up(r::UniformBundle{N, B, U}) where {N, B, U}
     (a, b) = primal(r)
     if r.partial === b
         u = b
-    elseif b == DoesNotExist() && U === Zero
+    elseif b == NoTangent() && U === ZeroTangent
         u = b
     else
         error()

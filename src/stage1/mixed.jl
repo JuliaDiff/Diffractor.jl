@@ -84,7 +84,7 @@ end
 
 
 function ChainRules.rrule(∂::∂☆{N}, m::ZeroBundle{N, typeof(map)}, p::ZeroBundle{N, typeof(+)}, A::ATB{N}, B::ATB{N}) where {N}
-    ∂(m, p, A, B), Δ->(NO_FIELDS, NO_FIELDS, NO_FIELDS, Δ, Δ)
+    ∂(m, p, A, B), Δ->(NoTangent(), NoTangent(), NoTangent(), Δ, Δ)
 end
 
 mapev_unbundled(_, js, a) = rebundle(mapev(js, unbundle(a)))

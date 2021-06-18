@@ -1,5 +1,5 @@
 using StructArrays
-using ChainRulesCore: NO_FIELDS
+using ChainRulesCore: NoTangent
 
 struct ∇getindex{T,S}
     xs::T
@@ -9,7 +9,7 @@ end
 function (g::∇getindex)(Δ)
     Δ′ = zero(g.xs)
     Δ′[g.i...] = Δ
-    (ChainRulesCore.NO_FIELDS, Δ′, map(_ -> nothing, g.i)...)
+    (ChainRulesCore.NoTangent(), Δ′, map(_ -> nothing, g.i)...)
 end
 
 function ChainRulesCore.rrule(g::∇getindex, Δ)
@@ -39,7 +39,7 @@ end
 
 function ChainRulesCore.rrule(::typeof(assert_gf), f)
     assert_gf(f), Δ->begin
-        (NO_FIELDS, NO_FIELDS)
+        (NoTangent(), NoTangent())
     end
 end
 
@@ -48,21 +48,21 @@ function ChainRulesCore.rrule(::typeof(map), f, xs::Vector...)
     assert_gf(f)
     primal, dual = reversediff_array(f, xs...)
     primal, Δ->begin
-        (NO_FIELDS, NO_FIELDS, ntuple(i->map(*, getfield(dual, i), Δ), length(dual))...)
+        (NoTangent(), NoTangent(), ntuple(i->map(*, getfield(dual, i), Δ), length(dual))...)
     end
 end
 =#
 
 function ChainRulesCore.rrule(::typeof(*), A::AbstractVecOrMat, B::AbstractVecOrMat)
     function times_pullback(Ȳ)
-        return (NO_FIELDS, Ȳ * Base.adjoint(B), Base.adjoint(A) * Ȳ)
+        return (NoTangent(), Ȳ * Base.adjoint(B), Base.adjoint(A) * Ȳ)
     end
     return A * B, times_pullback
 end
 
 function ChainRulesCore.rrule(::typeof(*), A::AbstractVector{<:ChainRules.CommutativeMulNumber}, B::AbstractMatrix{<:ChainRules.CommutativeMulNumber})
     function times_pullback(Ȳ)
-        return (NO_FIELDS, Ȳ * Base.adjoint(B), Base.adjoint(A) * Ȳ)
+        return (NoTangent(), Ȳ * Base.adjoint(B), Base.adjoint(A) * Ȳ)
     end
     return A * B, times_pullback
 end
@@ -78,7 +78,7 @@ function ChainRulesCore.rrule(::typeof(map), f, xs::Vector)
     arrs = reversediff_array(f, xs)
     primal = getfield(arrs, 1)
     primal, let dual = getfield(arrs, 2)
-        Δ->(NO_FIELDS, NO_FIELDS, map(*, dual, unthunk(Δ)))
+        Δ->(NoTangent(), NoTangent(), map(*, dual, unthunk(Δ)))
     end
 end
 =#
@@ -89,7 +89,7 @@ function ChainRulesCore.rrule(::typeof(map), f, xs::Vector, ys::Vector)
     arrs = reversediff_array(f, xs, ys)
     primal = getfield(arrs, 1)
     primal, let dual = tail(arrs)
-        Δ->(NO_FIELDS, NO_FIELDS, map(*, getfield(dual, 1), Δ), map(*, getfield(dual, 2), Δ))
+        Δ->(NoTangent(), NoTangent(), map(*, getfield(dual, 1), Δ), map(*, getfield(dual, 2), Δ))
     end
 end
 =#
@@ -97,13 +97,13 @@ end
 xsum(x::Vector) = sum(x)
 function ChainRulesCore.rrule(::typeof(xsum), x::Vector)
     xsum(x), let xdims=size(x)
-        Δ->(NO_FIELDS, xfill(Δ, xdims...))
+        Δ->(NoTangent(), xfill(Δ, xdims...))
     end
 end
 
 xfill(x, dims...) = fill(x, dims...)
 function ChainRulesCore.rrule(::typeof(xfill), x, dim)
-    xfill(x, dim), Δ->(NO_FIELDS, xsum(Δ), NO_FIELDS)
+    xfill(x, dim), Δ->(NoTangent(), xsum(Δ), NoTangent())
 end
 
 struct NonDiffEven{N, O, P}; end
@@ -121,7 +121,7 @@ struct NonDiffOdd{N, O, P}; end
 end
 
 function ChainRulesCore.rrule(::typeof(Core.tuple), args...)
-    Core.tuple(args...), Δ->Core.tuple(NO_FIELDS, Δ...)
+    Core.tuple(args...), Δ->Core.tuple(NoTangent(), Δ...)
 end
 
 ChainRulesCore.canonicalize(::ChainRulesCore.ZeroTangent) = ChainRulesCore.ZeroTangent()
@@ -129,7 +129,7 @@ ChainRulesCore.canonicalize(::ChainRulesCore.ZeroTangent) = ChainRulesCore.ZeroT
 # Skip AD'ing through the axis computation
 function ChainRules.rrule(::typeof(Base.Broadcast.instantiate), bc::Base.Broadcast.Broadcasted)
     return Base.Broadcast.instantiate(bc), Δ->begin
-        Core.tuple(NO_FIELDS, Δ)
+        Core.tuple(NoTangent(), Δ)
     end
 end
 
@@ -141,7 +141,7 @@ using StaticArrays
 
 struct to_tuple{N}; end
 @generated function (::to_tuple{N})(Δ) where {N}
-    :( (NO_FIELDS, Core.tuple( $( ( :(Δ[$i]) for i = 1:N )...) )) )
+    :( (NoTangent(), Core.tuple( $( ( :(Δ[$i]) for i = 1:N )...) )) )
 end
 (::to_tuple)(Δ::SArray) = getfield(Δ, :data)
 
@@ -168,25 +168,25 @@ function ChainRules.frule((_, ∂A), ::typeof(getindex), A::AbstractArray, args.
 end
 
 function ChainRules.rrule(::typeof(map), ::typeof(+), A::AbstractArray, B::AbstractArray)
-    map(+, A, B), Δ->(NO_FIELDS, NO_FIELDS, Δ, Δ)
+    map(+, A, B), Δ->(NoTangent(), NoTangent(), Δ, Δ)
 end
 
 function ChainRules.rrule(::typeof(map), ::typeof(+), A::AbstractVector, B::AbstractVector)
-    map(+, A, B), Δ->(NO_FIELDS, NO_FIELDS, Δ, Δ)
+    map(+, A, B), Δ->(NoTangent(), NoTangent(), Δ, Δ)
 end
 
 function ChainRules.rrule(AT::Type{<:Array{T,N}}, x::AbstractArray{S,N}) where {T,S,N}
     # We're leaving these in the eltype that the cotangent vector already has.
     # There isn't really a good reason to believe we should convert to the
     # original array type, so don't unless explicitly requested.
-    AT(x), Δ->(NO_FIELDS, Δ)
+    AT(x), Δ->(NoTangent(), Δ)
 end
 
 function ChainRules.rrule(AT::Type{<:Array}, undef::UndefInitializer, args...)
     # We're leaving these in the eltype that the cotangent vector already has.
     # There isn't really a good reason to believe we should convert to the
     # original array type, so don't unless explicitly requested.
-    AT(undef, args...), Δ->(NO_FIELDS, NO_FIELDS, ntuple(_->NO_FIELDS, length(args))...)
+    AT(undef, args...), Δ->(NoTangent(), NoTangent(), ntuple(_->NoTangent(), length(args))...)
 end
 
 function unzip_tuple(t::Tuple)
@@ -194,7 +194,7 @@ function unzip_tuple(t::Tuple)
 end
 
 function ChainRules.rrule(::typeof(unzip_tuple), args::Tuple)
-    unzip_tuple(args), Δ->(NO_FIELDS, map((x,y)->(x,y), Δ...))
+    unzip_tuple(args), Δ->(NoTangent(), map((x,y)->(x,y), Δ...))
 end
 
 struct BackMap{T}
@@ -208,11 +208,11 @@ function ChainRules.rrule(::typeof(map), f, args::Tuple)
     a, b = unzip_tuple(map(BackMap(f), args))
     function back(Δ)
         (fs, xs) = unzip_tuple(map(back_apply, b, Δ))
-        (NO_FIELDS, sum(fs), xs)
+        (NoTangent(), sum(fs), xs)
     end
-    function back(Δ::Zero)
+    function back(Δ::ZeroTangent)
         (fs, xs) = unzip_tuple(map(back_apply_zero, b))
-        (NO_FIELDS, sum(fs), xs)
+        (NoTangent(), sum(fs), xs)
     end
     a, back
 end
@@ -220,7 +220,7 @@ end
 function ChainRules.rrule(::typeof(Base.ntuple), f, n)
     a, b = unzip_tuple(ntuple(BackMap(f), n))
     a, function (Δ)
-        (NO_FIELDS, sum(map(back_apply, b, Δ)), DoesNotExist())
+        (NoTangent(), sum(map(back_apply, b, Δ)), NoTangent())
     end
 end
 
@@ -231,4 +231,4 @@ end
 @ChainRules.non_differentiable Base.:(|)(a::Integer, b::Integer)
 @ChainRules.non_differentiable Base.throw(err)
 @ChainRules.non_differentiable Core.Compiler.return_type(args...)
-ChainRulesCore.canonicalize(::DoesNotExist) = DoesNotExist()
+ChainRulesCore.canonicalize(::NoTangent) = NoTangent()

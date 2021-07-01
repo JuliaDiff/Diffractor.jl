@@ -153,7 +153,8 @@ struct ∂⃖rruleC{N, O}; ȳ̄ ; Δ′′′; β̄ ; end
 struct ∂⃖rruleD{N, O}; γ̄; β̄ ; end
 
 @Base.aggressive_constprop function (a::∂⃖rruleA{N, O})(Δ) where {N, O}
-    @destruct (α, ᾱ) = a.∂(a.ȳ, Δ)
+    # TODO: Is this unthunk in the right place
+    @destruct (α, ᾱ) = a.∂(a.ȳ, unthunk(Δ))
     (α, ∂⃖rruleB{N, O}(ᾱ, a.ȳ̄))
 end
 
@@ -211,6 +212,18 @@ end
 
 @Base.pure function (::∂⃖{1})(::typeof(Core.apply_type), head, args...)
     return rrule(Core.apply_type, head, args...)
+end
+
+struct KwFunc{T}; f::T; end
+(kw::KwFunc)(args...) = Core.kwfunc(kw.f)(args...)
+function ChainRulesCore.rrule(::typeof(Core.kwfunc), f)
+    KwFunc(f), Δ->(NoTangent(), Δ)
+end
+function ChainRulesCore.rrule(::KwFunc, kwargs, f, args...)
+    x, back = Core.kwfunc(rrule)(kwargs, rrule, f, args...)
+    x, Δ->begin
+        (NoTangent(), NoTangent(), back(Δ)...)
+    end
 end
 
 @Base.aggressive_constprop function ChainRulesCore.rrule(::typeof(Core.getfield), s, field::Symbol)
@@ -282,11 +295,16 @@ function (::∂⃖{N})(::typeof(Base.getindex), a::Array, inds...) where {N}
     end
 end
 
-function (::∂⃖{N})(::typeof(Core.tuple), args...) where {N}
-    Core.tuple(args...), EvenOddOdd{1, c_order(N)}(
-        Δ->Core.tuple(NoTangent(), Δ...),
-        (Δ...)->Core.tuple(Δ[2:end]...)
-    )
+struct tuple_back{M}; end
+(::tuple_back)(Δ::Tuple) = Core.tuple(NoTangent(), Δ...)
+(::tuple_back{N})(Δ::NoTangent) where {N} = Core.tuple(NoTangent(), ntuple(i->NoTangent(), N)...)
+
+function (::∂⃖{N})(::typeof(Core.tuple), args::Vararg{Any, M}) where {N, M}
+    Core.tuple(args...),
+        EvenOddOdd{1, c_order(N)}(
+            tuple_back{M}(),
+            (Δ...)->Core.tuple(Δ[2:end]...)
+        )
 end
 
 struct UnApply{Spec}; end

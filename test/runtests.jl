@@ -111,4 +111,7 @@ let var"'" = Diffractor.PrimeDerivativeFwd
     @test sin_twice_fwd'(1.0) == sin'''(1.0)
 end
 
+# Regression tests
+@test gradient(x -> sum(abs2, x .+ 1.0), zeros(3))[1] == [2.0, 2.0, 2.0]
+
 include("pinn.jl")

@@ -44,6 +44,11 @@ function transform_fwd!(ci, meth, nargs, sparams, N)
                 emit!(mapstmt!(stmt))
             end
             return Expr(:call, ∂☆new{N}(), args...)
+        elseif isexpr(stmt, :splatnew)
+            args = map(stmt.args) do stmt
+                emit!(mapstmt!(stmt))
+            end
+            return Expr(:call, Core._apply_iterate, FwdIterate(ZeroBundle{N}(iterate)), ∂☆new{N}(), emit!(Expr(:call, tuple, args[1])), args[2:end]...)
         elseif isa(stmt, SSAValue)
             return SSAValue(ssa_mapping[stmt.id])
         elseif isa(stmt, Core.SlotNumber)

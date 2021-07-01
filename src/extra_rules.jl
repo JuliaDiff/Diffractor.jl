@@ -53,20 +53,41 @@ function ChainRulesCore.rrule(::typeof(map), f, xs::Vector...)
 end
 =#
 
-function ChainRulesCore.rrule(::typeof(*), A::AbstractVecOrMat, B::AbstractVecOrMat)
+# Disable thunk versions of ChainRules, which interfere with higher order AD
+
+function rrule_times(::typeof(*), A::AbstractVecOrMat, B::AbstractVecOrMat)
     function times_pullback(Ȳ)
         return (NoTangent(), Ȳ * Base.adjoint(B), Base.adjoint(A) * Ȳ)
     end
     return A * B, times_pullback
 end
 
-function ChainRulesCore.rrule(::typeof(*), A::AbstractVector{<:ChainRules.CommutativeMulNumber}, B::AbstractMatrix{<:ChainRules.CommutativeMulNumber})
+function rrule_times(::typeof(*), A::AbstractVector{<:ChainRules.CommutativeMulNumber}, B::AbstractMatrix{<:ChainRules.CommutativeMulNumber})
     function times_pullback(Ȳ)
         return (NoTangent(), Ȳ * Base.adjoint(B), Base.adjoint(A) * Ȳ)
     end
     return A * B, times_pullback
 end
 
+rrule_times(::typeof(*), args...) = rrule(*, args...)
+
+function (::∂⃖{N})(f::typeof(*), args...) where {N}
+    if N == 1
+        z = rrule_times(f, args...)
+        if z === nothing
+            return ∂⃖recurse{1}()(f, args...)
+        end
+        return z
+    else
+        ∂⃖p = ∂⃖{minus1(N)}()
+        @destruct z, z̄ = ∂⃖p(rrule_times, f, args...)
+        if z === nothing
+            return ∂⃖recurse{N}()(f, args...)
+        else
+            return ∂⃖rrule{N}()(z, z̄)
+        end
+    end
+end
 
 function ChainRulesCore.frule((_, ∂A, ∂B), ::typeof(*), A::AbstractMatrix{<:Real}, B::AbstractVector{<:Real})
     return (A * B, ∂A * B + A * ∂B)

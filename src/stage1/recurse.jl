@@ -6,27 +6,6 @@ using Core.Compiler: MethodInstance, IncrementalCompact, insert_node_here!,
 
 using Base.Meta
 
-function renumber_cfg!(cfg, code)
-    for idx in 1:length(code)
-        stmt = code[idx]
-        # Convert GotoNode/GotoIfNot/PhiNode to BB addressing
-        if isa(stmt, GotoNode)
-            code[idx] = GotoNode(block_for_inst(cfg, stmt.label))
-        elseif isexpr(stmt, :gotoifnot)
-            new_dest = block_for_inst(cfg, stmt.args[2])
-            if new_dest == block_for_inst(cfg, idx)+1
-                # Drop this node - it's a noop
-                code[idx] = stmt.args[1]
-            else
-                code[idx] = GotoIfNot(stmt.args[1], new_dest)
-            end
-        elseif isexpr(stmt, :enter)
-            code[idx] = Expr(:enter, block_for_inst(cfg, stmt.args[1]))
-            ssavalmap[idx] = SSAValue(idx) # Slot to store token for pop_exception
-        end
-    end
-end
-
 cname(nc, N, name) = Symbol(string("∂⃖", superscript(N), subscript(nc), name))
 
 using Core.Compiler: construct_domtree, scan_slot_def_use, construct_ssa!,
@@ -39,6 +18,14 @@ struct ∂ϕNode; end
 struct BBEnv
     ctx_obj::Any
     bb_start_idx::Int
+end
+
+const debug = false
+
+function check_back(nargs, covecs, msg)
+    if length(covecs) != nargs
+        error("Reverse for stmt `$msg` returned incorrect number of covectors (`$(typeof(covecs))`)")
+    end
 end
 
 function expand_switch(code::Vector{Any}, bb_ranges::Vector{UnitRange{Int}}, slot_map)
@@ -102,7 +89,6 @@ function transform!(ci, meth, nargs, sparams, N)
 
     code = ci.code
     cfg = compute_basic_blocks(code)
-    renumber_cfg!(cfg, code)
     slotnames = Symbol[Symbol("#self#"), :args, ci.slotnames...]
     slotflags = UInt8[(0x00 for i = 1:2)..., ci.slotflags...]
     slottypes = UInt8[(0x00 for i = 1:2)..., ci.slotflags...]
@@ -274,6 +260,9 @@ function transform!(ci, meth, nargs, sparams, N)
                     vecs = insert_node_rev!(Expr(:call, getfield, call, 1))
                     revs[nc+1][i] = insert_node_rev!(Expr(:call, getfield, call, 2))
                 end
+                if debug
+                    insert_node_rev!(Expr(:call, check_back, length(stmt.args), vecs, string(stmt)))
+                end
                 for (j, arg) in enumerate(stmt.args)
                     if is_accumable(arg)
                         accum!(arg, insert_node_rev!(Expr(:call, getfield, vecs, j)))
@@ -288,8 +277,9 @@ function transform!(ci, meth, nargs, sparams, N)
                 # No gradient accumulation for zero-argument structs
                 if length(stmt.args) != 1
                     # TODO: Use newT here?
-                    canon = insert_node_rev!(Expr(:call, ChainRulesCore.canonicalize, Δ))
-                    nt = insert_node_rev!(Expr(:call, ChainRulesCore.backing, canon))
+                    #canon = insert_node_rev!(Expr(:call, ChainRulesCore.canonicalize, Δ))
+                    #nt = insert_node_rev!(Expr(:call, ChainRulesCore.backing, canon))
+                    nt = Δ
                     for (j, arg) in enumerate(stmt.args)
                         j == 1 && continue
                         if is_accumable(arg)
@@ -298,19 +288,23 @@ function transform!(ci, meth, nargs, sparams, N)
                     end
                 end
             elseif isexpr(stmt, :splatnew)
+                @assert length(stmt.args) == 2
                 Δ = do_accum(SSAValue(i))
                 newT = retrieve_ctx_obj(current_env, i)
                 if nc != n_closures
                     revs[nc+1][i] = newT
                 end
-                canon = insert_node_rev!(Expr(:call, ChainRulesCore.canonicalize, Δ))
-                nt = insert_node_rev!(Expr(:call, ChainRulesCore.backing, canon))
+                #canon = insert_node_rev!(Expr(:call, ChainRulesCore.canonicalize, Δ))
+                #nt = insert_node_rev!(Expr(:call, ChainRulesCore.backing, canon))
+                nt = Δ
                 arg = stmt.args[2]
                 if is_accumable(stmt.args[2])
                     accum!(stmt.args[2], nt)
                 end
             elseif isa(stmt, GlobalRef) || isexpr(stmt, :static_parameter) || isexpr(stmt, :throw_undef_if_not)
                 # We drop gradients for globals and static parameters
+            elseif isexpr(stmt, :inbounds)
+                # Nothing to do
             elseif isa(stmt, PhiNode)
                 Δ = do_accum(SSAValue(i))
                 @assert length(ir.cfg.blocks[bb].preds) >= 1
@@ -320,7 +314,6 @@ function transform!(ci, meth, nargs, sparams, N)
                     end
                     push!(phi_reserve[edge], val=>Δ)
                 end
-                # PhiNodes are ignored
             elseif isa(stmt, GotoNode)
                 current_env = BBEnv(ctx_map[stmt.label],
                     first(ir.cfg.blocks[bb].stmts))
@@ -451,6 +444,9 @@ function transform!(ci, meth, nargs, sparams, N)
         opaque_ci.ssaflags = UInt8[0 for i=1:length(code)]
     end
 
+    # TODO: This is absolutely aweful, but the best we can do given the data structures we have
+    has_terminator = [isa(ir.stmts[last(range)].inst, Union{GotoNode, GotoIfNot}) for range in orig_bb_ranges]
+
     compact = IncrementalCompact(ir)
 
     arg_mapping = Any[]
@@ -518,14 +514,17 @@ function transform!(ci, meth, nargs, sparams, N)
             if length(preds) == 1
                 pred = preds[]
                 tup = my_insert_node!(compact, OldSSAValue(last(orig_bb_ranges[pred])),
-                    effect_free(NewInstruction(Expr(:call, tuple, rev[orig_bb_ranges[pred]]...))))
+                    effect_free(NewInstruction(Expr(:call, tuple, rev[orig_bb_ranges[pred]]...))),
+                    !has_terminator[pred])
                 compact[idx] = tup
             else
                 for (selector, pred) in enumerate(preds)
                     tup = my_insert_node!(compact, OldSSAValue(last(orig_bb_ranges[pred])),
-                        effect_free(NewInstruction(Expr(:call, tuple, rev[orig_bb_ranges[pred]]...))))
+                        effect_free(NewInstruction(Expr(:call, tuple, rev[orig_bb_ranges[pred]]...))),
+                        !has_terminator[pred])
                     ctx = my_insert_node!(compact, OldSSAValue(last(orig_bb_ranges[pred])),
-                        effect_free(NewInstruction(Expr(:call, tuple, selector, tup))))
+                        effect_free(NewInstruction(Expr(:call, tuple, selector, tup))),
+                        !has_terminator[pred])
                     push!(values, ctx)
                 end
                 compact[idx] = PhiNode(map(Int32, preds), values)
@@ -555,11 +554,14 @@ function transform!(ci, meth, nargs, sparams, N)
     ir = complete(compact)
     ir = compact!(ir)
 
+    Core.Compiler.verify_ir(ir)
+
     Core.Compiler.replace_code_newstyle!(ci, ir, nargs+1)
     ci.ssavaluetypes = length(ci.code)
     ci.slotnames = slotnames
     ci.slotflags = slotflags
     ci.slottypes = slottypes
+
 
     ci
 end

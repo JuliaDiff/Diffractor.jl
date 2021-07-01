@@ -177,7 +177,7 @@ end
 
 function ChainRulesCore.rrule(::typeof(mapev), js::Array{<:Jet}, xs::AbstractArray)
     mapev(js, xs), let djs=map(deriv, js)
-        Δ->(NoTangent(), NoTangent(), map(*, Δ, mapev(djs, xs)))
+        Δ->(NoTangent(), NoTangent(), map(*, unthunk(Δ), mapev(djs, xs)))
     end
 end
 

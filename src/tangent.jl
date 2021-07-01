@@ -219,7 +219,8 @@ function primal(b::CompositeBundle{N, T} where N) where T<:CompositeBundle
 end
 @generated primal(b::CompositeBundle{N, B} where N) where {B} =
     quote
-        $(Expr(:splatnew, B, :(map(primal, b.tup))))
+        x = map(primal, b.tup)
+        $(Expr(:splatnew, B, :x))
     end
 
 function unbundle(atb::TangentBundle{Order, A}) where {Order, Dim, T, A<:AbstractArray{T, Dim}}

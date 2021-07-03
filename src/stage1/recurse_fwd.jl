@@ -65,7 +65,7 @@ function transform_fwd!(ci, meth, nargs, sparams, N)
             return ZeroBundle{N}(sparams[stmt.args[1]])
         elseif isexpr(stmt, :foreigncall)
             return Expr(:call, error, "Attempted to AD a foreigncall. Missing rule?")
-        elseif isexpr(stmt, :meta)
+        elseif isexpr(stmt, :meta) || isexpr(stmt, :inbounds)
             # Can't trust that meta annotations are still valid in the AD'd
             # version.
             return nothing

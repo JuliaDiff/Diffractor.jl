@@ -223,12 +223,21 @@ end
         $(Expr(:splatnew, B, :x))
     end
 
+expand_singleton_to_array(asize, a::AbstractZero) = fill(a, asize...)
+expand_singleton_to_array(asize, a::AbstractArray) = a
+
 function unbundle(atb::TangentBundle{Order, A}) where {Order, Dim, T, A<:AbstractArray{T, Dim}}
-    StructArray{TangentBundle{Order, T}}((atb.primal, atb.partials...))
+    asize = size(atb.primal)
+    StructArray{TangentBundle{Order, T}}((atb.primal, map(a->expand_singleton_to_array(asize, a), atb.partials)...))
 end
 
 function StructArrays.staticschema(::Type{<:TangentBundle{N, B, T}}) where {N, B, T}
     Tuple{B, T.parameters...}
+end
+
+function StructArrays.component(m::TangentBundle{N, B, T}, i::Int) where {N, B, T}
+    i == 1 && return m.primal
+    return m.partials[i - 1]
 end
 
 function StructArrays.createinstance(T::Type{<:TangentBundle}, args...)
@@ -251,6 +260,10 @@ function StructArrays.staticschema(::Type{<:TaylorBundle{N, B}}) where {N, B}
     Tuple{B, Vararg{Any, N}}
 end
 
+function StructArrays.component(m::TaylorBundle{N, B}, i::Int) where {N, B, T}
+    i == 1 && return m.primal
+    return m.coeffs[i - 1]
+end
 
 function StructArrays.createinstance(T::Type{<:TaylorBundle}, args...)
     T(first(args), Base.tail(args))

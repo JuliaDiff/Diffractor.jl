@@ -114,4 +114,13 @@ end
 # Regression tests
 @test gradient(x -> sum(abs2, x .+ 1.0), zeros(3))[1] == [2.0, 2.0, 2.0]
 
+const fwd = Diffractor.PrimeDerivativeFwd
+const bwd = Diffractor.PrimeDerivativeFwd
+
+function f_broadcast(a)
+    l = a / 2.0 * [[0. 1. 1.]; [1. 0. 1.]; [1. 1. 0.]]
+    return sum(l)
+end
+@test fwd(f_broadcast)(1.0) == bwd(f_broadcast)(1.0)
+
 include("pinn.jl")

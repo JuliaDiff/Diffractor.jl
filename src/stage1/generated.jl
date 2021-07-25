@@ -189,6 +189,18 @@ function (::∂⃖rrule{N})(z, z̄) where {N}
     y, ∂⃖rruleA{term_depth(N), 1}(∂⃖{minus1(N)}(), ȳ, z̄)
 end
 
+function (::∂⃖{N})(f::Core.IntrinsicFunction, args...) where {N}
+    # A few intrinsic functions are inserted by the compiler, so they need to
+    # be handled here. Otherwise, we just throw an appropriate error.
+    if f === Core.Intrinsics.not_int && length(args) == 1
+        return f(args...), EvenOddOdd{1, c_order(N)}(
+            Δ->(NoTangent(), NoTangent()),
+            Δ->NoTangent())
+    end
+
+    error("Rewrite reached intrinsic function $f. Missing rule?")
+end
+
 # The static parameter on `f` disables the compileable_sig heuristic
 function (::∂⃖{N})(f::T, args...) where {T, N}
     if N == 1
@@ -297,7 +309,7 @@ end
 
 struct tuple_back{M}; end
 (::tuple_back)(Δ::Tuple) = Core.tuple(NoTangent(), Δ...)
-(::tuple_back{N})(Δ::NoTangent) where {N} = Core.tuple(NoTangent(), ntuple(i->NoTangent(), N)...)
+(::tuple_back{N})(Δ::AbstractZero) where {N} = Core.tuple(NoTangent(), ntuple(i->Δ, N)...)
 
 function (::∂⃖{N})(::typeof(Core.tuple), args::Vararg{Any, M}) where {N, M}
     Core.tuple(args...),
@@ -333,7 +345,7 @@ end
     a.u(r)
 end
 
-function (this::∂⃖{N})(::typeof(Core._apply_iterate), iterate, f, args::Tuple...) where {N}
+function (this::∂⃖{N})(::typeof(Core._apply_iterate), iterate, f, args::Union{Tuple, NamedTuple}...) where {N}
     @assert iterate === Base.iterate
     x, ∂⃖f = Core._apply_iterate(iterate, this, (f,), args...)
     return x, ApplyOdd{1, c_order(N)}(UnApply{map(length, args)}(), ∂⃖f)

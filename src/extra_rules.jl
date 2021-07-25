@@ -145,6 +145,9 @@ function ChainRulesCore.rrule(::typeof(Core.tuple), args...)
     Core.tuple(args...), Δ->Core.tuple(NoTangent(), Δ...)
 end
 
+# TODO: What to do about these integer rules
+@ChainRulesCore.non_differentiable Base.rem(a::Integer, b::Type)
+
 ChainRulesCore.canonicalize(::ChainRulesCore.ZeroTangent) = ChainRulesCore.ZeroTangent()
 
 # Skip AD'ing through the axis computation

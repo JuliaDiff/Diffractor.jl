@@ -1,7 +1,15 @@
 # Updated copy of the same code in Base, but with bugs fixed
-using Core.Compiler: count_added_node!, add!, NewSSAValue
+using Core.Compiler: count_added_node!, add!, NewSSAValue, add_pending!,
+    StmtRange, BasicBlock
 
+Base.length(c::Core.Compiler.NewNodeStream) = Core.Compiler.length(c)
 Base.setindex!(i::Instruction, args...) = Core.Compiler.setindex!(i, args...)
+Core.Compiler.BasicBlock(x::UnitRange) =
+    BasicBlock(StmtRange(first(x), last(x)))
+Core.Compiler.BasicBlock(x::UnitRange, preds::Vector{Int}, succs::Vector{Int}) =
+    BasicBlock(StmtRange(first(x), last(x)), preds, succs)
+Base.size(x::Core.Compiler.UnitRange) = Core.Compiler.size(x)
+
 function my_insert_node!(compact::IncrementalCompact, before, inst::NewInstruction, attach_after::Bool=false)
     @assert inst.effect_free_computed
     if isa(before, SSAValue)

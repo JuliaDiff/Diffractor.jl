@@ -52,6 +52,24 @@ function simple_control_flow(b, x)
     end
 end
 
+function myprod(xs)
+    s = 1
+    for x in xs
+      s *= x
+    end
+    return s
+end
+
+function times_three_while(x)
+    z = x
+    i = 3
+    while i > 1
+        z += x
+        i -= 1
+    end
+    z
+end
+
 isa_control_flow(::Type{T}, x) where {T} = isa(x, T) ? x : T(x)
 
 # Simple Reverse Mode tests
@@ -80,6 +98,7 @@ let var"'" = Diffractor.PrimeDerivativeBack
     @test @inferred((x->simple_control_flow(true, x))'(1.0)) == sin'(1.0)
     @test @inferred((x->simple_control_flow(false, x))'(1.0)) == cos'(1.0)
     @test (x->sum(isa_control_flow(Matrix{Float64}, x)))'(Float32[1 2;]) == [1.0 1.0;]
+    @test times_three_while'(1.0) == 3.0
 end
 
 # Simple Forward Mode tests

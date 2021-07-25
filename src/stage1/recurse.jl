@@ -11,7 +11,7 @@ cname(nc, N, name) = Symbol(string("∂⃖", superscript(N), subscript(nc), name
 using Core.Compiler: construct_domtree, scan_slot_def_use, construct_ssa!,
     NewInstruction, effect_free, CFG, BasicBlock, bbidxiter, PhiNode,
     Instruction, StmtRange, cfg_insert_edge!, insert_node!,
-    non_effect_free
+    non_effect_free, cfg_delete_edge!, domsort_ssa!
 
 struct ∂ϕNode; end
 
@@ -28,6 +28,17 @@ function check_back(nargs, covecs, msg)
     end
 end
 
+function new_to_regular(@nospecialize(stmt))
+    urs = userefs(stmt)
+    for op in urs
+        val = op[]
+        if isa(val, NewSSAValue)
+            op[] = SSAValue(val.id)
+        end
+    end
+    return urs[]
+end
+
 function expand_switch(code::Vector{Any}, bb_ranges::Vector{UnitRange{Int}}, slot_map)
     renumber = Vector{SSAValue}(undef, length(code))
     new_code = Vector{Any}()
@@ -36,35 +47,58 @@ function expand_switch(code::Vector{Any}, bb_ranges::Vector{UnitRange{Int}}, slo
         push!(new_code, Expr(:(=), val, ChainRulesCore.ZeroTangent()))
     end
 
-    # First expand switches into sequences of branches
-    for i in 1:length(code)
-        stmt = code[i]
-        renumber[i] = SSAValue(length(new_code)+1)
-        if isexpr(stmt, :switch)
-            cond = stmt.args[1]
-            labels = stmt.args[2]
-            dests = stmt.args[3]
-            for (label, dest) in zip(labels[1:end-1], dests[1:end-1])
-                push!(new_code,
-                    Core.Compiler.renumber_ssa!(Expr(:call, !=, cond, label), renumber))
-                comp = SSAValue(length(new_code))
-                push!(new_code, GotoIfNot(comp, dest))
+    # TODO: This is a terrible data structure for this
+    phi_rewrites = Dict{Pair{Int, Int}, Int}()
+
+    # First expand switches into sequences of branches.
+    # N.B: Code here isn't necessarily in domsort order, so we
+    # must do the expansion and statement rewriting in two passes
+    for (bb, range) in enumerate(bb_ranges)
+        for i in range
+            stmt = code[i]
+            renumber[i] = SSAValue(length(new_code)+1)
+            if isexpr(stmt, :switch)
+                cond = stmt.args[1]
+                labels = stmt.args[2]
+                dests = stmt.args[3]
+                for (label, dest) in zip(labels[1:end-1], dests[1:end-1])
+                    push!(new_code, Expr(:call, !=, cond, label))
+                    comp = NewSSAValue(length(new_code))
+                    push!(new_code, GotoIfNot(comp, dest))
+                    phi_rewrites[bb=>dest] = length(new_code)
+                end
+                push!(new_code, GotoNode(dests[end]))
+                phi_rewrites[bb=>dests[end]] = length(new_code)
+            else
+                push!(new_code, stmt)
+                if isa(stmt, GotoNode)
+                    phi_rewrites[bb=>stmt.label] = length(new_code)
+                elseif isa(stmt, GotoIfNot)
+                    phi_rewrites[bb=>stmt.dest] = length(new_code)
+                    phi_rewrites[bb=>bb+1] = length(new_code)
+                else i == last(range)
+                    phi_rewrites[bb=>bb+1] = length(new_code)
+                end
+                if isa(stmt, PhiNode)
+                    # just temporarily remember the old bb here. This is a terrible hack, but oh well
+                    push!(stmt.edges, bb)
+                end
             end
-            push!(new_code, GotoNode(dests[end]))
-        else
-            push!(new_code, Core.Compiler.renumber_ssa!(stmt, renumber))
         end
     end
 
     # Now rewrite branch targets back to statement indexing
     for i = 1:length(new_code)
         stmt = new_code[i]
+        stmt = Core.Compiler.renumber_ssa!(stmt, renumber)
+        stmt = new_to_regular(stmt)
         if isa(stmt, GotoNode)
             stmt = GotoNode(renumber[first(bb_ranges[stmt.label])].id)
         elseif isa(stmt, GotoIfNot)
             stmt = GotoIfNot(stmt.cond, renumber[first(bb_ranges[stmt.dest])].id)
         elseif isa(stmt, PhiNode)
-            stmt = PhiNode(map(x->Int32(renumber[last(bb_ranges[x])].id), stmt.edges),
+            old_phi_bb = pop!(stmt.edges)
+            stmt = PhiNode(map(old_pred->Int32(phi_rewrites[old_pred=>old_phi_bb]), stmt.edges),
                 stmt.values)
         end
         new_code[i] = stmt
@@ -76,12 +110,140 @@ end
 include("compiler_utils.jl")
 include("hacks.jl")
 
+struct PendingCtx
+    list::Vector{Int}
+end
+PendingCtx() = PendingCtx(Int[])
+
+# Split critical edges
+# This is absolutely terrible, we really need better tools for this in
+# Base
+function split_critical_edges!(ir)
+    cfg = ir.cfg
+    blocks_to_split = Int[]
+    edges_to_split = Pair{Int, Int}[]
+    for (bb, block) in enumerate(cfg.blocks)
+        length(block.preds) <= 1 && continue
+        for pred in block.preds
+            if length(cfg.blocks[pred].succs) > 1
+                if pred+1 == bb
+                    # Splitting a fallthrough edge
+                    push!(blocks_to_split, bb)
+                else
+                    push!(edges_to_split, pred=>bb)
+                end
+            end
+        end
+    end
+
+    if length(edges_to_split) == 0 && length(blocks_to_split) == 0
+        return ir
+    end
+
+    for (pred, bb) in edges_to_split
+        push!(ir, NewInstruction(GotoNode(bb)))
+        push!(ir.cfg, BasicBlock(StmtRange(length(ir.stmts), length(ir.stmts))))
+        new_bb = length(ir.cfg.blocks)
+        gin = ir.stmts[last(cfg.blocks[pred].stmts)][:inst]
+        @assert isa(gin, GotoIfNot)
+        ir.stmts[last(cfg.blocks[pred].stmts)][:inst] =
+            GotoIfNot(gin.cond, new_bb)
+        cfg_delete_edge!(cfg, pred, bb)
+        cfg_insert_edge!(cfg, pred, new_bb)
+        cfg_insert_edge!(cfg, new_bb, bb)
+
+        for i in cfg.blocks[bb].stmts
+            stmt = ir.stmts[i][:inst]
+            if isa(stmt, PhiNode)
+                map!(stmt.edges, stmt.edges) do edge
+                    edge == pred ? new_bb : edge
+                end
+            elseif stmt !== nothing
+                break
+            end
+        end
+    end
+
+    for bb in blocks_to_split
+        insert_node!(ir, cfg.blocks[bb].stmts.start,
+            non_effect_free(NewInstruction(Expr(:new_bb_marker, bb))))
+    end
+
+    ir = compact!(ir)
+    cfg = ir.cfg
+
+    bb_rename_offset = Int[1 for _ in 1:length(cfg.blocks)]
+    # Now expand basic blocks
+    ninserted = 0
+    i = 1
+    while i < length(ir.stmts)
+        if isexpr(ir.stmts[i][:inst], :new_bb_marker)
+            bb = ir.stmts[i][:inst].args[1]
+            ir.stmts[i][:inst] = nothing
+            bbnew = bb + ninserted
+            insert!(cfg.blocks, bbnew, BasicBlock(i:i))
+            bb_rename_offset[bb] += 1
+            bblock = cfg.blocks[bbnew+1]
+            cfg.blocks[bbnew+1] = BasicBlock((i+1):last(bblock.stmts),
+                bblock.preds, bblock.succs)
+            i += 1
+            while i <= last(bblock.stmts)
+                stmt = ir.stmts[i][:inst]
+                i += 1
+                if isa(stmt, PhiNode)
+                    map!(stmt.edges, stmt.edges) do edge
+                        edge == bb-1 ? -bbnew : edge
+                    end
+                elseif stmt !== nothing
+                    break
+                end
+            end
+            continue
+        end
+        i += 1
+    end
+    bb_rename_mapping = cumsum(bb_rename_offset)
+    # Repair CFG
+    for i in 1:length(cfg.blocks)
+        bb = cfg.blocks[i]
+        cfg.blocks[i] = BasicBlock(bb.stmts, map(x->bb_rename_mapping[x], bb.preds),
+            map(x->bb_rename_mapping[x], bb.succs))
+    end
+    for block in blocks_to_split
+        cfg_delete_edge!(cfg, bb_rename_mapping[block-1], bb_rename_mapping[block])
+        cfg_insert_edge!(cfg, bb_rename_mapping[block-1], bb_rename_mapping[block]-1)
+        cfg_insert_edge!(cfg, bb_rename_mapping[block]-1, bb_rename_mapping[block])
+    end
+
+    # Repair IR
+    for i in 1:length(ir.stmts)
+        stmt = ir.stmts[i][:inst]
+        isa(stmt, Union{GotoNode, PhiNode, GotoIfNot}) || continue
+        if isa(stmt, GotoNode)
+            ir.stmts[i][:inst] = GotoNode(bb_rename_mapping[stmt.label])
+        elseif isa(stmt, PhiNode)
+            map!(stmt.edges, stmt.edges) do edge
+                edge < 0 && return -edge
+                return bb_rename_mapping[edge]
+            end
+        else
+            @assert isa(stmt, GotoIfNot)
+            ir.stmts[i][:inst] = GotoIfNot(stmt.cond, bb_rename_mapping[stmt.dest])
+        end
+    end
+
+    ir′ = compact!(domsort_ssa!(ir, construct_domtree(ir.cfg.blocks)))
+
+    return ir′
+end
+
 Base.iterate(c::IncrementalCompact, args...) = Core.Compiler.iterate(c, args...)
 Base.iterate(p::Core.Compiler.Pair, args...) = Core.Compiler.iterate(p, args...)
 Base.iterate(urs::Core.Compiler.UseRefIterator, args...) = Core.Compiler.iterate(urs, args...)
 Base.iterate(x::Core.Compiler.BBIdxIter, args...) = Core.Compiler.iterate(x, args...)
 Base.getindex(urs::Core.Compiler.UseRefIterator, args...) = Core.Compiler.getindex(urs, args...)
 Base.getindex(urs::Core.Compiler.UseRef, args...) = Core.Compiler.getindex(urs, args...)
+Base.getindex(c::Core.Compiler.IncrementalCompact, args...) = Core.Compiler.getindex(c, args...)
 Base.setindex!(c::Core.Compiler.IncrementalCompact, args...) = Core.Compiler.setindex!(c, args...)
 Base.setindex!(urs::Core.Compiler.UseRef, args...) = Core.Compiler.setindex!(urs, args...)
 function transform!(ci, meth, nargs, sparams, N)
@@ -117,18 +279,25 @@ function transform!(ci, meth, nargs, sparams, N)
         push!(ir.cfg, BasicBlock(StmtRange(bb_start, length(ir.stmts))))
         new_bb_idx = length(cfg.blocks)
 
-        # TODO: Split critical edges
-
         for (bb, i) in bbidxiter(ir)
             bb == new_bb_idx && break
             stmt = ir.stmts[i].inst
             if isa(stmt, ReturnNode)
                 push!(ϕ.edges, bb)
-                push!(ϕ.values, stmt.val)
+                if !isa(stmt.val, SSAValue)
+                    push!(ϕ.values, insert_node!(ir, i,
+                        non_effect_free(NewInstruction(stmt.val))))
+                else
+                    push!(ϕ.values, stmt.val)
+                end
                 ir[i] = NewInstruction(GotoNode(new_bb_idx))
                 cfg_insert_edge!(cfg, bb, new_bb_idx)
             end
         end
+
+        ir = compact!(ir)
+        ir = split_critical_edges!(ir)
+        cfg = ir.cfg
 
         # Now add a special control flow marker to every basic block
         # TODO: This lowering of control flow is extremely simplistic.
@@ -146,6 +315,13 @@ function transform!(ci, meth, nargs, sparams, N)
     end
 
     orig_bb_ranges = [first(bb.stmts):last(bb.stmts) for bb in cfg.blocks]
+
+    # Special case: If there's only 1 `nothing` statement in the first BB,
+    # we run the risk that compact skips it below. In that case, replace that
+    # statement by a GotoNode to prevent that.
+    if length(orig_bb_ranges[1]) == 1 && ir.stmts[1][:inst] === nothing
+        ir.stmts[1][:inst] = GotoNode(2)
+    end
 
     revs = Any[Any[nothing for i = 1:length(ir.stmts)] for i = 1:n_closures]
     opaque_cis = map(1:n_closures) do nc
@@ -167,7 +343,46 @@ function transform!(ci, meth, nargs, sparams, N)
     nfixedargs = meth.isva ? meth.nargs - 1 : meth.nargs
     meth.isva || @assert nfixedargs == nargs+1
 
-    slot_map = Dict{Union{SSAValue, Argument}, SlotNumber}()
+    extra_slotnames = Symbol[]
+    extra_slotflags = UInt8[]
+
+    # First go through and assign an accumulation slot to every used SSAValue/Argument
+    has_cfg = length(cfg.blocks) != 1
+    if has_cfg
+        slot_map = Dict{Union{SSAValue, Argument}, SlotNumber}()
+        phi_tmp_slot_map = Dict{Int, SlotNumber}()
+        phi_uses = Dict{Int, Vector{Pair{SlotNumber, SlotNumber}}}()
+        for (bb, i) in Iterators.reverse(bbidxiter(ir))
+            first_bb_idx = cfg.blocks[bb].stmts.start
+            stmt = ir.stmts[i][:inst]
+            for urs in userefs(stmt)
+                val = urs[]
+                (isa(val, SSAValue) || isa(val, Argument)) || continue
+                if !haskey(slot_map, val)
+                    sn′ = SlotNumber(length(extra_slotnames) + 3)
+                    push!(extra_slotnames, Symbol(string("for_", val)))
+                    push!(extra_slotflags, UInt8(0))
+                    slot_map[val] = sn′
+                end
+            end
+            if isa(stmt, PhiNode)
+                sn′ = SlotNumber(length(extra_slotnames) + 3)
+                push!(extra_slotnames, Symbol(string("phi_temp_", i)))
+                push!(extra_slotflags, UInt8(0))
+                phi_tmp_slot_map[i] = sn′
+
+                for use_n in 1:length(stmt.edges)
+                    edge = stmt.edges[use_n]
+                    # This assume the absence of critical edges
+                    @assert length(cfg.blocks[edge].succs) == 1
+                    val = stmt.values[use_n]
+                    (isa(val, SSAValue) || isa(val, Argument)) || continue
+                    push!(get!(phi_uses, edge, Vector{Pair{SlotNumber, SlotNumber}}()),
+                        sn′=>slot_map[val])
+                end
+            end
+        end
+    end
 
     # TODO: Can we use the same method for each 2nd order of the transform
     # (except the last and the first one)
@@ -177,11 +392,15 @@ function transform!(ci, meth, nargs, sparams, N)
 
         opaque_ci = opaque_cis[nc]
         code = opaque_ci.code
-        has_cfg = length(cfg.blocks) != 1
 
         function insert_node_rev!(node)
             push!(code, node)
             SSAValue(length(code))
+        end
+
+        if has_cfg
+            append!(opaque_ci.slotnames, extra_slotnames)
+            append!(opaque_ci.slotflags, extra_slotflags)
         end
 
         is_accumable(val) = isa(val, SSAValue) || isa(val, Argument)
@@ -202,12 +421,7 @@ function transform!(ci, meth, nargs, sparams, N)
                     push!(arg_accums[id], accumulant)
                 end
             else
-                sn = get!(slot_map, val) do
-                    sn′ = SlotNumber(length(slot_map) + 3)
-                    push!(opaque_ci.slotnames, Symbol(string("for_", val)))
-                    push!(opaque_ci.slotflags, UInt8(0))
-                    sn′
-                end
+                sn = slot_map[val]
                 accumed = insert_node_rev!(Expr(:call, accum, sn, accumulant))
                 insert_node_rev!(Expr(:(=), sn, accumed))
             end
@@ -244,12 +458,39 @@ function transform!(ci, meth, nargs, sparams, N)
             error()
         end
 
+        function access_ctx_map(dest)
+            if !haskey(ctx_map, dest)
+                ctx_map[dest] = PendingCtx()
+            end
+            val = ctx_map[dest]
+            if isa(val, PendingCtx)
+                rval = insert_node_rev!(error)
+                push!(val.list, rval.id)
+                return rval
+            end
+            return val
+        end
+
         bb_ranges = Vector{UnitRange{Int}}(undef, length(cfg.blocks))
-        phi_reserve = Vector{Vector{Any}}(undef, length(cfg.blocks))
 
         for (bb, i) in Iterators.reverse(bbidxiter(ir))
             first_bb_idx = cfg.blocks[bb].stmts.start
+            last_bb_idx = cfg.blocks[bb].stmts.stop
             stmt = ir.stmts[i][:inst]
+
+            if has_cfg && i == last_bb_idx
+                if haskey(phi_uses, bb)
+                    for (accumulant, accumulator) in phi_uses[bb]
+                        accumed = insert_node_rev!(Expr(:call, accum, accumulator, accumulant))
+                        insert_node_rev!(Expr(:(=), accumulator, accumed))
+                    end
+                end
+                if !isa(stmt, Union{GotoNode, GotoIfNot})
+                    #current_env = BBEnv(access_ctx_map(bb+1),
+                    #    first(ir.cfg.blocks[bb].stmts))
+                end
+            end
+
             if isa(stmt, Core.ReturnNode)
                 accum!(stmt.val, Argument(2))
             elseif isexpr(stmt, :call)
@@ -308,23 +549,14 @@ function transform!(ci, meth, nargs, sparams, N)
             elseif isa(stmt, PhiNode)
                 Δ = do_accum(SSAValue(i))
                 @assert length(ir.cfg.blocks[bb].preds) >= 1
-                for (edge, val) in zip(stmt.edges, stmt.values)
-                    if !isassigned(phi_reserve, edge)
-                        phi_reserve[edge] = Vector{Any}()
-                    end
-                    push!(phi_reserve[edge], val=>Δ)
-                end
+                insert_node_rev!(Expr(:(=), phi_tmp_slot_map[i], Δ))
             elseif isa(stmt, GotoNode)
-                current_env = BBEnv(ctx_map[stmt.label],
+                current_env = BBEnv(access_ctx_map(stmt.label),
                     first(ir.cfg.blocks[bb].stmts))
-                if isassigned(phi_reserve, bb)
-                    for (val, Δ) in phi_reserve[bb]
-                        accum!(val, Δ)
-                    end
-                end
             elseif isa(stmt, GotoIfNot)
                 current_env = BBEnv(insert_node_rev!(PhiNode(Int32.(map(to_back_bb, Int32[bb+1, stmt.dest])),
-                    Any[ctx_map[bb+1], ctx_map[stmt.dest]])), first(ir.cfg.blocks[bb].stmts))
+                    Any[access_ctx_map(bb+1),
+                        access_ctx_map(stmt.dest)])), first(ir.cfg.blocks[bb].stmts))
             elseif isexpr(stmt, :phi_placeholder)
                 @assert i == first_bb_idx
                 tup = retrieve_ctx_obj(current_env, i)
@@ -337,9 +569,20 @@ function transform!(ci, meth, nargs, sparams, N)
                     ctx = tup
                     insert_node_rev!(GotoNode(to_back_bb(stmt.args[1][1])))
                 end
+                if haskey(ctx_map, bb)
+                    for item in (ctx_map[bb]::PendingCtx).list
+                        code[item] = ctx
+                    end
+                end
                 ctx_map[bb] = ctx
+            elseif isa(stmt, Nothing)
+                # Nothing to do
             else
                 error((N, meth, stmt))
+            end
+            if has_cfg && haskey(slot_map, SSAValue(i))
+                # Reset accumulator slots
+                insert_node_rev!(Expr(:(=), slot_map[SSAValue(i)], ChainRulesCore.ZeroTangent()))
             end
             if i == first_bb_idx && bb != 1
                 @assert isexpr(stmt, :phi_placeholder)
@@ -362,6 +605,7 @@ function transform!(ci, meth, nargs, sparams, N)
             ret_tuple = insert_node_rev!(Expr(:call, tuple, arg_tuple, next_oc))
         end
         insert_node_rev!(Core.ReturnNode(ret_tuple))
+        bb_ranges[end] = first(bb_ranges[end]):length(code)
 
         if has_cfg
             code = opaque_ci.code = expand_switch(code, bb_ranges, slot_map)
@@ -467,6 +711,10 @@ function transform!(ci, meth, nargs, sparams, N)
     end
 
     rev = revs[1]
+    active_bb = 1
+
+    phi_nodes = Any[PhiNode() for _ = 1:length(orig_bb_ranges)]
+
     for ((old_idx, idx), stmt) in compact
         # remap arguments
         urs = userefs(stmt)
@@ -508,27 +756,7 @@ function transform!(ci, meth, nargs, sparams, N)
         elseif isexpr(stmt, :new) || isexpr(stmt, :splatnew)
             rev[old_idx] = stmt.args[1]
         elseif isexpr(stmt, :phi_placeholder)
-            preds = stmt.args[1]
-            values = Any[]
-
-            if length(preds) == 1
-                pred = preds[]
-                tup = my_insert_node!(compact, OldSSAValue(last(orig_bb_ranges[pred])),
-                    effect_free(NewInstruction(Expr(:call, tuple, rev[orig_bb_ranges[pred]]...))),
-                    !has_terminator[pred])
-                compact[idx] = tup
-            else
-                for (selector, pred) in enumerate(preds)
-                    tup = my_insert_node!(compact, OldSSAValue(last(orig_bb_ranges[pred])),
-                        effect_free(NewInstruction(Expr(:call, tuple, rev[orig_bb_ranges[pred]]...))),
-                        !has_terminator[pred])
-                    ctx = my_insert_node!(compact, OldSSAValue(last(orig_bb_ranges[pred])),
-                        effect_free(NewInstruction(Expr(:call, tuple, selector, tup))),
-                        !has_terminator[pred])
-                    push!(values, ctx)
-                end
-                compact[idx] = PhiNode(map(Int32, preds), values)
-            end
+            compact[idx] = phi_nodes[active_bb]
             # TODO: This is a base julia bug
             push!(compact.late_fixup, idx)
             rev[old_idx] = SSAValue(idx)
@@ -548,12 +776,48 @@ function transform!(ci, meth, nargs, sparams, N)
                 NewInstruction(Core.ReturnNode(retval), Any, compact.result[idx][:line]),
                 true)
         end
+
+        succs = cfg.blocks[active_bb].succs
+        if old_idx == last(orig_bb_ranges[active_bb]) && length(succs) != 0
+            override = false
+            if has_terminator[active_bb]
+                terminator = compact[idx]
+                compact[idx] = nothing
+                override = true
+            end
+            function terminator_insert_node!(node)
+                if override
+                    compact[idx] = node.stmt
+                    override = false
+                    return SSAValue(idx)
+                else
+                    return insert_node_here!(compact, node, true)
+                end
+            end
+            tup = terminator_insert_node!(
+                effect_free(NewInstruction(Expr(:call, tuple, rev[orig_bb_ranges[active_bb]]...), Any, Int32(0))))
+            for succ in succs
+                preds = cfg.blocks[succ].preds
+                if length(preds) == 1
+                    val = tup
+                else
+                    selector = findfirst(==(active_bb), preds)
+                    val = insert_node_here!(compact, effect_free(NewInstruction(Expr(:call, tuple, selector, tup), Any, Int32(0))), true)
+                end
+                pn = phi_nodes[succ]
+                push!(pn.edges, active_bb)
+                push!(pn.values, val)
+            end
+            if has_terminator[active_bb]
+                insert_node_here!(compact, NewInstruction(terminator, Any, Int32(0)), true)
+            end
+            active_bb += 1
+        end
     end
 
     non_dce_finish!(compact)
     ir = complete(compact)
     ir = compact!(ir)
-
     Core.Compiler.verify_ir(ir)
 
     Core.Compiler.replace_code_newstyle!(ci, ir, nargs+1)

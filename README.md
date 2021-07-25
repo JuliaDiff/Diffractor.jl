@@ -3,7 +3,7 @@
 # General Overview
 
 Diffractor is an experimental next-generation, compiler-based AD system for Julia.
-Its public interface should be fimilar to users, essentially matching Zygote.
+Its public interface should be familiar to users, essentially matching Zygote.
 
 Design goals:
 - Ultra high performance for both scalar and array code

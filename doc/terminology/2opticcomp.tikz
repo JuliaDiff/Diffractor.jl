@@ -1,0 +1,85 @@
+\begin{tikzpicture}[on grid]
+    \node[vert] (ll) at (0, 0) {$l_l$};
+    \node[vert, right=2.3 of ll, yshift=-4mm] (lr) {$l_r$};
+    \node[vert, right=7 of ll] (rr) {$r_l$};
+    \node[vert, left=2.3 of rr, yshift=-4mm] (rl) {$r_r$};
+
+    \node (A1) [above left=0.8 and 0.4 of ll] {$A_1$};
+    \node (A2) [above right=0.8 and 0.4 of rr] {$A_2$};
+
+    \node (B1) [below right=0.7 and 0.8 of ll] {$B_1$};
+    \node (B3) [right=0.7 of B1] {$B_3$};
+
+    \node (A3) [below right=0.7 and 0.8 of lr] {$A_3$};
+    \node (A4) [right=0.7 of A3] {$A_4$};
+
+    \node (B2) [below left=0.7 and 0.8 of rr] {$B_2$};
+    \node (B4) [left=0.7 of B2] {$B_4$};
+
+    \draw [->] (A1) -- (ll);
+    \draw [->] (rr) -- (A2);
+
+    \draw [->] (ll) -- ++(1.8,0) to[out=east, in=north west] (lr);
+    \draw [->] (ll) to[out=south east,in=west] (B1);
+    \draw [->] (B3) to[out=east,in=south west] (lr);
+
+    \draw [->] (lr) -- (rl);
+    \draw [->] (lr) to[out=south east,in=west] (A3);
+    \draw [->] (A4) to[out=east,in=south west] (rl);
+
+    \draw [->] (rl) to[out=north east, in=west] ($(rr)-(1.8,0)$) -- (rr);
+    \draw [->] (rl) to[out=south east,in=west] (B4);
+    \draw [->] (B2) to[out=east,in=south west] (rr);
+
+    \draw[->] (ll) to[out=north east, in=west] ++(1,0.4)
+     to ++(5,0)
+     to[out=east, in=north west] (rr)
+    ;
+
+    \node[draw,dashed,fit=(A3) (A4), inner xsep = 2pt] (box2) {};
+
+    \node[vert, below=2 of ll] (ll_2) {$l_l^\prime$};
+    \node[vert, right=2.3 of ll_2, yshift=-4mm] (lr_2) {$l_r^\prime$};
+    \node[vert, right=7 of ll_2] (rr_2) {$r_l^\prime$};
+    \node[vert, left=2.3 of rr_2, yshift=-4mm] (rl_2) {$r_r^\prime$};
+
+    \node (B1_2) [above left=0.8 and 0.4 of ll_2] {$B_1$};
+    \node (B2_2) [above right=0.8 and 0.4 of rr_2] {$B_2$};
+
+    \node (C1) [below right=0.7 and 0.8 of ll_2] {$C_1$};
+    \node (C3) [right=0.7 of C1] {$C_3$};
+
+    \node (B3_2) [below right=0.7 and 0.8 of lr_2] {$B_3$};
+    \node (B4_2) [right=0.7 of B3_2] {$B_4$};
+
+    \node (C2) [below left=0.7 and 0.8 of rr_2] {$C_2$};
+    \node (C4) [left=0.7 of C2] {$C_4$};
+
+    \draw [->] (B1_2) -- (ll_2);
+    \draw [->] (rr_2) -- (B2_2);
+
+    \draw [->] (ll_2) -- ++(1.8,0) to[out=east, in=north west] (lr_2);
+    \draw [->] (ll_2) to[out=south east,in=west] (C1);
+    \draw [->] (C3) to[out=east,in=south west] (lr_2);
+
+    \draw [->] (lr_2) -- (rl_2);
+    \draw [->] (lr_2) to[out=south east,in=west] (B3_2);
+    \draw [->] (B4_2) to[out=east,in=south west] (rl_2);
+
+    \draw [->] (rl_2) to[out=north east, in=west] ($(rr_2)-(1.8,0)$) -- (rr_2);
+    \draw [->] (rl_2) to[out=south east,in=west] (C4);
+    \draw [->] (C2) to[out=east,in=south west] (rr_2);
+
+    \draw [->,thick,color=red] (B1)  to[out=south west, in=east] (B1_2);
+    \draw [->,thick,color=red] (B3_2) to[out=north, in=south east] (B3);
+    \draw [->,thick,color=red] (B4) to[out=south west, in=north] (B4_2);
+    \draw [->,thick,color=red] (B2_2) to[out=west, in=south east] (B2);
+
+    \node[draw,dashed,fit=(C1) (C3), inner xsep = 2pt] (box1) {};
+    \node[draw,dashed,fit=(C2) (C4), inner xsep = 2pt] (box3) {};
+
+    \draw[->] (ll_2) to[out=north east, in=west] ++(1,0.4)
+     to ++(5,0)
+     to[out=east, in=north west] (rr_2)
+    ;
+\end{tikzpicture}

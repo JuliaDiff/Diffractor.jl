@@ -10,7 +10,7 @@ Design goals:
 - Efficient higher order derivatives
 - Reasonable compile times
 - High flexibility (like Zygote)
-- Support for foward/reverse/mixed modes
+- Support for forward/reverse/mixed modes
 
 This is achieved through a combination of innovations:
 - A new lowest level interface (∂⃖ the "AD optic functor" or "diffractor"), more suited to higher order AD

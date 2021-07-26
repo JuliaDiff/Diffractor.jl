@@ -13,8 +13,7 @@ Design goals:
 - Support for foward/reverse/mixed modes
 
 This is achieved through a combination of innovations:
-- A new lowest level interface more suited to higher order AD (∂⃖ the "AD optic functor" or "diffractor"),
-more suited to higher order AD
+- A new lowest level interface (∂⃖ the "AD optic functor" or "diffractor"), more suited to higher order AD
 - New capabilities in Base Julia (Opaque closures, inference plugins)
 - Better integration with ChainRules.jl
 

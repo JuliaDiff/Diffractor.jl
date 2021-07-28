@@ -226,13 +226,26 @@ end
     return rrule(Core.apply_type, head, args...)
 end
 
-struct KwFunc{T}; f::T; end
-(kw::KwFunc)(args...) = Core.kwfunc(kw.f)(args...)
+struct KwFunc{T,S}
+    f::T
+    kwf::S
+    function KwFunc(f)
+        kwf = Core.kwfunc(f)
+        new{Core.Typeof(f), Core.Typeof(kwf)}(f, kwf)
+    end
+end
+(kw::KwFunc)(args...) = kw.kwf(args...)
+
 function ChainRulesCore.rrule(::typeof(Core.kwfunc), f)
     KwFunc(f), Δ->(NoTangent(), Δ)
 end
+
 function ChainRulesCore.rrule(::KwFunc, kwargs, f, args...)
-    x, back = Core.kwfunc(rrule)(kwargs, rrule, f, args...)
+    r = Core.kwfunc(rrule)(kwargs, rrule, f, args...)
+    if r === nothing
+        return nothing
+    end
+    x, back = r
     x, Δ->begin
         (NoTangent(), NoTangent(), back(Δ)...)
     end
@@ -310,6 +323,7 @@ end
 struct tuple_back{M}; end
 (::tuple_back)(Δ::Tuple) = Core.tuple(NoTangent(), Δ...)
 (::tuple_back{N})(Δ::AbstractZero) where {N} = Core.tuple(NoTangent(), ntuple(i->Δ, N)...)
+(::tuple_back{N})(Δ::Tangent) where {N} = Core.tuple(NoTangent(), ntuple(i->lifted_getfield(Δ, i), N)...)
 
 function (::∂⃖{N})(::typeof(Core.tuple), args::Vararg{Any, M}) where {N, M}
     Core.tuple(args...),

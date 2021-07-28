@@ -142,4 +142,8 @@ function f_broadcast(a)
 end
 @test fwd(f_broadcast)(1.0) == bwd(f_broadcast)(1.0)
 
+g_kw(;x=1.0) = sin(x)
+f_kw(x) = g_kw(;x)
+bwd(f_kw)
+
 include("pinn.jl")

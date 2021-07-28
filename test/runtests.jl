@@ -60,6 +60,15 @@ function myprod(xs)
     return s
 end
 
+function mypow(x, n)
+    r = one(x)
+    while n > 0
+        n -= 1
+        r *= x
+    end
+    return r
+end
+
 function times_three_while(x)
     z = x
     i = 3
@@ -95,10 +104,14 @@ let var"'" = Diffractor.PrimeDerivativeBack
     @test @inferred(complicated_2sin'''(1.0)) == 2sin'''(1.0)
     @test @inferred(complicated_2sin''''(1.0)) == 2sin''''(1.0)
 
+    # Control flow cases
     @test @inferred((x->simple_control_flow(true, x))'(1.0)) == sin'(1.0)
     @test @inferred((x->simple_control_flow(false, x))'(1.0)) == cos'(1.0)
     @test (x->sum(isa_control_flow(Matrix{Float64}, x)))'(Float32[1 2;]) == [1.0 1.0;]
     @test times_three_while'(1.0) == 3.0
+
+    pow5p(x) = (x->mypow(x, 5))'(x)
+    @test pow5p(1.0) == 5.0
 end
 
 # Simple Forward Mode tests

@@ -456,8 +456,10 @@ function transform!(ci, meth, nargs, sparams, N)
                 return insert_node_rev!(Expr(:call, getfield, Argument(1),
                     i - first(orig_bb_ranges[end]) + 1))
             elseif isa(current_env, BBEnv)
+                bbidx = i - current_env.bb_start_idx + 1
+                @assert bbidx > 0
                 return insert_node_rev!(Expr(:call, getfield, current_env.ctx_obj,
-                    i - current_env.bb_start_idx + 1))
+                    bbidx))
             end
             error()
         end
@@ -489,9 +491,9 @@ function transform!(ci, meth, nargs, sparams, N)
                         insert_node_rev!(Expr(:(=), accumulator, accumed))
                     end
                 end
-                if !isa(stmt, Union{GotoNode, GotoIfNot})
-                    #current_env = BBEnv(access_ctx_map(bb+1),
-                    #    first(ir.cfg.blocks[bb].stmts))
+                if !isa(stmt, Union{GotoNode, GotoIfNot, ReturnNode})
+                    current_env = BBEnv(access_ctx_map(bb+1),
+                        first(ir.cfg.blocks[bb].stmts))
                 end
             end
 

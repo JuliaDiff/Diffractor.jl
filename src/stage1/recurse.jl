@@ -262,9 +262,13 @@ function transform!(ci, meth, nargs, sparams, N)
 
     # SSA conversion
     domtree = construct_domtree(ir.cfg.blocks)
-    defuse_insts = scan_slot_def_use(meth.nargs-1, ci, ir.stmts.inst)
+    defuse_insts = scan_slot_def_use(VERSION >= v"1.8.0-DEV.267" ? Int(meth.nargs) : meth.nargs-1, ci, ir.stmts.inst)
     ci.ssavaluetypes = Any[Any for i = 1:ci.ssavaluetypes]
-    ir = construct_ssa!(ci, ir, domtree, defuse_insts, nargs, Any[Any for i = 1:length(slotnames)])
+    if VERSION >= v"1.8.0-DEV.267"
+        ir = construct_ssa!(ci, ir, domtree, defuse_insts, Any[Any for i = 1:length(slotnames)])
+    else
+        ir = construct_ssa!(ci, ir, domtree, defuse_insts, nargs, Any[Any for i = 1:length(slotnames)])
+    end
     ir = compact!(ir)
     cfg = ir.cfg
 

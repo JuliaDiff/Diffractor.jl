@@ -155,8 +155,32 @@ function f_broadcast(a)
 end
 @test fwd(f_broadcast)(1.0) == bwd(f_broadcast)(1.0)
 
+# Make sure that there's no infinite recursion in kwarg calls
 g_kw(;x=1.0) = sin(x)
 f_kw(x) = g_kw(;x)
-bwd(f_kw)
+@test bwd(f_kw)(1.0) == bwd(sin)(1.0)
+
+function f_crit_edge(a, b, c, x)
+    # A function with two critical edges. This used to trigger an issue where
+    # Diffractor would fail to insert edges for the second split critical edge.
+    y = 1x
+    if a && b
+        y = 2x
+    end
+    if b && c
+        y = 3x
+    end
+
+    if c
+        y = 4y
+    end
+
+    return y
+end
+@test bwd(x->f_crit_edge(false, false, false, x))(1.0) == 1.0
+@test bwd(x->f_crit_edge(true, true, false, x))(1.0) == 2.0
+@test bwd(x->f_crit_edge(false, true, true, x))(1.0) == 12.0
+@test bwd(x->f_crit_edge(false, false, true, x))(1.0) == 4.0
+
 
 include("pinn.jl")

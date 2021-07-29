@@ -44,3 +44,6 @@ function Base.iterate(it::Iterators.Reverse{BBIdxIter},
     end
     return (bb, idx - 1), (bb, idx - 1)
 end
+
+Base.lastindex(x::Core.Compiler.InstructionStream) =
+    Core.Compiler.length(x)

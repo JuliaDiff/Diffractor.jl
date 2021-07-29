@@ -277,11 +277,12 @@ function transform!(ci, meth, nargs, sparams, N)
 
     if length(cfg.blocks) != 1
         ϕ = PhiNode()
+
         bb_start = length(ir.stmts)+1
         push!(ir, NewInstruction(ϕ))
         push!(ir, NewInstruction(ReturnNode(SSAValue(length(ir.stmts)))))
         push!(ir.cfg, BasicBlock(StmtRange(bb_start, length(ir.stmts))))
-        new_bb_idx = length(cfg.blocks)
+        new_bb_idx = length(ir.cfg.blocks)
 
         for (bb, i) in bbidxiter(ir)
             bb == new_bb_idx && break
@@ -301,6 +302,27 @@ function transform!(ci, meth, nargs, sparams, N)
 
         ir = compact!(ir)
         ir = split_critical_edges!(ir)
+
+        # If that resulted in the return not being the last block, fix that now.
+        # We keep things simple this way, such that the basic blocks in the
+        # forward and reverse are simply inverses of each other (i.e. the
+        # exist block needs to be last, since the entry block needs to be first
+        # in the reverse pass).
+
+        if !isa(ir.stmts[end][:inst], ReturnNode)
+            new_bb_idx = length(ir.cfg.blocks)+1
+            for (bb, i) in bbidxiter(ir)
+                stmt = ir.stmts[i][:inst]
+                if isa(stmt, ReturnNode)
+                    ir[i] = NewInstruction(GotoNode(new_bb_idx))
+                    push!(ir, NewInstruction(stmt))
+                    push!(ir.cfg, BasicBlock(StmtRange(length(ir.stmts), length(ir.stmts))))
+                    cfg_insert_edge!(ir.cfg, bb, new_bb_idx)
+                    break
+                end
+            end
+        end
+
         cfg = ir.cfg
 
         # Now add a special control flow marker to every basic block
@@ -499,6 +521,7 @@ function transform!(ci, meth, nargs, sparams, N)
 
             if isa(stmt, Core.ReturnNode)
                 accum!(stmt.val, Argument(2))
+                current_env = nothing
             elseif isexpr(stmt, :call)
                 Δ = do_accum(SSAValue(i))
                 callee = retrieve_ctx_obj(current_env, i)
@@ -784,38 +807,41 @@ function transform!(ci, meth, nargs, sparams, N)
         end
 
         succs = cfg.blocks[active_bb].succs
-        if old_idx == last(orig_bb_ranges[active_bb]) && length(succs) != 0
-            override = false
-            if has_terminator[active_bb]
-                terminator = compact[idx]
-                compact[idx] = nothing
-                override = true
-            end
-            function terminator_insert_node!(node)
-                if override
-                    compact[idx] = node.stmt
-                    override = false
-                    return SSAValue(idx)
-                else
-                    return insert_node_here!(compact, node, true)
+
+        if old_idx == last(orig_bb_ranges[active_bb])
+            if length(succs) != 0
+                override = false
+                if has_terminator[active_bb]
+                    terminator = compact[idx]
+                    compact[idx] = nothing
+                    override = true
                 end
-            end
-            tup = terminator_insert_node!(
-                effect_free(NewInstruction(Expr(:call, tuple, rev[orig_bb_ranges[active_bb]]...), Any, Int32(0))))
-            for succ in succs
-                preds = cfg.blocks[succ].preds
-                if length(preds) == 1
-                    val = tup
-                else
-                    selector = findfirst(==(active_bb), preds)
-                    val = insert_node_here!(compact, effect_free(NewInstruction(Expr(:call, tuple, selector, tup), Any, Int32(0))), true)
+                function terminator_insert_node!(node)
+                    if override
+                        compact[idx] = node.stmt
+                        override = false
+                        return SSAValue(idx)
+                    else
+                        return insert_node_here!(compact, node, true)
+                    end
                 end
-                pn = phi_nodes[succ]
-                push!(pn.edges, active_bb)
-                push!(pn.values, val)
-            end
-            if has_terminator[active_bb]
-                insert_node_here!(compact, NewInstruction(terminator, Any, Int32(0)), true)
+                tup = terminator_insert_node!(
+                    effect_free(NewInstruction(Expr(:call, tuple, rev[orig_bb_ranges[active_bb]]...), Any, Int32(0))))
+                for succ in succs
+                    preds = cfg.blocks[succ].preds
+                    if length(preds) == 1
+                        val = tup
+                    else
+                        selector = findfirst(==(active_bb), preds)
+                        val = insert_node_here!(compact, effect_free(NewInstruction(Expr(:call, tuple, selector, tup), Any, Int32(0))), true)
+                    end
+                    pn = phi_nodes[succ]
+                    push!(pn.edges, active_bb)
+                    push!(pn.values, val)
+                end
+                if has_terminator[active_bb]
+                    insert_node_here!(compact, NewInstruction(terminator, Any, Int32(0)), true)
+                end
             end
             active_bb += 1
         end

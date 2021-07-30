@@ -704,6 +704,8 @@ function transform!(ci, meth, nargs, sparams, N)
                 error()
             elseif isa(stmt, GlobalRef)
                 fwds[i] = ZeroTangent()
+            elseif isa(stmt, Union{GotoNode, GotoIfNot})
+                return :(error("Control flow support not fully implemented yet for higher-order reverse mode (TODO)"))
             elseif !isa(stmt, Expr)
                 @show stmt
                 error()

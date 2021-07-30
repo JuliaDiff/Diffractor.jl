@@ -380,7 +380,7 @@ lifted_getfield(x::ZeroTangent, s) = ZeroTangent()
 lifted_getfield(x::NoTangent, s) = NoTangent()
 
 function lifted_getfield(x::Tangent, s)
-    z = getfield(ChainRulesCore.backing(x), s)
+    z = getfield(ChainRulesCore.backing(ChainRulesCore.canonicalize(x)), s)
     z
 end
 

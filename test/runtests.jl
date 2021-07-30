@@ -182,5 +182,10 @@ end
 @test bwd(x->f_crit_edge(false, true, true, x))(1.0) == 12.0
 @test bwd(x->f_crit_edge(false, false, true, x))(1.0) == 4.0
 
+# Issue #27 - Mixup in lifting of getfield
+let var"'" = bwd
+    @test (x->x^5)''(1.0) == 20.
+    @test (x->x^5)'''(1.0) == 60.
+end
 
 include("pinn.jl")

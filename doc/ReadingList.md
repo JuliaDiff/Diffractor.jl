@@ -1,6 +1,6 @@
 This is a list of references I found useful while thinking about Diffractor.
 If you are new to Julia, AD or Diffractor and are primarily intersted in
-Diffractor, how it works, how to use it, or even there general Diffractor
+Diffractor, how it works, how to use it, or even the general Diffractor
 theory, this is probably not the list for you. As always in the literature,
 some of these references use terms differently from how they are used in
 Diffractor (as well as being inconsistent with each other). Additionally,

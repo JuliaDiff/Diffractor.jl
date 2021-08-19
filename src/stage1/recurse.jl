@@ -571,7 +571,7 @@ function transform!(ci, meth, nargs, sparams, N)
                 if is_accumable(stmt.args[2])
                     accum!(stmt.args[2], nt)
                 end
-            elseif isa(stmt, GlobalRef) || isexpr(stmt, :static_parameter) || isexpr(stmt, :throw_undef_if_not)
+            elseif isa(stmt, GlobalRef) || isexpr(stmt, :static_parameter) || isexpr(stmt, :throw_undef_if_not) || isexpr(stmt, :loopinfo)
                 # We drop gradients for globals and static parameters
             elseif isexpr(stmt, :inbounds)
                 # Nothing to do

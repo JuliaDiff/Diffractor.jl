@@ -2,7 +2,7 @@ using Core.Compiler: MethodInstance, IncrementalCompact, insert_node_here!,
     userefs, SlotNumber, IRCode, compute_basic_blocks, _methods_by_ftype,
     retrieve_code_info, CodeInfo, SSAValue, finish, complete, non_dce_finish!,
     GotoNode, GotoIfNot, block_for_inst, ReturnNode, Argument, compact!,
-    OldSSAValue
+    OldSSAValue, NewvarNode
 
 using Base.Meta
 

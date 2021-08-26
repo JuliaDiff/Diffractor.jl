@@ -2,7 +2,7 @@ using Core.Compiler: MethodInstance, IncrementalCompact, insert_node_here!,
     userefs, SlotNumber, IRCode, compute_basic_blocks, _methods_by_ftype,
     retrieve_code_info, CodeInfo, SSAValue, finish, complete, non_dce_finish!,
     GotoNode, GotoIfNot, block_for_inst, ReturnNode, Argument, compact!,
-    OldSSAValue, NewvarNode
+    OldSSAValue, NewvarNode, quoted
 
 using Base.Meta
 
@@ -756,7 +756,7 @@ function transform!(ci, meth, nargs, sparams, N)
                 op[] = arg_mapping[val.n]
             end
             if isexpr(val, :static_parameter)
-                op[] = sparams[val.args[1]]
+                op[] = quoted(sparams[val.args[1]])
             end
         end
         compact[idx] = stmt = urs[]
@@ -778,7 +778,7 @@ function transform!(ci, meth, nargs, sparams, N)
                 NewInstruction(Expr(:call, getfield, SSAValue(idx), 2), Any, compact.result[idx][:line]),
                 true)
         elseif isexpr(stmt, :static_parameter)
-            stmt = sparams[stmt.args[1]]
+            stmt = quoted(sparams[stmt.args[1]])
             if isexpr(orig_stmt, :(=))
                 orig_stmt.args[2] = stmt
                 stmt = orig_stmt

@@ -192,4 +192,7 @@ end
 @test gradient(x -> max(x...), (1,2,3))[1] == (0.0, 0.0, 1.0)
 @test gradient(x -> max(x...), [1,2,3])[1] == [0.0, 0.0, 1.0]
 
+# Issue #40 - Symbol type parameters not properly quoted
+@test Diffractor.∂⃖recurse{1}()(Val{:transformations})[1] === Val{:transformations}()
+
 include("pinn.jl")

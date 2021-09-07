@@ -17,7 +17,7 @@ jobs:
         with:
           run: |
             cd doc/terminology
-            latexmk -shell-escape terminology.tex
+            latexmk -pdf -shell-escape terminology.tex
             ls -al
       - name: Upload Artifact
         uses: actions/upload-artifact@v2

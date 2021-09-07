@@ -1,7 +1,10 @@
 name: Build LaTeX document
 on:
-  push:
   pull_request:
+  push:
+    branches:
+      - main
+    tags: '*'
   workflow_dispatch:
 jobs:
   build_latex:

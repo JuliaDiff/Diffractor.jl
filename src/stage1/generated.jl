@@ -313,7 +313,7 @@ function (::∂⃖{N})(::typeof(Base.getindex), a::Array, inds...) where {N}
     getindex(a, inds...), let
         EvenOddOdd{1, c_order(N)}(
             (@Base.aggressive_constprop Δ->begin
-                Δ isa ZeroTangent && return (NoTangent(), NoTangent(), map(x->NoTangent(), inds)...)
+                Δ isa AbstractZero && return (NoTangent(), Δ, map(Returns(Δ), inds)...)
                 BB = zero(a)
                 BB[inds...] = Δ
                 (NoTangent(), BB, map(x->NoTangent(), inds)...)

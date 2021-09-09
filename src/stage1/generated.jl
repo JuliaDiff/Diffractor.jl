@@ -210,7 +210,7 @@ function (::∂⃖{N})(f::T, args...) where {T, N}
     if N == 1
         # Base case (inlined to avoid ambiguities with manually specified
         # higher order rules)
-        z = rrule(f, args...)
+        z = rrule(DiffractorRuleConfig(), f, args...)
         if z === nothing
             return ∂⃖recurse{1}()(f, args...)
         end
@@ -224,6 +224,10 @@ function (::∂⃖{N})(f::T, args...) where {T, N}
             return ∂⃖rrule{N}()(z, z̄)
         end
     end
+end
+
+function ChainRulesCore.rrule_via_ad(::DiffractorRuleConfig, f::T, args...) where {T}
+    ∂⃖{1}()(f, args...)
 end
 
 @Base.pure function (::∂⃖{1})(::typeof(Core.apply_type), head, args...)

@@ -13,7 +13,7 @@ first_partial(x::CompositeBundle) = map(first_partial, getfield(x, :tup))
 
 # TODO: Which version do we want in ChainRules?
 function my_frule(args::ATB{1}...)
-    frule(map(first_partial, args), map(primal, args)...)
+    frule(DiffractorRuleConfig(), map(first_partial, args), map(primal, args)...)
 end
 
 # Fast path for some hot cases
@@ -117,6 +117,8 @@ function (::∂☆internal{1})(args::AbstractTangentBundle{1}...)
         return shuffle_base(r)
     end
 end
+
+ChainRulesCore.frule_via_ad(::DiffractorRuleConfig, args...) = ∂☆internal{1}()(args...)
 
 function (::∂☆shuffle{N})(args::AbstractTangentBundle{N}...) where {N}
     ∂☆p = ∂☆{minus1(N)}()

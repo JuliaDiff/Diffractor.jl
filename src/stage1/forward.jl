@@ -119,10 +119,9 @@ function (::∂☆internal{1})(args::AbstractTangentBundle{1}...)
 end
 
 function ChainRulesCore.frule_via_ad(::DiffractorRuleConfig, partials, args...)
-    tangents = map(partials, args) do p, a
-        TangentBundle{1}(a, (p,))
-    end
-    ∂☆internal{1}()(tangents...)
+    bundles = map((p,a) -> TangentBundle{1}(a, (p,)), partials, args)
+    result = ∂☆internal{1}()(bundles...)
+    primal(result), first_partial(result)
 end
 
 function (::∂☆shuffle{N})(args::AbstractTangentBundle{N}...) where {N}

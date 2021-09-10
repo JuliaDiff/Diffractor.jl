@@ -2,7 +2,7 @@ using Diffractor
 using Diffractor: var"'", ∂⃖, DiffractorRuleConfig
 using ChainRules
 using ChainRulesCore
-using ChainRules: ZeroTangent, NoTangent, frule_via_ad, rrule_via_ad
+using ChainRulesCore: ZeroTangent, NoTangent, frule_via_ad, rrule_via_ad
 using Symbolics
 using LinearAlgebra
 

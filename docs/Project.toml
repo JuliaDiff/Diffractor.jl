@@ -1,0 +1,5 @@
+[deps]
+Diffractor = "9f5e2b26-1114-432f-b630-d3fe2085c51c"
+DocThemeIndigo = "8bac0ac5-51bf-41f9-885e-2bf1ac2bec5f"
+Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
+Markdown = "d6f4376e-aef5-505a-96c1-9c027394607a"

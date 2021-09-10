@@ -256,3 +256,13 @@ end
 @ChainRules.non_differentiable Base.throw(err)
 @ChainRules.non_differentiable Core.Compiler.return_type(args...)
 ChainRulesCore.canonicalize(::NoTangent) = NoTangent()
+
+# Disable thunking at higher order (TODO: These should go into ChainRulesCore)
+function ChainRulesCore.rrule(::Type{Thunk}, thnk)
+    z, ∂z = ∂⃖¹(thnk)
+    z, Δ->(NoTangent(), ∂z(Δ)...)
+end
+
+function ChainRulesCore.rrule(::Type{InplaceableThunk}, add!!, val)
+    val, Δ->(NoTangent(), NoTangent(), Δ)
+end

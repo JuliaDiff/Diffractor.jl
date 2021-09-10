@@ -28,6 +28,7 @@ function perform_optic_transform(@nospecialize(ff::Type{∂⃖recurse{N}}), @nos
     end
 
     ci′.ssavaluetypes = length(ci′.code)
+    ci′.ssaflags = UInt8[0 for i=1:length(ci′.code)]
     ci′.method_for_inference_limit_heuristics = match.method
     ci′
 end
@@ -313,6 +314,7 @@ function (::∂⃖{N})(::typeof(Base.getindex), a::Array, inds...) where {N}
     getindex(a, inds...), let
         EvenOddOdd{1, c_order(N)}(
             (@Base.aggressive_constprop Δ->begin
+                Δ isa AbstractZero && return (NoTangent(), Δ, map(Returns(Δ), inds)...)
                 BB = zero(a)
                 BB[inds...] = Δ
                 (NoTangent(), BB, map(x->NoTangent(), inds)...)
@@ -336,12 +338,16 @@ function (::∂⃖{N})(::typeof(Core.tuple), args::Vararg{Any, M}) where {N, M}
         )
 end
 
-struct UnApply{Spec}; end
-@generated function (::UnApply{Spec})(Δ) where Spec
+struct UnApply{Spec, Types}; end
+@generated function (::UnApply{Spec, Types})(Δ) where {Spec, Types}
     args = Any[NoTangent(), NoTangent(), :(Δ[1])]
     start = 2
-    for l in Spec
-        push!(args, :(Δ[$(start:(start+l-1))]))
+    for (l, T) in zip(Spec, Types.parameters)
+        if T <: Array
+            push!(args, :([Δ[$(start:(start+l-1))]...]))
+        else
+            push!(args, :(Δ[$(start:(start+l-1))]))
+        end
         start += l
     end
     :(Core.tuple($(args...)))
@@ -362,10 +368,10 @@ end
     a.u(r)
 end
 
-function (this::∂⃖{N})(::typeof(Core._apply_iterate), iterate, f, args::Union{Tuple, NamedTuple}...) where {N}
+function (this::∂⃖{N})(::typeof(Core._apply_iterate), iterate, f, args::Union{Tuple, Vector, NamedTuple}...) where {N}
     @assert iterate === Base.iterate
     x, ∂⃖f = Core._apply_iterate(iterate, this, (f,), args...)
-    return x, ApplyOdd{1, c_order(N)}(UnApply{map(length, args)}(), ∂⃖f)
+    return x, ApplyOdd{1, c_order(N)}(UnApply{map(length, args), typeof(args)}(), ∂⃖f)
 end
 
 

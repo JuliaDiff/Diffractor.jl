@@ -139,6 +139,7 @@ function perform_fwd_transform(@nospecialize(ff::Type{∂☆recurse{N}}), @nospe
     transform_fwd!(ci′, mi.def, length(args) - 1, match.sparams, N)
 
     ci′.ssavaluetypes = length(ci′.code)
+    ci′.ssaflags = UInt8[0 for i=1:length(ci′.code)]
     ci′.method_for_inference_limit_heuristics = match.method
     slotnames = Symbol[Symbol("#self#"), :args, ci.slotnames...]
     slotflags = UInt8[(0x00 for i = 1:2)..., ci.slotflags...]

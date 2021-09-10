@@ -188,4 +188,11 @@ let var"'" = bwd
     @test (x->x^5)'''(1.0) == 60.
 end
 
+# Issue #38 - Splatting arrays
+@test gradient(x -> max(x...), (1,2,3))[1] == (0.0, 0.0, 1.0)
+@test gradient(x -> max(x...), [1,2,3])[1] == [0.0, 0.0, 1.0]
+
+# Issue #40 - Symbol type parameters not properly quoted
+@test Diffractor.∂⃖recurse{1}()(Val{:transformations})[1] === Val{:transformations}()
+
 include("pinn.jl")

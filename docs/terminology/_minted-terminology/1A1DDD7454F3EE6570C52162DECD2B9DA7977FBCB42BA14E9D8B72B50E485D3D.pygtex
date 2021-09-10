@@ -1,0 +1,14 @@
+\begin{Verbatim}[commandchars=\\\{\},codes={\catcode`\$=3\catcode`\^=7\catcode`\_=8\relax}]
+\PYG{c}{\PYGZsh{} Block style optics interface}
+\PYG{k}{function} \PYG{p}{(}\PYG{n}{o}\PYG{o}{::}\PYG{k+kt}{AbstractOptic}\PYG{p}{)(}\PYG{n}{f}\PYG{o}{::}\PYG{k+kt}{Function}\PYG{p}{,} \PYG{n}{a}\PYG{p}{)}
+    \PYG{n}{m}\PYG{p}{,} \PYG{n}{b} \PYG{o}{=} \PYG{n}{left}\PYG{p}{(}\PYG{n}{o}\PYG{p}{,} \PYG{n}{a}\PYG{p}{)}
+    \PYG{n}{b′} \PYG{o}{=} \PYG{n}{f}\PYG{p}{(}\PYG{n}{b}\PYG{p}{)}
+    \PYG{n}{right}\PYG{p}{(}\PYG{n}{o}\PYG{p}{,} \PYG{n}{m}\PYG{p}{,} \PYG{n}{b′}\PYG{p}{)}
+\PYG{k}{end}
+
+\PYG{c}{\PYGZsh{} Continuation style optics interface}
+\PYG{k}{function} \PYG{p}{(}\PYG{n}{o}\PYG{o}{::}\PYG{k+kt}{AbstractOptic}\PYG{p}{)(}\PYG{n}{a}\PYG{p}{)}
+    \PYG{n}{m}\PYG{p}{,} \PYG{n}{b} \PYG{o}{=} \PYG{n}{left}\PYG{p}{(}\PYG{n}{o}\PYG{p}{,} \PYG{n}{a}\PYG{p}{)}
+    \PYG{n}{b}\PYG{p}{,} \PYG{n}{b′}\PYG{o}{\PYGZhy{}\PYGZgt{}}\PYG{n}{right}\PYG{p}{(}\PYG{n}{o}\PYG{p}{,} \PYG{n}{m}\PYG{p}{,} \PYG{n}{b′}\PYG{p}{)}
+\PYG{k}{end}
+\end{Verbatim}

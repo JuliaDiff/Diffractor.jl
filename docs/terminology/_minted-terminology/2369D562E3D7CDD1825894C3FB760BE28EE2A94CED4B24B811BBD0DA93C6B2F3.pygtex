@@ -1,0 +1,3 @@
+\begin{Verbatim}[commandchars=\\\{\}]
+\PYG{n}{widget}\PYG{p}{(}\PYG{n}{sweat}\PYG{p}{,} \PYG{n}{love}\PYG{p}{)} \PYG{o}{=} \PYG{n}{C}\PYG{p}{(}\PYG{n}{A}\PYG{p}{(}\PYG{n}{sweat}\PYG{p}{),} \PYG{n}{B}\PYG{p}{(}\PYG{n}{love}\PYG{p}{))}
+\end{Verbatim}

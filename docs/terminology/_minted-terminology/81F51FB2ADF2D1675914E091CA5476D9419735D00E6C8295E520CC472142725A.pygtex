@@ -1,0 +1,8 @@
+\begin{Verbatim}[commandchars=\\\{\},codes={\catcode`\$=3\catcode`\^=7\catcode`\_=8\relax}]
+\PYG{k}{function} \PYG{n}{clonewidget}\PYG{p}{(}\PYG{p}{)}
+    \PYG{n}{d} \PYG{o}{=} \PYG{n}{D}\PYG{p}{(}\PYG{p}{)}
+    \PYG{n}{a} \PYG{o}{=} \PYG{n}{A}\PYG{p}{(}\PYG{n}{d}\PYG{p}{)}
+    \PYG{n}{b} \PYG{o}{=} \PYG{n}{B}\PYG{p}{(}\PYG{n}{d}\PYG{p}{)}
+    \PYG{n}{c} \PYG{o}{=} \PYG{n}{C}\PYG{p}{(}\PYG{n}{a}\PYG{p}{,} \PYG{n}{b}\PYG{p}{)}
+\PYG{k}{end}
+\end{Verbatim}

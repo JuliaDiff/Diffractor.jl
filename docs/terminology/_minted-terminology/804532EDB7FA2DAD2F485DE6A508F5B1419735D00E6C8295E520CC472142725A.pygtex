@@ -1,0 +1,6 @@
+\begin{Verbatim}[commandchars=\\\{\},codes={\catcode`\$=3\catcode`\^=7\catcode`\_=8\relax}]
+\PYG{n}{SetIndex}\PYG{p}{(}\PYG{n}{idx}\PYG{p}{)} \PYG{o}{=} \PYG{n}{OpticRepr}\PYG{p}{(}
+    \PYG{n}{obj}\PYG{o}{\PYGZhy{}\PYGZgt{}}\PYG{p}{(}\PYG{n}{obj}\PYG{p}{,} \PYG{n}{getindex}\PYG{p}{(}\PYG{n}{obj}\PYG{p}{,} \PYG{n}{idx}\PYG{p}{)}\PYG{p}{)}\PYG{p}{,}
+    \PYG{p}{(}\PYG{n}{obj}\PYG{p}{,} \PYG{n}{update}\PYG{p}{)}\PYG{o}{\PYGZhy{}\PYGZgt{}}\PYG{n}{setindex}\PYG{p}{(}\PYG{n}{obj}\PYG{p}{,} \PYG{n}{update}\PYG{p}{,} \PYG{n}{idx}\PYG{p}{)}
+\PYG{p}{)}
+\end{Verbatim}

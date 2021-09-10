@@ -1,0 +1,26 @@
+\begin{Verbatim}[commandchars=\\\{\},codes={\catcode`\$=3\catcode`\^=7\catcode`\_=8\relax}]
+\PYG{k}{abstract type} \PYG{k+kt}{AbstractOptic}\PYG{p}{;} \PYG{k}{end}
+
+\PYG{k}{struct} \PYG{k+kt}{OpticRepr} \PYG{o}{\PYGZlt{}:} \PYG{k+kt}{AbstractOptic}
+  \PYG{n}{l}\PYG{o}{::}\PYG{k+kt}{Function}
+  \PYG{n}{r}\PYG{o}{::}\PYG{k+kt}{Function}
+\PYG{k}{end}
+\PYG{n}{OpticRepr}\PYG{p}{(}\PYG{n}{o}\PYG{o}{::}\PYG{k+kt}{OpticRepr}\PYG{p}{)} \PYG{o}{=} \PYG{n}{o}
+\PYG{n}{OpticRepr}\PYG{p}{(}\PYG{n}{o}\PYG{o}{::}\PYG{k+kt}{AbstractOptic}\PYG{p}{)} \PYG{o}{=}
+  \PYG{n}{OpticRepr}\PYG{p}{(}\PYG{n}{a}\PYG{o}{\PYGZhy{}\PYGZgt{}}\PYG{n}{left}\PYG{p}{(}\PYG{n}{o}\PYG{p}{,} \PYG{n}{a}\PYG{p}{),}
+    \PYG{p}{(}\PYG{n}{m}\PYG{p}{,} \PYG{n}{b′}\PYG{p}{)}\PYG{o}{\PYGZhy{}\PYGZgt{}}\PYG{n}{right}\PYG{p}{(}\PYG{n}{o}\PYG{p}{,} \PYG{n}{m}\PYG{p}{,} \PYG{n}{b′}\PYG{p}{))}
+
+\PYG{n}{left}\PYG{p}{(}\PYG{n}{o}\PYG{o}{::}\PYG{k+kt}{OpticRepr}\PYG{p}{,} \PYG{n}{a}\PYG{p}{)} \PYG{o}{=} \PYG{n}{o}\PYG{o}{.}\PYG{n}{l}\PYG{p}{(}\PYG{n}{a}\PYG{p}{)}
+\PYG{n}{right}\PYG{p}{(}\PYG{n}{o}\PYG{o}{::}\PYG{k+kt}{OpticRepr}\PYG{p}{,} \PYG{n}{m}\PYG{p}{,} \PYG{n}{b′}\PYG{p}{)} \PYG{o}{=} \PYG{n}{o}\PYG{o}{.}\PYG{n}{r}\PYG{p}{(}\PYG{n}{m}\PYG{p}{,} \PYG{n}{b′}\PYG{p}{)}
+
+\PYG{k}{function} \PYG{o}{⨟}\PYG{p}{(}\PYG{n}{o₁}\PYG{o}{::}\PYG{k+kt}{AbstractOptic}\PYG{p}{,} \PYG{n}{o₂}\PYG{o}{::}\PYG{k+kt}{AbstractOptic}\PYG{p}{)}
+  \PYG{n}{OpticRepr}\PYG{p}{(}
+    \PYG{k}{function} \PYG{p}{(}\PYG{n}{a}\PYG{p}{)}
+      \PYG{n}{x} \PYG{o}{=} \PYG{n}{left}\PYG{p}{(}\PYG{n}{o₁}\PYG{p}{,} \PYG{n}{a}\PYG{p}{)}
+      \PYG{n}{y} \PYG{o}{=} \PYG{n}{left}\PYG{p}{(}\PYG{n}{o₂}\PYG{p}{,} \PYG{n}{x}\PYG{p}{[}\PYG{l+m+mi}{2}\PYG{p}{])}
+      \PYG{p}{(}\PYG{n}{x}\PYG{p}{[}\PYG{l+m+mi}{1}\PYG{p}{],} \PYG{n}{y}\PYG{p}{[}\PYG{l+m+mi}{1}\PYG{p}{]),} \PYG{n}{y}\PYG{p}{[}\PYG{l+m+mi}{2}\PYG{p}{]}
+    \PYG{k}{end}\PYG{p}{,}
+    \PYG{p}{((}\PYG{n}{m₁}\PYG{p}{,} \PYG{n}{m₂}\PYG{p}{),} \PYG{n}{c′}\PYG{p}{)}\PYG{o}{\PYGZhy{}\PYGZgt{}}\PYG{n}{right}\PYG{p}{(}\PYG{n}{o₁}\PYG{p}{,} \PYG{n}{m₁}\PYG{p}{,} \PYG{n}{right}\PYG{p}{(}\PYG{n}{o₂}\PYG{p}{,} \PYG{n}{m₂}\PYG{p}{,} \PYG{n}{c′}\PYG{p}{))}
+  \PYG{p}{)}
+\PYG{k}{end}
+\end{Verbatim}

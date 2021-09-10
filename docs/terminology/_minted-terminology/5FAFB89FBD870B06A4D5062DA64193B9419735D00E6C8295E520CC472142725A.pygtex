@@ -1,0 +1,6 @@
+\begin{Verbatim}[commandchars=\\\{\},codes={\catcode`\$=3\catcode`\^=7\catcode`\_=8\relax}]
+\PYG{k}{function} \PYG{esc}{$\textbf{\euro{}}$}\PYG{n}{clone}\PYG{p}{(}\PYG{n}{dprice}\PYG{p}{,} \PYG{n}{d}\PYG{p}{)}
+    \PYG{p}{(}\PYG{l+m+mi}{0}\PYG{p}{,} \PYG{l+m+mi}{0}\PYG{p}{)}\PYG{p}{,} \PYG{p}{(}\PYG{n}{d}\PYG{p}{,} \PYG{n}{d}\PYG{p}{)}\PYG{p}{,}
+    \PYG{p}{(}\PYG{n}{profit₁}\PYG{p}{,} \PYG{n}{profit₂}\PYG{p}{)}\PYG{o}{\PYGZhy{}\PYGZgt{}}\PYG{l+m+mi}{0}
+\PYG{k}{end}
+\end{Verbatim}

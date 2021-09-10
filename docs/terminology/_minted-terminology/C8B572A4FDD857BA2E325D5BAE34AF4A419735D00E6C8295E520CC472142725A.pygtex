@@ -1,0 +1,16 @@
+\begin{Verbatim}[commandchars=\\\{\},codes={\catcode`\$=3\catcode`\^=7\catcode`\_=8\relax}]
+\PYG{k}{function} \PYG{esc}{$\op^2 a$}\PYG{p}{(}\PYG{n}{x}\PYG{p}{)}
+    \PYG{p}{(}\PYG{esc}{$y$}\PYG{p}{,} \PYG{esc}{$\overline{y}$}\PYG{p}{)}\PYG{p}{,} \PYG{esc}{$\overline{\overline{y}}$} \PYG{o}{=} \PYG{esc}{$\op \text{rrule}$}\PYG{p}{(}\PYG{n}{a}\PYG{p}{,} \PYG{n}{x}\PYG{p}{)}
+    \PYG{esc}{$y$}\PYG{p}{,} \PYG{esc}{$\Delta$}\PYG{o}{\PYGZhy{}\PYGZgt{}}\PYG{k}{begin}
+        \PYG{p}{(}\PYG{esc}{$\alpha_1$}\PYG{p}{,} \PYG{esc}{$\alpha_2$}\PYG{p}{)}\PYG{p}{,} \PYG{esc}{$\overline{\alpha}$} \PYG{o}{=} \PYG{esc}{$\op \text{typeof(}\overline{y}\text{)}$}\PYG{p}{(}\PYG{esc}{$\overline{y}$}\PYG{p}{,} \PYG{esc}{$\Delta$}\PYG{p}{)}
+        \PYG{p}{(}\PYG{esc}{$\alpha_1$}\PYG{p}{,} \PYG{esc}{$\alpha_2$}\PYG{p}{)}\PYG{p}{,} \PYG{p}{(}\PYG{esc}{$\Delta'_1$}\PYG{p}{,} \PYG{esc}{$\Delta'_2$}\PYG{p}{)}\PYG{o}{\PYGZhy{}\PYGZgt{}}\PYG{k}{begin}
+            \PYG{p}{(}\PYG{esc}{$\Delta'''$}\PYG{p}{,} \PYG{esc}{$\beta$}\PYG{p}{)} \PYG{o}{=} \PYG{esc}{$\overline{\alpha}$}\PYG{p}{(}\PYG{p}{(}\PYG{esc}{$\Delta'_1$}\PYG{p}{,} \PYG{esc}{$\Delta'_2$}\PYG{p}{)}\PYG{p}{)}
+            \PYG{esc}{$\beta$}\PYG{p}{,} \PYG{esc}{$\Delta''$}\PYG{o}{\PYGZhy{}\PYGZgt{}}\PYG{k}{begin}
+                \PYG{c}{\PYGZsh{} Drop gradient w.r.t. `rrule`}
+                \PYG{p}{(}\PYG{n}{\PYGZus{}}\PYG{p}{,} \PYG{n}{a}\PYG{o}{\PYGZsq{}}\PYG{p}{,} \PYG{n}{x}\PYG{o}{\PYGZsq{}}\PYG{p}{)} \PYG{o}{=} \PYG{esc}{$\overline{\overline{y}}$}\PYG{p}{(}\PYG{esc}{$\Delta''$}\PYG{p}{,} \PYG{esc}{$\Delta'''$}\PYG{p}{)}
+                \PYG{k}{return} \PYG{p}{(}\PYG{n}{a}\PYG{o}{\PYGZsq{}}\PYG{p}{,} \PYG{n}{x}\PYG{o}{\PYGZsq{}}\PYG{p}{)}
+            \PYG{k}{end}
+        \PYG{k}{end}
+    \PYG{k}{end}
+\PYG{k}{end}
+\end{Verbatim}

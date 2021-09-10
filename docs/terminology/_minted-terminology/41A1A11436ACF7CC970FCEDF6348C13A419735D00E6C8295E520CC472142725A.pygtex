@@ -1,0 +1,11 @@
+\begin{Verbatim}[commandchars=\\\{\},codes={\catcode`\$=3\catcode`\^=7\catcode`\_=8\relax}]
+\PYG{k}{function} \PYG{esc}{$\partial^2$}\PYG{n}{sin}\PYG{p}{(}\PYG{n}{x}\PYG{p}{)}
+    \PYG{n}{sin}\PYG{p}{(}\PYG{n}{x}\PYG{p}{)}\PYG{p}{,} \PYG{esc}{$\Delta$}\PYG{o}{\PYGZhy{}\PYGZgt{}}\PYG{k}{begin}
+        \PYG{esc}{$\Delta$} \PYG{o}{*} \PYG{n}{cos}\PYG{p}{(}\PYG{n}{x}\PYG{p}{)}\PYG{p}{,} \PYG{esc}{$\Delta'$}\PYG{o}{\PYGZhy{}\PYGZgt{}}\PYG{k}{begin}
+            \PYG{esc}{$\Delta'$}\PYG{o}{*}\PYG{n}{cos}\PYG{p}{(}\PYG{n}{x}\PYG{p}{)}\PYG{p}{,} \PYG{k}{let} \PYG{esc}{$\Delta'''$} \PYG{o}{=} \PYG{esc}{$\Delta'$}\PYG{o}{*}\PYG{esc}{$\Delta$}\PYG{o}{*}\PYG{p}{(}\PYG{o}{\PYGZhy{}}\PYG{n}{sin}\PYG{p}{(}\PYG{n}{x}\PYG{p}{)}\PYG{p}{)}
+                \PYG{esc}{$\Delta''$}\PYG{o}{\PYGZhy{}\PYGZgt{}}\PYG{esc}{$\Delta''$}\PYG{o}{*}\PYG{n}{cos}\PYG{p}{(}\PYG{n}{x}\PYG{p}{)} \PYG{o}{+} \PYG{esc}{$\Delta'''$}
+            \PYG{k}{end}
+        \PYG{k}{end}
+    \PYG{k}{end}
+\PYG{k}{end}
+\end{Verbatim}

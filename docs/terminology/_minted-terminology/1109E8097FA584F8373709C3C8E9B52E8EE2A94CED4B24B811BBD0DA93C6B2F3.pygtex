@@ -1,0 +1,11 @@
+\begin{Verbatim}[commandchars=\\\{\}]
+\PYG{n}{julia}\PYG{o}{\PYGZgt{}} \PYG{n}{of}\PYG{p}{(}\PYG{n}{tup}\PYG{p}{)} \PYG{k}{do} \PYG{n}{c}
+    \PYG{n}{c} \PYG{o}{+} \PYG{l+m+mi}{100}
+\PYG{k}{end}
+\PYG{p}{(}\PYG{l+m+mi}{1}\PYG{p}{,} \PYG{p}{(}\PYG{l+m+mi}{102}\PYG{p}{,} \PYG{l+m+mi}{3}\PYG{p}{))}
+
+\PYG{n}{julia}\PYG{o}{\PYGZgt{}} \PYG{n}{c}\PYG{p}{,} \PYG{n}{back} \PYG{o}{=} \PYG{n}{of}\PYG{p}{(}\PYG{n}{tup}\PYG{p}{);}
+
+\PYG{n}{julia}\PYG{o}{\PYGZgt{}} \PYG{n}{back}\PYG{p}{(}\PYG{n}{c}\PYG{o}{+}\PYG{l+m+mi}{100}\PYG{p}{)}
+\PYG{p}{(}\PYG{l+m+mi}{1}\PYG{p}{,} \PYG{p}{(}\PYG{l+m+mi}{102}\PYG{p}{,} \PYG{l+m+mi}{3}\PYG{p}{))}
+\end{Verbatim}

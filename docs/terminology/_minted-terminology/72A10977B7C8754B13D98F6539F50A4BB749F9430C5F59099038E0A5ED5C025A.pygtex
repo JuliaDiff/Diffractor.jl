@@ -1,0 +1,24 @@
+\begin{Verbatim}[commandchars=\\\{\},codes={\catcode`\$=3\catcode`\^=7\catcode`\_=8\relax}]
+\PYG{k}{function} \PYG{esc}{$\overleftarrow{\partial} \overleftarrow{\partial} \overleftarrow{\partial}$}\PYG{n}{sin}\PYG{p}{(}\PYG{n}{x}\PYG{p}{)}
+    \PYG{p}{(}\PYG{n}{sin}\PYG{p}{(}\PYG{n}{x}\PYG{p}{)}\PYG{p}{,} \PYG{esc}{$\Delta$}\PYG{o}{\PYGZhy{}\PYGZgt{}}\PYG{k}{begin} \PYG{c}{\PYGZsh{} $\overleftarrow{\partial} \overleftarrow{\partial} (f^{\star})$}
+        \PYG{esc}{$\Delta$} \PYG{o}{*} \PYG{n}{cos}\PYG{p}{(}\PYG{n}{x}\PYG{p}{)}\PYG{p}{,} \PYG{esc}{$\Delta'$}\PYG{o}{\PYGZhy{}\PYGZgt{}}\PYG{k}{begin} \PYG{c}{\PYGZsh{} $\overleftarrow{\partial} (f^{\star\star})$}
+            \PYG{esc}{$\Delta'$}\PYG{o}{*}\PYG{esc}{$\Delta$}\PYG{o}{*}\PYG{p}{(}\PYG{o}{\PYGZhy{}}\PYG{n}{sin}\PYG{p}{(}\PYG{n}{x}\PYG{p}{)}\PYG{p}{)}\PYG{p}{,} \PYG{esc}{$\Delta'$}\PYG{o}{*}\PYG{n}{cos}\PYG{p}{(}\PYG{n}{x}\PYG{p}{)}\PYG{p}{,} \PYG{p}{(}\PYG{p}{(}\PYG{esc}{$\Delta^4$}\PYG{p}{,}\PYG{esc}{$\Delta^5$}\PYG{p}{)}\PYG{p}{,}\PYG{p}{)}\PYG{o}{\PYGZhy{}\PYGZgt{}}\PYG{k}{begin} \PYG{c}{\PYGZsh{} $ f^{\star\star\star} $}
+                \PYG{p}{(}\PYG{o}{\PYGZhy{}}\PYG{esc}{$\Delta^4$}\PYG{o}{*}\PYG{esc}{$\Delta'$}\PYG{o}{*}\PYG{esc}{$\Delta$}\PYG{o}{*}\PYG{n}{cos}\PYG{p}{(}\PYG{n}{x}\PYG{p}{)} \PYG{o}{+}
+                    \PYG{o}{\PYGZhy{}}\PYG{esc}{$\Delta^5$}\PYG{o}{*}\PYG{esc}{$\Delta'$}\PYG{o}{*}\PYG{n}{sin}\PYG{p}{(}\PYG{n}{x}\PYG{p}{)}\PYG{p}{,}
+                    \PYG{o}{\PYGZhy{}}\PYG{esc}{$\Delta^4$}\PYG{o}{*}\PYG{esc}{$\Delta'$}\PYG{o}{*}\PYG{n}{sin}\PYG{p}{(}\PYG{n}{x}\PYG{p}{)}\PYG{p}{)}\PYG{p}{,}
+                \PYG{o}{\PYGZhy{}}\PYG{esc}{$\Delta^4$}\PYG{o}{*}\PYG{esc}{$\Delta$}\PYG{o}{*}\PYG{n}{sin}\PYG{p}{(}\PYG{n}{x}\PYG{p}{)}\PYG{o}{+}\PYG{esc}{$\Delta^5$}\PYG{o}{*}\PYG{n}{cos}\PYG{p}{(}\PYG{n}{x}\PYG{p}{)}
+            \PYG{k}{end}
+        \PYG{k}{end}\PYG{p}{,} \PYG{p}{(}\PYG{esc}{$\Delta^6$}\PYG{p}{,}\PYG{p}{(}\PYG{esc}{$\Delta^7$}\PYG{p}{,}\PYG{esc}{$\Delta^8$}\PYG{p}{)}\PYG{p}{)}\PYG{o}{\PYGZhy{}\PYGZgt{}}\PYG{k}{begin} \PYG{c}{\PYGZsh{} $ \left(\overleftarrow{\partial}\left(f^\star\right)\right)^{\star} $}
+            \PYG{p}{(}\PYG{esc}{$\Delta^6$}\PYG{o}{*}\PYG{esc}{$\Delta$}\PYG{o}{*}\PYG{p}{(}\PYG{o}{\PYGZhy{}}\PYG{n}{sin}\PYG{p}{(}\PYG{n}{x}\PYG{p}{)}\PYG{p}{)} \PYG{o}{+} \PYG{esc}{$\Delta^7$}\PYG{p}{,}
+                \PYG{esc}{$\Delta^6$}\PYG{o}{*}\PYG{n}{cos}\PYG{p}{(}\PYG{n}{x}\PYG{p}{)} \PYG{o}{+} \PYG{esc}{$\Delta^8$}\PYG{p}{)}
+        \PYG{k}{end}
+    \PYG{k}{end}\PYG{p}{,} \PYG{p}{(}\PYG{esc}{$\Delta'''$}\PYG{p}{,}\PYG{esc}{$\Delta''$}\PYG{p}{)}\PYG{o}{\PYGZhy{}\PYGZgt{}}\PYG{k}{begin} \PYG{c}{\PYGZsh{} $ \overleftarrow{\partial} \left( \left( \overleftarrow{\partial} f \right)^\star \right)  $}
+        \PYG{esc}{$\Delta''$}\PYG{o}{*}\PYG{n}{cos}\PYG{p}{(}\PYG{n}{x}\PYG{p}{)} \PYG{o}{+} \PYG{esc}{$\Delta'''$}\PYG{p}{,} \PYG{esc}{$\Delta^9$}\PYG{o}{\PYGZhy{}\PYGZgt{}}\PYG{k}{begin} \PYG{c}{\PYGZsh{} $ \left( \overleftarrow{\partial} f \right)^{\star\star} $}
+            \PYG{p}{(}\PYG{o}{\PYGZhy{}}\PYG{esc}{$\Delta^9$}\PYG{o}{*}\PYG{esc}{$\Delta''$}\PYG{o}{*}\PYG{n}{sin}\PYG{p}{(}\PYG{n}{x}\PYG{p}{)}\PYG{p}{)}\PYG{p}{,}
+                \PYG{p}{(}\PYG{esc}{$\Delta^9$}\PYG{p}{,} \PYG{esc}{$\Delta^9$} \PYG{o}{*} \PYG{n}{cos}\PYG{p}{(}\PYG{n}{x}\PYG{p}{)}\PYG{p}{)}
+        \PYG{k}{end}
+    \PYG{k}{end}\PYG{p}{)}\PYG{p}{,} \PYG{esc}{$(((\Delta^{10}, \Delta^{11}), \Delta^{12}),)$}\PYG{o}{\PYGZhy{}\PYGZgt{}}\PYG{k}{begin} \PYG{c}{\PYGZsh{} $ \left( \overleftarrow{\partial} \overleftarrow{\partial} f \right)^\star $}
+        \PYG{esc}{$\Delta^{10}$}\PYG{o}{*}\PYG{n}{cos}\PYG{p}{(}\PYG{n}{x}\PYG{p}{)} \PYG{o}{+} \PYG{esc}{$\Delta^{11}$} \PYG{o}{+} \PYG{esc}{$\Delta^{12}$}
+    \PYG{k}{end}
+\PYG{k}{end}
+\end{Verbatim}

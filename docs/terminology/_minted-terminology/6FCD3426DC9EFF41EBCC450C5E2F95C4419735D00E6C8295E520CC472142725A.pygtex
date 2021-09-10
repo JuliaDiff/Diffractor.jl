@@ -1,0 +1,39 @@
+\begin{Verbatim}[commandchars=\\\{\},codes={\catcode`\$=3\catcode`\^=7\catcode`\_=8\relax}]
+\PYG{k}{function} \PYG{esc}{$\op^3$}\PYG{n}{f}\PYG{p}{(}\PYG{n}{x}\PYG{p}{)}
+  \PYG{esc}{$y$}\PYG{p}{,} \PYG{esc}{$\overline{y}$} \PYG{o}{=} \PYG{esc}{$\op^3$}\PYG{n}{g}\PYG{p}{(}\PYG{n}{x}\PYG{p}{)}
+  \PYG{esc}{$z$}\PYG{p}{,} \PYG{esc}{$\overline{z}$} \PYG{o}{=} \PYG{esc}{$\op^3$}\PYG{n}{h}\PYG{p}{(}\PYG{n}{y}\PYG{p}{)}
+  \PYG{esc}{$z$}\PYG{p}{,} \PYG{esc}{$\Delta$}\PYG{o}{\PYGZhy{}\PYGZgt{}}\PYG{k}{begin}
+    \PYG{esc}{$\alpha$}\PYG{p}{,} \PYG{esc}{$\overline{\alpha}$} \PYG{o}{=} \PYG{esc}{$\overline{z}$}\PYG{p}{(}\PYG{esc}{$\Delta$}\PYG{p}{)}
+    \PYG{esc}{$\beta$}\PYG{p}{,} \PYG{esc}{$\overline{\beta}$} \PYG{o}{=} \PYG{esc}{$\overline{y}$}\PYG{p}{(}\PYG{esc}{$\alpha$}\PYG{p}{)}
+    \PYG{esc}{$\beta$}\PYG{p}{,} \PYG{esc}{$\Delta'$}\PYG{o}{\PYGZhy{}\PYGZgt{}}\PYG{k}{begin}
+      \PYG{esc}{$\gamma$}\PYG{p}{,} \PYG{esc}{$\overline{\gamma}$} \PYG{o}{=} \PYG{esc}{$\overline{\beta}$}\PYG{p}{(}\PYG{esc}{$\Delta'$}\PYG{p}{)}
+      \PYG{esc}{$\delta$}\PYG{p}{,} \PYG{esc}{$\overline{\delta}$} \PYG{o}{=} \PYG{esc}{$\overline{\alpha}$}\PYG{p}{(}\PYG{esc}{$\gamma$}\PYG{p}{)}
+      \PYG{esc}{$\delta$}\PYG{p}{,} \PYG{esc}{$\Delta''$}\PYG{o}{\PYGZhy{}\PYGZgt{}}\PYG{k}{begin}
+        \PYG{esc}{$\epsilon$}\PYG{p}{,} \PYG{esc}{$\overline{\epsilon}$} \PYG{o}{=} \PYG{esc}{$\overline{\delta}$}\PYG{p}{(}\PYG{esc}{$\Delta''$}\PYG{p}{)}
+        \PYG{esc}{$\zeta$}\PYG{p}{,} \PYG{esc}{$\overline{\zeta}$} \PYG{o}{=} \PYG{esc}{$\overline{\gamma}$}\PYG{p}{(}\PYG{esc}{$\epsilon$}\PYG{p}{)}
+        \PYG{esc}{$\zeta$}\PYG{p}{,} \PYG{esc}{$\Delta'''$}\PYG{o}{\PYGZhy{}\PYGZgt{}}\PYG{k}{begin}
+          \PYG{esc}{$\eta$}\PYG{p}{,} \PYG{esc}{$\overline{\eta}$} \PYG{o}{=} \PYG{esc}{$\overline{\zeta}$}\PYG{p}{(}\PYG{esc}{$\Delta'''$}\PYG{p}{)}
+          \PYG{esc}{$\theta$}\PYG{p}{,} \PYG{esc}{$\overline{\theta}$} \PYG{o}{=} \PYG{esc}{$\overline{\epsilon}$}\PYG{p}{(}\PYG{esc}{$\eta$}\PYG{p}{)}
+          \PYG{esc}{$\theta$}\PYG{p}{,} \PYG{esc}{$\Delta^4$}\PYG{o}{\PYGZhy{}\PYGZgt{}}\PYG{k}{begin}
+            \PYG{esc}{$\iota$}\PYG{p}{,} \PYG{esc}{$\overline{\iota}$} \PYG{o}{=} \PYG{esc}{$\overline{\theta}$}\PYG{p}{(}\PYG{esc}{$\Delta^4$}\PYG{p}{)}
+            \PYG{esc}{$\kappa$}\PYG{p}{,} \PYG{esc}{$\overline{\kappa}$} \PYG{o}{=} \PYG{esc}{$\overline{\eta}$}\PYG{p}{(}\PYG{esc}{$\iota$}\PYG{p}{)}
+            \PYG{esc}{$\kappa$}\PYG{p}{,} \PYG{esc}{$\Delta^5$}\PYG{o}{\PYGZhy{}\PYGZgt{}}\PYG{k}{begin}
+              \PYG{esc}{$\lambda$}\PYG{p}{,} \PYG{esc}{$\overline{\lambda}$} \PYG{o}{=} \PYG{esc}{$\overline{\kappa}$}\PYG{p}{(}\PYG{esc}{$\Delta^5$}\PYG{p}{)}
+              \PYG{esc}{$\mu$}\PYG{p}{,} \PYG{esc}{$\overline{\mu}$} \PYG{o}{=} \PYG{esc}{$\overline{\iota}$}\PYG{p}{(}\PYG{esc}{$\lambda$}\PYG{p}{)}
+              \PYG{esc}{$\mu$}\PYG{p}{,} \PYG{esc}{$\Delta^6$}\PYG{o}{\PYGZhy{}\PYGZgt{}}\PYG{k}{begin}
+                \PYG{esc}{$\nu$}\PYG{p}{,} \PYG{esc}{$\overline{\nu}$} \PYG{o}{=} \PYG{esc}{$\overline{\mu}$}\PYG{p}{(}\PYG{esc}{$\Delta^6$}\PYG{p}{)}
+                \PYG{esc}{$\xi$}\PYG{p}{,} \PYG{esc}{$\overline{\xi}$} \PYG{o}{=} \PYG{esc}{$\overline{\lambda}$}\PYG{p}{(}\PYG{esc}{$\nu$}\PYG{p}{)}
+                \PYG{esc}{$\xi$}\PYG{p}{,} \PYG{esc}{$\Delta^7$}\PYG{o}{\PYGZhy{}\PYGZgt{}}\PYG{k}{begin}
+                  \PYG{esc}{$o$} \PYG{o}{=} \PYG{esc}{$\overline{\xi}$}\PYG{p}{(}\PYG{esc}{$\Delta^7$}\PYG{p}{)}
+                  \PYG{esc}{$\pi$} \PYG{o}{=} \PYG{esc}{$\overline{\nu}$}\PYG{p}{(}\PYG{esc}{$o$}\PYG{p}{)}
+                  \PYG{k}{return} \PYG{esc}{$\pi$}
+                \PYG{k}{end}
+              \PYG{k}{end}
+            \PYG{k}{end}
+          \PYG{k}{end}
+        \PYG{k}{end}
+      \PYG{k}{end}
+    \PYG{k}{end}
+  \PYG{k}{end}
+\PYG{k}{end}
+\end{Verbatim}

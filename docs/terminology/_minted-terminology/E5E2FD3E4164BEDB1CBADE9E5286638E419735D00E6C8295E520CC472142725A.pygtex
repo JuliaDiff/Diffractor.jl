@@ -1,0 +1,7 @@
+\begin{Verbatim}[commandchars=\\\{\},codes={\catcode`\$=3\catcode`\^=7\catcode`\_=8\relax}]
+\PYG{k}{function} \PYG{n}{f}\PYG{p}{(}\PYG{n}{x}\PYG{p}{)}
+    \PYG{n}{y} \PYG{o}{=} \PYG{n}{g}\PYG{p}{(}\PYG{n}{x}\PYG{p}{)}
+    \PYG{n}{z} \PYG{o}{=} \PYG{n}{h}\PYG{p}{(}\PYG{n}{y}\PYG{p}{)}
+    \PYG{k}{return} \PYG{n}{z}
+\PYG{k}{end}
+\end{Verbatim}

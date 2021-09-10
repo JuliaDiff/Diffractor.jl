@@ -1,0 +1,7 @@
+\begin{Verbatim}[commandchars=\\\{\},codes={\catcode`\$=3\catcode`\^=7\catcode`\_=8\relax}]
+\PYG{esc}{$\textbf{\euro{}}$}\PYG{n}{C}\PYG{p}{(}\PYG{n}{aprice}\PYG{p}{,} \PYG{n}{bprice}\PYG{p}{,} \PYG{n}{a}\PYG{p}{,} \PYG{n}{b}\PYG{p}{)} \PYG{o}{=} \PYG{k}{let} \PYG{n}{cost}\PYG{o}{=}\PYG{esc}{$30$}\PYG{p}{;}
+  \PYG{p}{(}\PYG{n}{aprice} \PYG{o}{+} \PYG{n}{bprice} \PYG{o}{+} \PYG{n}{cost}\PYG{p}{,} \PYG{n}{C}\PYG{p}{(}\PYG{n}{a}\PYG{p}{,} \PYG{n}{b}\PYG{p}{)}\PYG{p}{)}\PYG{p}{,}
+    \PYG{n}{profit}\PYG{o}{\PYGZhy{}\PYGZgt{}}\PYG{p}{(}\PYG{n}{take}\PYG{p}{(}\PYG{n}{profit}\PYG{p}{,} \PYG{n}{aprice}\PYG{p}{)}\PYG{p}{,}
+             \PYG{n}{take}\PYG{p}{(}\PYG{n}{profit}\PYG{p}{,} \PYG{n}{bprice}\PYG{p}{)}\PYG{p}{)}
+\PYG{k}{end}
+\end{Verbatim}

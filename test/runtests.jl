@@ -206,8 +206,8 @@ y45, back45 = rrule_via_ad(DiffractorRuleConfig(), x -> log(exp(x)), 2.0)
 @test y45 ≈ 2.0
 @test back45(1) == (ZeroTangent(), 1.0)
 
-# z45, delta45 = frule_via_ad(DiffractorRuleConfig(), (0,1), x -> log(exp(x)), 2.0)
-# @test z45 ≈ 2.0
-# @test delta45 ≈ 1.0
+z45, delta45 = frule_via_ad(DiffractorRuleConfig(), (0,1), x -> log(exp(x)), 2.0)
+@test z45 ≈ 2.0
+@test delta45 ≈ 1.0
 
 include("pinn.jl")

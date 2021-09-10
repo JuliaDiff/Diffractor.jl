@@ -4,6 +4,7 @@ using ChainRules
 using ChainRulesCore
 using ChainRules: ZeroTangent, NoTangent
 using Symbolics
+using LinearAlgebra
 
 using Test
 
@@ -194,5 +195,10 @@ end
 
 # Issue #40 - Symbol type parameters not properly quoted
 @test Diffractor.∂⃖recurse{1}()(Val{:transformations})[1] === Val{:transformations}()
+
+# PR #43
+loss(res, z, w) = sum(res.U * Diagonal(res.S) * res.V) + sum(res.S .* w)
+x = rand(10, 10)
+@test Diffractor.gradient(x->loss(svd(x), x[:,1], x[:,2]), x) isa Tuple{Matrix{Float64}}
 
 include("pinn.jl")

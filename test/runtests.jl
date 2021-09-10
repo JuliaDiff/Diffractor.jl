@@ -1,8 +1,8 @@
 using Diffractor
-using Diffractor: var"'", ∂⃖
+using Diffractor: var"'", ∂⃖, DiffractorRuleConfig
 using ChainRules
 using ChainRulesCore
-using ChainRules: ZeroTangent, NoTangent
+using ChainRules: ZeroTangent, NoTangent, frule_via_ad, rrule_via_ad
 using Symbolics
 using LinearAlgebra
 
@@ -200,5 +200,14 @@ end
 loss(res, z, w) = sum(res.U * Diagonal(res.S) * res.V) + sum(res.S .* w)
 x = rand(10, 10)
 @test Diffractor.gradient(x->loss(svd(x), x[:,1], x[:,2]), x) isa Tuple{Matrix{Float64}}
+
+# PR # 45 - Calling back into AD from ChainRules
+y45, back45 = rrule_via_ad(DiffractorRuleConfig(), x -> log(exp(x)), 2.0)
+@test y45 ≈ 2.0
+@test back45(1) == (ZeroTangent(), 1.0)
+
+# z45, delta45 = frule_via_ad(DiffractorRuleConfig(), (0,1), x -> log(exp(x)), 2.0)
+# @test z45 ≈ 2.0
+# @test delta45 ≈ 1.0
 
 include("pinn.jl")

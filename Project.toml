@@ -15,6 +15,10 @@ StructArrays = "09ab397b-f2b6-538f-b94a-2f83cf4a842a"
 [compat]
 ChainRules = "1.5"
 ChainRulesCore = "1.2"
+Combinatorics = "1"
+StaticArrays = "1"
+StatsBase = "0.33"
+StructArrays = "0.6"
 julia = "1"
 
 [extras]

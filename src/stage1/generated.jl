@@ -28,6 +28,7 @@ function perform_optic_transform(@nospecialize(ff::Type{∂⃖recurse{N}}), @nos
     end
 
     ci′.ssavaluetypes = length(ci′.code)
+    ci′.ssaflags = UInt8[0 for i=1:length(ci′.code)]
     ci′.method_for_inference_limit_heuristics = match.method
     ci′
 end

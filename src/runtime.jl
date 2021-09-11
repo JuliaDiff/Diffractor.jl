@@ -1,4 +1,5 @@
 using ChainRulesCore
+struct DiffractorRuleConfig <: RuleConfig{Union{HasReverseMode,HasForwardsMode}} end
 
 @Base.constprop :aggressive accum(a, b) = a + b
 @Base.constprop :aggressive accum(a::Tuple, b::Tuple) = map(accum, a, b)

@@ -1,8 +1,0 @@
-\begin{Verbatim}[commandchars=\\\{\}]
-\PYG{n}{julia}\PYG{o}{\PYGZgt{}} \PYG{n}{right}\PYG{p}{(}\PYG{n}{of}\PYG{p}{,} \PYG{n}{m}\PYG{p}{,} \PYG{n}{c} \PYG{o}{+} \PYG{l+m+mi}{100}\PYG{p}{)}
-\PYG{p}{(}\PYG{l+m+mi}{1}\PYG{p}{,} \PYG{p}{(}\PYG{l+m+mi}{102}\PYG{p}{,} \PYG{l+m+mi}{3}\PYG{p}{))}
-
-\PYG{n}{julia}\PYG{o}{\PYGZgt{}} \PYG{n}{right}\PYG{p}{(}\PYG{n}{o}\PYG{p}{,} \PYG{n}{m}\PYG{p}{,} \PYG{n}{c} \PYG{o}{+} \PYG{l+m+mi}{100}\PYG{p}{)}
-\PYG{n}{ERROR}\PYG{o}{:} \PYG{k+kt}{MethodError}\PYG{o}{:} \PYG{n}{no} \PYG{n}{method} \PYG{n}{matching}
-\PYG{n}{setindex}\PYG{p}{(}\PYG{o}{::}\PYG{k+kt}{Int64}\PYG{p}{,} \PYG{o}{::}\PYG{k+kt}{Tuple}\PYG{p}{\PYGZob{}}\PYG{k+kt}{Int64}\PYG{p}{,}\PYG{k+kt}{Int64}\PYG{p}{\PYGZcb{},} \PYG{o}{::}\PYG{k+kt}{Int64}\PYG{p}{)}
-\end{Verbatim}

@@ -1,8 +1,0 @@
-\begin{Verbatim}[commandchars=\\\{\}]
-\PYG{k}{function} \PYG{n}{cd}\PYG{p}{(}\PYG{n}{f}\PYG{o}{::}\PYG{k+kt}{Function}\PYG{p}{,} \PYG{n}{dir}\PYG{o}{::}\PYG{k+kt}{AbstractString}\PYG{p}{)}
-    \PYG{n}{old} \PYG{o}{=} \PYG{n}{pwd}\PYG{p}{()}
-    \PYG{n}{cd}\PYG{p}{(}\PYG{n}{dir}\PYG{p}{)}
-    \PYG{n}{f}\PYG{p}{()}
-    \PYG{n}{cd}\PYG{p}{(}\PYG{n}{old}\PYG{p}{)}
-\PYG{k}{end}
-\end{Verbatim}

@@ -1,5 +1,12 @@
 # Diffractor - Next Generation AD
 
+[![Build Status](https://github.com/JuliaDiff/Diffractor.jl/workflows/CI/badge.svg)](https://github.com/JuliaDiff/Diffractor.jl/actions?query=workflow:CI)
+[![Coverage](https://codecov.io/gh/JuliaDiff/Diffractor.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/JuliaDiff/Diffractor.jl)
+
+**Docs:**
+[![](https://img.shields.io/badge/docs-master-blue.svg)](https://juliadiff.org/Diffractor.jl/dev)
+[![](https://img.shields.io/badge/docs-stable-blue.svg)](https://juliadiff.org/Diffractor.jl/stable)
+
 # General Overview
 
 Diffractor is an experimental next-generation, compiler-based AD system for Julia.

@@ -45,5 +45,6 @@ makedocs(
 
 deploydocs(
     repo = "github.com/JuliaDiff/Diffractor.jl.git",
+    devbranch="main",
     push_preview=true,
 )

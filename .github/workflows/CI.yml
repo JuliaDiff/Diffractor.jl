@@ -59,7 +59,7 @@ jobs:
       - name: Upload Artifact
         uses: actions/upload-artifact@v2
         with:
-          name: PDF
+          name: terminology
           path: docs/terminology/terminology.pdf
 
   docs:
@@ -71,9 +71,11 @@ jobs:
       - uses: julia-actions/setup-julia@v1
         with:
           version: 'nightly'
-      - name: Copy Terminology
-        run: |
-          cp docs/terminology/terminology.pdf docs/src/
+      - name: Download Terminology
+        uses: actions/download-artifact@v2
+        with:
+          name: terminology
+          path: docs/src/
       - name: Build Docs
         run: |
           julia --project=docs -e '

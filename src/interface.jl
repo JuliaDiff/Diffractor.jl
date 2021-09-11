@@ -45,8 +45,8 @@ the representations of either the manifold itself or the cotangent space.
 
 By default, the only implementation provided identifies T*ₓ ℝ ≃ ℝ, keeping
 watever type is used to represent ℝ. i.e.
-```
-    dx(x::Real) = one(x)
+```julia
+dx(x::Real) = one(x)
 ```
 
 However, users may provide additional overloads for custom representations of
@@ -87,10 +87,10 @@ Alternatively, ∇ may be curried, essentially giving the gradient as a function
 ## Examples
 
 ```jldoctest
+julia> using Diffractor: ∇
+
 julia> map(∇(*), (1,2,3), (4,5,6))
-(4,1)
-(5,2)
-(6,3)
+((4.0, 1.0), (5.0, 2.0), (6.0, 3.0))
 ```
 
 # The derivative ∂f/∂f
@@ -204,12 +204,12 @@ Note that the syntax conflicts with the Base definition for the adjoint of a
 matrix and thus is not enabled by default. To use it, add the following to the
 top of your module:
 
-```
+```julia
 using Diffractor: var"'"
 ```
 
 It is also available using the @∂ macro:
-```
+```julia
 @∂ f'(x)
 ```
 """
@@ -220,14 +220,14 @@ var"'"(f) = PrimeDerivativeBack(f)
 
 Convenice macro for writing partial derivatives. E.g. The expression:
 
-```
-julia> @∂ f(∂x, ∂y)
+```julia
+@∂ f(∂x, ∂y)
 ```
 
 Will compute the partial derivative ∂^2 f/∂x∂y at `(x, y)``. And similarly
 
-```
-julia> @∂ f(∂²x, ∂y)
+```julia
+@∂ f(∂²x, ∂y)
 ```
 
 will compute the derivative `∂^3 f/∂x^2 ∂y` at `(x,y)`.

@@ -187,9 +187,9 @@ function (∂⃖ₙ::∂⃖{N})(::typeof(map), f, a::Array) where {N}
         ∂f = ∂☆{N}()(ZeroBundle{N}(f),
                      TaylorBundle{N}(x,
                        (one(x), (zero(x) for i = 1:(N-1))...,)))
-        @assert isa(∂f, TaylorBundle) || isa(∂f, TangentBundle{1})
+        @assert isa(∂f, TaylorBundle) || isa(∂f, ExplicitTangentBundle{1})
         Jet{typeof(x), N}(x, ∂f.primal,
-            isa(∂f, TangentBundle) ? ∂f.partials : ∂f.coeffs)
+            isa(∂f, ExplicitTangentBundle) ? ∂f.tangent.partials : ∂f.tangent.coeffs)
     end
     ∂⃖ₙ(mapev, js, a)
 end
@@ -243,18 +243,18 @@ end
     O = min(M,N)
     quote
         domain_check(j, x.primal)
-        coeffs = x.coeffs
+        coeffs = x.tangent.coeffs
         TaylorBundle{$O}(j[0],
             ($((:(jet_taylor_ev(Val{$i}(), coeffs, j)) for i = 1:O)...),))
     end
 end
 
-function (j::Jet{T, 1} where T)(x::TangentBundle{1})
+function (j::Jet{T, 1} where T)(x::ExplicitTangentBundle{1})
     domain_check(j, x.primal)
-    coeffs = x.partials
-    TangentBundle{1}(j[0], (jet_taylor_ev(Val{1}(), coeffs, j),))
+    coeffs = x.tangent.partials
+    ExplicitTangentBundle{1}(j[0], (jet_taylor_ev(Val{1}(), coeffs, j),))
 end
 
-function (j::Jet{T, N} where T)(x::TangentBundle{N, M}) where {N, M}
+function (j::Jet{T, N} where T)(x::ExplicitTangentBundle{N, M}) where {N, M}
     error("TODO")
 end

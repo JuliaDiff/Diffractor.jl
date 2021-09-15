@@ -19,7 +19,7 @@ Combinatorics = "1"
 StaticArrays = "1"
 StatsBase = "0.33"
 StructArrays = "0.6"
-julia = "1.7"
+julia = "1.8"
 
 [extras]
 ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"

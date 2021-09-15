@@ -214,5 +214,14 @@ z45, delta45 = frule_via_ad(DiffractorRuleConfig(), (0,1), x -> log(exp(x)), 2)
 @test z45 ≈ 2.0
 @test delta45 ≈ 1.0
 
+# Broadcasting
+@test gradient(x -> sum(x ./ x), [1,2,3]) == ([1,1,1],)
+@test gradient(x -> sum(exp.(log.(x))), [1,2,3]) == ([1,1,1],)  # derivatives_given_output
+@test gradient(x -> sum((exp∘log).(x)), [1,2,3]) == ([1,1,1],)  # stores pullback
+@test gradient((x,y) -> sum(x ./ y), [1 2; 3 4], [1,2]) == ([1 1; 0.5 0.5], [-3, -1.75])
+@test gradient((x,y) -> sum(x ./ y), [1 2; 3 4], 5) == ([0.2 0.2; 0.2 0.2], -0.4)
+@test gradient(x -> sum(x .> 2), [1,2,3]) == (ZeroTangent(),)   # Bool shortcut
+@test gradient((x,y) -> sum(x .== y), [1,2,3], [1 2 3]) == (ZeroTangent(), ZeroTangent())
+
 # Higher order control flow not yet supported (https://github.com/JuliaDiff/Diffractor.jl/issues/24)
 #include("pinn.jl")

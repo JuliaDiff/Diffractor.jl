@@ -116,7 +116,7 @@ are pairs $(l, r)$ where $l: A \to M \otimes B$, $r: M \otimes B' \to A'$ (the c
 on the representative - see Riley for details).
 \end{definition}
 
-This definition makes maniffest the combination of co- and contravariant data.
+This definition makes manifest the combination of co- and contravariant data.
 For a representative $\langle l | r \rangle$, $l$ varies covariantly while $r$
 varies contravariantly. We additionally have a ``memory" or ``residual" object $M$.
 This object is not uniquely determined and in fact we shall make good use of that
@@ -564,13 +564,13 @@ morphism in our lifting functor.
 Given our utter disappointment with the product structure, can we have any
 hope to lift the co-product structure. Yes, we do! First we construct the
 co-product itself. For two optics $\langle l_1 | r_1 \rangle: (A, A') \to (B, B')$
-with residual $M_1$ and $\langle l_2 | r_2 \rangle: (C, D') \to (D, D')$ with residual $M_2$,
+with residual $M_1$ and $\langle l_2 | r_2 \rangle: (C, C') \to (D, D')$ with residual $M_2$,
 we construct a new optic $\langle l_{12} | r_{12} \rangle$ where
 
 \begin{equation}
 \begin{split}
-l_{12} = (l_1 \oplus l_2) \bbsemi \leftrightarrow_{oplus} \\
-r_{12} = \leftrightarrow_{oplus}^{-1} \bbsemi (r_1 \oplus r_2)
+l_{12} = (l_1 \oplus l_2) \bbsemi \leftrightarrow_{\oplus} \\
+r_{12} = \leftrightarrow_{\oplus}^{-1} \bbsemi (r_1 \oplus r_2)
 \end{split}
 \end{equation}
 
@@ -881,9 +881,9 @@ end
 \end{snippet}
 
 However, note that while this is a valid definition under our definition of
-an optic functor, applying $textbf{\euro{}}$ now leads to accumulation order
+an optic functor, applying $\textbf{\euro{}}$ now leads to accumulation order
 dependence (the same happens in the variant where cloning is done once per value).
-As a result, $textbf{\euro{}}$ would no longer preserve standard SSA invariants.
+As a result, $\textbf{\euro{}}$ would no longer preserve standard SSA invariants.
 This is legal according to our definition, but it can be convenient to be able to
 arbitrarily permute SSA transforms and optic functors. Thus, we would generally
 only ever choose one of the first two definitions.

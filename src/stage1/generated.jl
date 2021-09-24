@@ -389,10 +389,7 @@ end
 lifted_getfield(x::ZeroTangent, s) = ZeroTangent()
 lifted_getfield(x::NoTangent, s) = NoTangent()
 
-function lifted_getfield(x::Tangent, s)
-    z = getfield(ChainRulesCore.backing(ChainRulesCore.canonicalize(x)), s)
-    z
-end
+lifted_getfield(x::Tangent, s) = getproperty(x, s)
 
 function lifted_getfield(x::Tangent{<:Tangent{T}}, s) where T
     bb = getfield(x.backing, 1)

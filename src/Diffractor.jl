@@ -1,5 +1,22 @@
 module Diffractor
 
+#macro show(exs...)
+#    blk = Expr(:block)
+#    push!(blk.args, quote
+#        ccall(:jl_safe_printf, Cvoid, (Cstring,), $("$__source__\n"))
+#    end)
+#    for ex in exs
+#        push!(blk.args, quote
+#            let s = string($(sprint(Base.show_unquoted,ex)*" = "),
+#                                  repr(begin local value = $(esc(ex)) end), "\n")
+#                ccall(:jl_safe_printf, Cvoid, (Cstring,), s)
+#            end
+#        end)
+#    end
+#    isempty(exs) || push!(blk.args, :value)
+#    return blk
+#end
+
 using StructArrays
 
 export ∂⃖, gradient

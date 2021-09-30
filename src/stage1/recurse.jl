@@ -339,6 +339,8 @@ function transform!(ci, meth, nargs, sparams, N)
         ir = compact!(ir)
         cfg = ir.cfg
     end
+    @show meth ir
+    #ccall(:jl_safe_printf, Cvoid, (Cstring,), string(ir))
 
     orig_bb_ranges = [first(bb.stmts):last(bb.stmts) for bb in cfg.blocks]
 
@@ -377,6 +379,7 @@ function transform!(ci, meth, nargs, sparams, N)
     if has_cfg
         slot_map = Dict{Union{SSAValue, Argument}, SlotNumber}()
         phi_tmp_slot_map = Dict{Int, SlotNumber}()
+        # for each edge of all phi nodes, maps slots in `phi_tmp_slot_map` to the slots for the corresponding values the phi node will select
         phi_uses = Dict{Int, Vector{Pair{SlotNumber, SlotNumber}}}()
         for (bb, i) in Iterators.reverse(bbidxiter(ir))
             first_bb_idx = cfg.blocks[bb].stmts.start
@@ -430,6 +433,7 @@ function transform!(ci, meth, nargs, sparams, N)
         end
 
         is_accumable(val) = isa(val, SSAValue) || isa(val, Argument)
+        # set up slot to accumulate gradient wrt return value into
         function accum!(val, accumulant)
             is_accumable(val) || return
             if !has_cfg
@@ -453,6 +457,7 @@ function transform!(ci, meth, nargs, sparams, N)
             end
         end
 
+        # retrieve slot where gradient wrt `for_val` should be accumulated into
         function do_accum(for_val)
             if !has_cfg
                 this_accums = isa(for_val, SSAValue) ? accums[for_val.id] :
@@ -473,8 +478,10 @@ function transform!(ci, meth, nargs, sparams, N)
 
         current_env = nothing
         ctx_map = Dict{Int, Any}()
+        # each BB has its own env and ctx object (ctx objects are the captures of the opaque closure)
         function retrieve_ctx_obj(current_env, i)
             if current_env === nothing
+                # we're in the last BB
                 return insert_node_rev!(Expr(:call, getfield, Argument(1),
                     i - first(orig_bb_ranges[end]) + 1))
             elseif isa(current_env, BBEnv)
@@ -500,11 +507,13 @@ function transform!(ci, meth, nargs, sparams, N)
         end
 
         bb_ranges = Vector{UnitRange{Int}}(undef, length(cfg.blocks))
+            display(opaque_ci.code)
 
         for (bb, i) in Iterators.reverse(bbidxiter(ir))
             first_bb_idx = cfg.blocks[bb].stmts.start
             last_bb_idx = cfg.blocks[bb].stmts.stop
             stmt = ir.stmts[i][:inst]
+            @show current_env ctx_map stmt
 
             if has_cfg && i == last_bb_idx
                 if haskey(phi_uses, bb)
@@ -620,6 +629,8 @@ function transform!(ci, meth, nargs, sparams, N)
                 back_bb = to_back_bb(bb)
                 bb_ranges[back_bb] = (back_bb == 1 ? 1 : (last(bb_ranges[back_bb - 1])+1)):length(code)
             end
+            display(opaque_ci.code)
+            println()
         end
 
         ret_tuple = arg_tuple = insert_node_rev!(Expr(:call, tuple, [do_accum(Argument(i)) for i = 1:(nfixedargs)]...))
@@ -655,6 +666,87 @@ function transform!(ci, meth, nargs, sparams, N)
             push!(code, node)
             SSAValue(length(code))
         end
+
+        if has_cfg
+            append!(opaque_ci.slotnames, extra_slotnames)
+            append!(opaque_ci.slotflags, extra_slotflags)
+        end
+
+        is_accumable(val) = isa(val, SSAValue) || isa(val, Argument)
+        # set up slot to accumulate gradient wrt return value into
+        function accum!(val, accumulant)
+            is_accumable(val) || return
+            if !has_cfg
+                if isa(val, SSAValue)
+                    id = val.id
+                    if isa(accums[id], Nothing)
+                        accums[id] = Any[]
+                    end
+                    push!(accums[id], accumulant)
+                elseif isa(val, Argument)
+                    id = val.n
+                    if isa(arg_accums[id], Nothing)
+                        arg_accums[id] = Any[]
+                    end
+                    push!(arg_accums[id], accumulant)
+                end
+            else
+                sn = slot_map[val]
+                accumed = insert_node_here!(Expr(:call, accum, sn, accumulant))
+                insert_node_here!(Expr(:(=), sn, accumed))
+            end
+        end
+
+        # retrieve slot where gradient wrt `for_val` should be accumulated into
+        function do_accum(for_val)
+            if !has_cfg
+                this_accums = isa(for_val, SSAValue) ? accums[for_val.id] :
+                    arg_accums[for_val.n]
+                if this_accums === nothing || isempty(this_accums)
+                    return ChainRulesCore.ZeroTangent()
+                elseif length(this_accums) == 1
+                    return this_accums[]
+                else
+                    return insert_node_rev!(Expr(:call, accum, this_accums...))
+                end
+            else
+                return get(slot_map, for_val, ChainRulesCore.ZeroTangent())
+            end
+        end
+
+        to_back_bb(i) = length(cfg.blocks) - i + 1
+
+        current_env = nothing
+        ctx_map = Dict{Int, Any}()
+        # each BB has its own env and ctx object (ctx objects are the captures of the opaque closure)
+        function retrieve_ctx_obj(current_env, i)
+            if current_env === nothing
+                # we're in the last BB
+                return insert_node_rev!(Expr(:call, getfield, Argument(1),
+                    i - first(orig_bb_ranges[end]) + 1))
+            elseif isa(current_env, BBEnv)
+                bbidx = i - current_env.bb_start_idx + 1
+                @assert bbidx > 0
+                return insert_node_rev!(Expr(:call, getfield, current_env.ctx_obj,
+                    bbidx))
+            end
+            error()
+        end
+
+        function access_ctx_map(dest)
+            if !haskey(ctx_map, dest)
+                ctx_map[dest] = PendingCtx()
+            end
+            val = ctx_map[dest]
+            if isa(val, PendingCtx)
+                rval = insert_node_rev!(error)
+                push!(val.list, rval.id)
+                return rval
+            end
+            return val
+        end
+
+        bb_ranges = Vector{UnitRange{Int}}(undef, length(cfg.blocks))
 
         for i in 1:length(ir.stmts)
             stmt = ir.stmts[i][:inst]
@@ -704,7 +796,12 @@ function transform!(ci, meth, nargs, sparams, N)
                 error()
             elseif isa(stmt, GlobalRef)
                 fwds[i] = ZeroTangent()
-            elseif isa(stmt, Union{GotoNode, GotoIfNot})
+            elseif isa(stmt, GotoNode)
+                @show stmt
+                fwds[i] = insert_node_here!(stmt)
+            elseif isexpr(stmt, :phi_placeholder)
+                fwds[i] = insert_node_here!(nothing)
+            elseif isa(stmt, GotoIfNot)
                 return :(error("Control flow support not fully implemented yet for higher-order reverse mode (TODO)"))
             elseif !isa(stmt, Expr)
                 @show stmt
@@ -861,5 +958,5 @@ function transform!(ci, meth, nargs, sparams, N)
     ci.slottypes = slottypes
 
 
-    ci
+    @show ci
 end

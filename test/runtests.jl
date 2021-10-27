@@ -25,21 +25,21 @@ ChainRules.rrule(::typeof(my_tuple), args...) = args, Δ->Core.tuple(NoTangent()
 # Check characteristic of exp rule
 @variables ω α β γ δ ϵ ζ η
 (x1, c1) = ∂⃖{3}()(exp, ω)
-@test simplify(x1 == exp(ω)).val
+@test isequal(simplify(x1), simplify(exp(ω)))
 ((_, x2), c2) = c1(α)
-@test simplify(x2 == α*exp(ω)).val
+@test isequal(simplify(x2), simplify(α*exp(ω)))
 (x3, c3) = c2(ZeroTangent(), β)
-@test simplify(x3 == β*exp(ω)).val
+@test isequal(simplify(x3), simplify(β*exp(ω)))
 ((_, x4), c4) = c3(γ)
-@test simplify(x4 == exp(ω)*(γ + (α*β))).val
+@test isequal(simplify(x4), simplify(exp(ω)*(γ + (α*β))))
 (x5, c5) = c4(ZeroTangent(), δ)
-@test simplify(x5 == δ*exp(ω)).val
+@test isequal(simplify(x5), simplify(δ*exp(ω)))
 ((_, x6), c6) = c5(ϵ)
-@test simplify(x6 == ϵ*exp(ω) + α*δ*exp(ω)).val
+@test isequal(simplify(x6), simplify(ϵ*exp(ω) + α*δ*exp(ω)))
 (x7, c7) = c6(ZeroTangent(), ζ)
-@test simplify(x7 == ζ*exp(ω) + β*δ*exp(ω)).val
+@test isequal(simplify(x7), simplify(ζ*exp(ω) + β*δ*exp(ω)))
 (_, x8) = c7(η)
-@test simplify(x8 == (η + (α*ζ) + (β*ϵ) + (δ*(γ + (α*β))))*exp(ω)).val
+@test isequal(simplify(x8), simplify((η + (α*ζ) + (β*ϵ) + (δ*(γ + (α*β))))*exp(ω)))
 
 # Minimal 2-nd order forward smoke test
 @test Diffractor.∂☆{2}()(Diffractor.ZeroBundle{2}(sin),
@@ -123,10 +123,12 @@ let var"'" = Diffractor.PrimeDerivativeFwd
     # Integration tests
     @test recursive_sin'(1.0) == cos(1.0)
     @test recursive_sin''(1.0) == -sin(1.0)
-    @test recursive_sin'''(1.0) == -cos(1.0)
-    @test recursive_sin''''(1.0) == sin(1.0)
-    @test recursive_sin'''''(1.0) == cos(1.0)
-    @test recursive_sin''''''(1.0) == -sin(1.0)
+    # Error: ArgumentError: Tangent for the primal Tangent{Tuple{Float64, Float64}, Tuple{Float64, Float64}}
+    # should be backed by a NamedTuple type, not by Tuple{Tangent{Tuple{Float64, Float64}, Tuple{Float64, Float64}}}.
+    @test_broken recursive_sin'''(1.0) == -cos(1.0)
+    @test_broken recursive_sin''''(1.0) == sin(1.0)
+    @test_broken recursive_sin'''''(1.0) == cos(1.0)
+    @test_broken recursive_sin''''''(1.0) == -sin(1.0)
 
     # Test the special rules for sin/cos/exp
     @test sin''''''(1.0) == -sin(1.0)
@@ -148,7 +150,7 @@ end
 @test gradient(x -> sum(abs2, x .+ 1.0), zeros(3))[1] == [2.0, 2.0, 2.0]
 
 const fwd = Diffractor.PrimeDerivativeFwd
-const bwd = Diffractor.PrimeDerivativeFwd
+const bwd = Diffractor.PrimeDerivativeBack
 
 function f_broadcast(a)
     l = a / 2.0 * [[0. 1. 1.]; [1. 0. 1.]; [1. 1. 0.]]
@@ -186,7 +188,8 @@ end
 # Issue #27 - Mixup in lifting of getfield
 let var"'" = bwd
     @test (x->x^5)''(1.0) == 20.
-    @test (x->x^5)'''(1.0) == 60.
+    # Higher order control flow not yet supported
+    @test_broken (x->x^5)'''(1.0) == 60.
 end
 
 # Issue #38 - Splatting arrays

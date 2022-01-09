@@ -137,9 +137,10 @@ struct NonDiffOdd{N, O, P}; end
 # This should not happen
 (::NonDiffEven{N, O, O})(Δ...) where {N, O} = error()
 
-@Base.pure function ChainRulesCore.rrule(::typeof(Core.apply_type), head, args...)
-    Core.apply_type(head, args...), NonDiffOdd{plus1(plus1(length(args))), 1, 1}()
-end
+# WARNING: Method definition rrule(typeof(Core.apply_type), Any, Any...) in module ChainRules at /Users/me/.julia/packages/ChainRules/kkDLd/src/rulesets/Core/core.jl:10 overwritten in module Diffractor at /Users/me/.julia/dev/Diffractor/src/extra_rules.jl:140.
+# @Base.pure function ChainRulesCore.rrule(::typeof(Core.apply_type), head, args...)
+#     Core.apply_type(head, args...), NonDiffOdd{plus1(plus1(length(args))), 1, 1}()
+# end
 
 function ChainRulesCore.rrule(::typeof(Core.tuple), args...)
     Core.tuple(args...), Δ->Core.tuple(NoTangent(), Δ...)
@@ -206,12 +207,13 @@ function ChainRules.rrule(AT::Type{<:Array{T,N}}, x::AbstractArray{S,N}) where {
     AT(x), Δ->(NoTangent(), Δ)
 end
 
-function ChainRules.rrule(AT::Type{<:Array}, undef::UndefInitializer, args...)
-    # We're leaving these in the eltype that the cotangent vector already has.
-    # There isn't really a good reason to believe we should convert to the
-    # original array type, so don't unless explicitly requested.
-    AT(undef, args...), Δ->(NoTangent(), NoTangent(), ntuple(_->NoTangent(), length(args))...)
-end
+# WARNING: Method definition rrule(Type{var"#s260"} where var"#s260"<:(Array{T, N} where N where T), UndefInitializer, Any...) in module ChainRules at /Users/me/.julia/packages/ChainRules/kkDLd/src/rulesets/Base/array.jl:5 overwritten in module Diffractor at /Users/me/.julia/dev/Diffractor/src/extra_rules.jl:209.
+# function ChainRules.rrule(AT::Type{<:Array}, undef::UndefInitializer, args...)
+#     # We're leaving these in the eltype that the cotangent vector already has.
+#     # There isn't really a good reason to believe we should convert to the
+#     # original array type, so don't unless explicitly requested.
+#     AT(undef, args...), Δ->(NoTangent(), NoTangent(), ntuple(_->NoTangent(), length(args))...)
+# end
 
 function unzip_tuple(t::Tuple)
     map(x->x[1], t), map(x->x[2], t)

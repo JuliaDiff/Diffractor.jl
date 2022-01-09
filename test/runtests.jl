@@ -215,13 +215,36 @@ z45, delta45 = frule_via_ad(DiffractorRuleConfig(), (0,1), x -> log(exp(x)), 2)
 @test delta45 ≈ 1.0
 
 # Broadcasting
-@test gradient(x -> sum(x ./ x), [1,2,3]) == ([1,1,1],)
-@test gradient(x -> sum(exp.(log.(x))), [1,2,3]) == ([1,1,1],)  # derivatives_given_output
-@test gradient(x -> sum((exp∘log).(x)), [1,2,3]) == ([1,1,1],)  # stores pullback
+@test gradient(x -> sum(x ./ x), [1,2,3]) == ([0,0,0],)  # derivatives_given_output
+@test gradient(x -> sum(exp.(log.(x))), [1,2,3]) == ([1,1,1],)
+
+@test_broken gradient(x -> sum((exp∘log).(x)), [1,2,3]) == ([1,1,1],)  # stores pullback
+exp_log(x) = exp(log(x))
+@test gradient(x -> sum(exp_log.(x)), [1,2,3]) == ([1,1,1],) 
 @test gradient((x,y) -> sum(x ./ y), [1 2; 3 4], [1,2]) == ([1 1; 0.5 0.5], [-3, -1.75])
 @test gradient((x,y) -> sum(x ./ y), [1 2; 3 4], 5) == ([0.2 0.2; 0.2 0.2], -0.4)
-@test gradient(x -> sum(x .> 2), [1,2,3]) == (ZeroTangent(),)   # Bool shortcut
+@test gradient(x -> sum((y -> y/x).([1,2,3])), 4) == (-0.375,)  # closure
+
+@test gradient(x -> sum(sum, (x,) ./ x), [1,2,3])[1] ≈ [-4.1666, 0.3333, 1.1666] atol=1e-3  # array of arrays
+@test gradient(x -> sum(sum, Ref(x) ./ x), [1,2,3])[1] ≈ [-4.1666, 0.3333, 1.1666] atol=1e-3
+@test gradient(x -> sum(sum, (x,) ./ x), [1,2,3])[1] ≈ [-4.1666, 0.3333, 1.1666] atol=1e-3
+
+@test gradient(x -> sum(x .> 2), [1,2,3]) == (ZeroTangent(),)  # Bool output
+@test gradient(x -> sum(1 .+ iseven.(x)), [1,2,3]) == (ZeroTangent(),)
 @test gradient((x,y) -> sum(x .== y), [1,2,3], [1 2 3]) == (ZeroTangent(), ZeroTangent())
+@test gradient(x -> sum(x .+ [1,2,3]), true) == (NoTangent(),)  # Bool input
+@test gradient(x -> sum(x ./ [1,2,3]), [true false]) == (NoTangent(),)
+@test gradient(x -> sum(x .* [1,2,3]'), (true, false)) == (NoTangent(),)
+
+tup_adj = gradient((x,y) -> sum(2 .* x .+ log.(y)), (1,2), [3,4,5]')
+@test tup_adj[1] == Tangent{Tuple{Int64, Int64}}(6.0, 6.0)
+@test tup_adj[2] ≈ [0.6666666666666666 0.5 0.4]
+@test tup_adj[2] isa Adjoint
+@test gradient(x -> sum(atan.(x, (1,2,3))), Diagonal([4,5,6]))[1] isa Diagonal
+
+@test_broken gradient(x -> sum(gradient(x -> sum(exp.(x)), x)[1]), [1,2,3])  # path 0, MethodError: no method matching Diffractor.Jet(::Int64, ::Float64, ::Tuple{Float64, Float64})
+@test_broken gradient(x -> sum(gradient(x -> sum(x' .* x), x)[1]), [1,2,3]) == ([6,6,6],) # Control flow support not fully implemented yet for higher-order reverse mode
+@test_broken gradient(x -> sum(gradient(x -> sum(x' ./ x.^2), x)[1]), [1,2,3])[1] ≈ [27.675925925925927, -0.824074074074074, -2.1018518518518516]
 
 # Higher order control flow not yet supported (https://github.com/JuliaDiff/Diffractor.jl/issues/24)
 #include("pinn.jl")

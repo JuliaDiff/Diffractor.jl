@@ -216,6 +216,7 @@ z45, delta45 = frule_via_ad(DiffractorRuleConfig(), (0,1), x -> log(exp(x)), 2)
 
 # Broadcasting
 @test gradient(x -> sum(x ./ x), [1,2,3]) == ([0,0,0],)  # derivatives_given_output
+@test gradient(x -> sum(sqrt.(atan.(x, x'))), [1,2,3])[1] ≈ [0.2338, -0.0177, -0.0661] atol=1e-3
 @test gradient(x -> sum(exp.(log.(x))), [1,2,3]) == ([1,1,1],)
 
 @test_broken gradient(x -> sum((exp∘log).(x)), [1,2,3]) == ([1,1,1],)  # stores pullback
@@ -228,6 +229,9 @@ exp_log(x) = exp(log(x))
 @test gradient(x -> sum(sum, (x,) ./ x), [1,2,3])[1] ≈ [-4.1666, 0.3333, 1.1666] atol=1e-3  # array of arrays
 @test gradient(x -> sum(sum, Ref(x) ./ x), [1,2,3])[1] ≈ [-4.1666, 0.3333, 1.1666] atol=1e-3
 @test gradient(x -> sum(sum, (x,) ./ x), [1,2,3])[1] ≈ [-4.1666, 0.3333, 1.1666] atol=1e-3
+
+@test unthunk.(gradient(x -> sum(x ./ 4), [1,2,3])) == ([0.25, 0.25, 0.25],)
+@test gradient(x -> sum([1,2,3] ./ x), 4) == (-0.375,)
 
 @test gradient(x -> sum(x .> 2), [1,2,3]) == (ZeroTangent(),)  # Bool output
 @test gradient(x -> sum(1 .+ iseven.(x)), [1,2,3]) == (ZeroTangent(),)

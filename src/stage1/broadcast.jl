@@ -56,15 +56,22 @@ function split_bc_rule(f::F, args...) where {F}
         # Fast path: just broadcast, and use x & y to find derivative.
         ys = f.(args...)
         _print("path 2")
-        function back_2(dys)
+        function back_2_one(dys)  # For f.(x) we do not need StructArrays / unzip at all
+            delta = broadcast(unthunk(dys), ys, args...) do dy, y, a
+                das = only(derivatives_given_output(y, f, a))
+                dy * conj(only(das))
+            end
+            (NoTangent(), NoTangent(), unbroadcast(only(args), delta))
+        end
+        function back_2_many(dys)
             deltas = splitcast(unthunk(dys), ys, args...) do dy, y, as...
                 das = only(derivatives_given_output(y, f, as...))
                 map(da -> dy * conj(da), das)
             end
-            dargs = map(unbroadcast, args, deltas)
+            dargs = map(unbroadcast, args, deltas)  # ideally sum in unbroadcast could be part of splitcast?
             (NoTangent(), NoTangent(), dargs...)
         end
-        return ys, back_2
+        return ys, length(args)==1 ? back_2_one : back_2_many
     else
         # Slow path: collect all the pullbacks & apply them later.
         # Since broadcast makes no guarantee about order, this does not bother to try to reverse it.
@@ -87,6 +94,62 @@ using StructArrays
 splitmap(f, args...) = StructArrays.components(StructArray(Iterators.map(f, args...)))
 # warning: splitmap(identity, [1,2,3,4]) === NamedTuple()
 splitcast(f, args...) = StructArrays.components(StructArray(Broadcast.instantiate(Broadcast.broadcasted(f, args...))))
+
+#=
+# This is how you could handle CuArrays, route them to unzip(map(...)) fallback path.
+# Maybe 2nd derivatives too, to avoid writing a gradient for splitcast, rule for unzip is easy.
+
+function Diffractor.splitmap(f, args...)
+    if any(a -> a isa CuArray, args)
+        Diffractor._print("unzip splitmap")
+        unzip(map(f, args...))
+    else
+        StructArrays.components(StructArray(Iterators.map(f, args...)))
+    end
+end
+function Diffractor.splitcast(f, args...)
+    if any(a -> a isa CuArray, args)
+        Diffractor._print("unzip splitcast")
+        unzip(broadcast(f, args...))
+    else
+        StructArrays.components(StructArray(Broadcast.instantiate(Broadcast.broadcasted(f, args...))))
+    end
+end
+
+gradient(x -> sum(log.(x) .+ x'), cu([1,2,3]))[1]
+gradient(x -> sum(sqrt.(atan.(x, x'))), cu([1,2,3]))[1]
+
+=#
+
+function unzip(xs::AbstractArray)
+    x1 = first(xs)
+    x1 isa Tuple || throw(ArgumentError("unzip only accepts arrays of tuples"))
+    N = length(x1)
+    unzip(xs, Val(N))  # like Zygote's unzip
+end
+@generated function unzip(xs, ::Val{N}) where {N}
+    each = [:(map($(Get(i)), xs)) for i in 1:N]
+    Expr(:tuple, each...)
+end
+unzip(xs::AbstractArray{Tuple{T}}) where {T} = (reinterpret(T, xs),)  # best case, no copy
+@generated function unzip(xs::AbstractArray{Ts}) where {Ts<:Tuple}
+    each = if count(!Base.issingletontype, Ts.parameters) < 2
+        # good case, no copy of data, some trivial arrays
+        [Base.issingletontype(T) ? :(similar(xs, $T)) : :(reinterpret($T, xs)) for T in Ts.parameters]
+    else
+        [:(map($(Get(i)), xs)) for i in 1:length(fieldnames(Ts))]
+    end
+    Expr(:tuple, each...)
+end
+
+struct Get{i} end
+Get(i) = Get{Int(i)}()
+(::Get{i})(x) where {i} = x[i]
+
+function ChainRulesCore.rrule(::typeof(unzip), xs::AbstractArray)
+    rezip(dy) = (NoTangent(), tuple.(unthunk(dy)...))
+    return unzip(xs), rezip
+end
 
 # For certain cheap operations we can easily allow fused broadcast:
 

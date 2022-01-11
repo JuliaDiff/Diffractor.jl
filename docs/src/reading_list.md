@@ -8,7 +8,7 @@ many of these references are quite dense and though I've found small nuggets
 of insight in each, excavating those took many hours. Also, these are not
 introductory texts. If you've not taken an introductory differential
 geometry course, I would recommend looking for that first. Don't feel bad if
-some of these references read like like nonsense. It often reads that way to me to.
+some of these references read like like nonsense. It often reads that way to me too.
 
 # Reading on Optics
 

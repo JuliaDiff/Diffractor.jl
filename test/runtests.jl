@@ -1,4 +1,22 @@
 using Diffractor
+using Test
+
+@testset verbose=true "ChainRules integration.jl" begin
+    include("chainrules.jl")
+end
+@testset verbose=true "from Zygote" begin
+    include("zygote_features.jl")
+end
+@testset verbose=true "from Zygote's gradcheck.jl" begin
+    include("zygote_gradcheck.jl")
+end
+@testset verbose=true "Unit tests" begin
+
+# The rest of this file is unchanged, except the very end,
+# but IMO we should move these tests to a new file.
+
+# Loading Diffractor: var"'" globally will break many tests above, which use it for adjoint.
+
 using Diffractor: var"'", ∂⃖, DiffractorRuleConfig
 using ChainRules
 using ChainRulesCore
@@ -6,12 +24,8 @@ using ChainRulesCore: ZeroTangent, NoTangent, frule_via_ad, rrule_via_ad
 using Symbolics
 using LinearAlgebra
 
-using Test
-
 const fwd = Diffractor.PrimeDerivativeFwd
 const bwd = Diffractor.PrimeDerivativeBack
-
-@testset verbose=true "Diffractor.jl" begin  # overall testset, ensures all tests run
 
 # Unit tests
 function tup2(f)
@@ -276,7 +290,11 @@ end
     @test_broken gradient(z -> gradient(x -> sum((y -> (x^2*y)).([1,2,3])), z)[1], 5.0) == (12.0,)
 end
 
-# Higher order control flow not yet supported (https://github.com/JuliaDiff/Diffractor.jl/issues/24)
-#include("pinn.jl")
 
-end  # overall testset
+end
+
+@testset verbose=true "pseudo-Flux" begin
+# Higher order control flow not yet supported (https://github.com/JuliaDiff/Diffractor.jl/issues/24)
+# include("pinn.jl")
+end
+

@@ -188,7 +188,8 @@ end
 # Issue #27 - Mixup in lifting of getfield
 let var"'" = bwd
     @test (x->x^5)''(1.0) == 20.
-    # Higher order control flow not yet supported
+    @test (x->(x*x)*(x*x)*x)''' == 60.
+    # Higher order control flow not yet supported (https://github.com/JuliaDiff/Diffractor.jl/issues/24)
     @test_broken (x->x^5)'''(1.0) == 60.
 end
 

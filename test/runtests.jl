@@ -1,12 +1,28 @@
 using Diffractor
+using Test
+
+@testset verbose=true "ChainRules integration.jl" begin
+    include("chainrules.jl")
+end
+@testset verbose=true "from Zygote" begin
+    include("zygote_features.jl")
+end
+@testset verbose=true "from Zygote's gradcheck.jl" begin
+    include("zygote_gradcheck.jl")
+end
+@testset verbose=true "Unit tests" begin
+
+# The rest of this file is unchanged, except the very end,
+# but IMO we should move these tests to a new file.
+
+# Loading Diffractor: var"'" globally will break many tests above, which use it for adjoint.
+
 using Diffractor: var"'", ∂⃖, DiffractorRuleConfig
 using ChainRules
 using ChainRulesCore
 using ChainRulesCore: ZeroTangent, NoTangent, frule_via_ad, rrule_via_ad
 using Symbolics
 using LinearAlgebra
-
-using Test
 
 # Unit tests
 function tup2(f)
@@ -214,4 +230,7 @@ z45, delta45 = frule_via_ad(DiffractorRuleConfig(), (0,1), x -> log(exp(x)), 2)
 @test z45 ≈ 2.0
 @test delta45 ≈ 1.0
 
+end
+@testset verbose=true "pseudo-Flux" begin
 include("pinn.jl")
+end

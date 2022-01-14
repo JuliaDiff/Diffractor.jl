@@ -62,7 +62,7 @@ dx(x) = error("Cotangent space not defined for `$(typeof(x))`. Try a real-valued
 For `x` in a one dimensional manifold, map x to the trivial, unital, 1st order
 tangent bundle. It should hold that `∀x ⟨∂x(x), dx(x)⟩ = 1`
 """
-∂x(x::Real) = TangentBundle{1}(x, (one(x),))
+∂x(x::Real) = ExplicitTangentBundle{1}(x, (one(x),))
 ∂x(x) = error("Tangent space not defined for `$(typeof(x)).")
 
 struct ∂xⁿ{N}; end
@@ -175,7 +175,7 @@ raise_pd(f::PrimeDerivativeFwd{N,T}) where {N,T} = PrimeDerivativeFwd{plus1(N),T
 
 function (f::PrimeDerivativeFwd{1})(x)
     z = ∂☆¹(ZeroBundle{1}(getfield(f, :f)), ∂x(x))
-    z.partials[1]
+    z.tangent.partials[1]
 end
 
 function (f::PrimeDerivativeFwd{N})(x) where N

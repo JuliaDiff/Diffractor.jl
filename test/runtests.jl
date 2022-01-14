@@ -43,7 +43,7 @@ ChainRules.rrule(::typeof(my_tuple), args...) = args, Δ->Core.tuple(NoTangent()
 
 # Minimal 2-nd order forward smoke test
 @test Diffractor.∂☆{2}()(Diffractor.ZeroBundle{2}(sin),
-    Diffractor.TangentBundle{2}(1.0, (1.0, 1.0, 0.0)))[Diffractor.CanonicalTangentIndex(1)] == sin'(1.0)
+    Diffractor.ExplicitTangentBundle{2}(1.0, (1.0, 1.0, 0.0)))[Diffractor.CanonicalTangentIndex(1)] == sin'(1.0)
 
 function simple_control_flow(b, x)
     if b
@@ -213,5 +213,11 @@ y45, back45 = rrule_via_ad(DiffractorRuleConfig(), x -> log(exp(x)), 2)
 z45, delta45 = frule_via_ad(DiffractorRuleConfig(), (0,1), x -> log(exp(x)), 2)
 @test z45 ≈ 2.0
 @test delta45 ≈ 1.0
+
+# Chunked Gradients
+using Diffractor: TangentBundle, ZeroBundle, ProductTangent, ExplicitTangent, ∂☆¹
+@syms x
+tangent = TangentBundle{1}(1.0, ProductTangent((ExplicitTangent((x,)), ExplicitTangent((1.0,)))))
+∂☆¹(ZeroBundle{1}(sin), tangent)
 
 include("pinn.jl")

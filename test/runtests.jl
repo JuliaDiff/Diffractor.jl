@@ -1,6 +1,9 @@
 using Diffractor
 using Test
 
+@testset verbose=true "from ForwardDiff.jl" begin
+    include("forwarddiff.jl")
+end
 @testset verbose=true "ChainRules integration.jl" begin
     include("chainrules.jl")
 end

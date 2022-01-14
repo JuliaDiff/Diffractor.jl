@@ -49,6 +49,8 @@ end
 Base.getindex(o::OpticBundle, i::Int) = i == 1 ? o.x :
                                         i == 2 ? o.clos :
                                         throw(BoundsError(o, i))
+Base.lastindex(o::OpticBundle) = 2
+
 Base.iterate(o::OpticBundle) = (o.x, nothing)
 Base.iterate(o::OpticBundle, ::Nothing) = (o.clos, missing)
 Base.iterate(o::OpticBundle, ::Missing) = nothing

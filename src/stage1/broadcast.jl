@@ -44,7 +44,7 @@ end
 
 (::∂⃖{1})(::typeof(broadcasted), f, args...) = split_bc_rule(f, args...)
 (::∂⃖{1})(::typeof(broadcasted), f, arg::Array) = split_bc_rule(f, arg) # ambiguity
-function split_bc_rule(f::F, args...) where {F}
+function split_bc_rule(f::F, args::Vararg{Any,N}) where {F,N}
     T = Broadcast.combine_eltypes(f, args)
     TΔ = Core.Compiler._return_type(derivatives_given_output, Tuple{T, F, map(eltype, args)...})
     if eltype(T) == Bool
@@ -71,10 +71,11 @@ function split_bc_rule(f::F, args...) where {F}
             dargs = map(unbroadcast, args, deltas)  # ideally sum in unbroadcast could be part of splitcast?
             (NoTangent(), NoTangent(), dargs...)
         end
-        return ys, length(args)==1 ? back_2_one : back_2_many
+        return ys, N==1 ? back_2_one : back_2_many
     else
         # Slow path: collect all the pullbacks & apply them later.
-        # Since broadcast makes no guarantee about order, this does not bother to try to reverse it.
+        # (Since broadcast makes no guarantee about order of calls, and un-fusing 
+        # can change the number of calls, this does not bother to try to reverse.)
         _print("path 3")
         ys, backs = splitcast(∂⃖{1}(), f, args...)
         function back_3(dys)
@@ -84,15 +85,21 @@ function split_bc_rule(f::F, args...) where {F}
             dargs = map(unbroadcast, args, Base.tail(deltas))  # no real need to close over args here
             (NoTangent(), sum(first(deltas)), dargs...)
         end
+        back_3(::AbstractZero) = (NoTangent(), map(Returns(ZeroTangent()), args)...)
         return ys, back_3
     end
 end
 
-# This uses "mulltimap"-like constructs:
+# Skip AD'ing through the axis computation
+function (::∂⃖{1})(::typeof(Base.Broadcast.instantiate), bc::Base.Broadcast.Broadcasted)
+    uninstantiate(Δ) = Core.tuple(NoTangent(), Δ)
+    return Base.Broadcast.instantiate(bc), uninstantiate
+end
+
+# This uses "multimap"-like constructs:
 
 using StructArrays
 splitmap(f, args...) = StructArrays.components(StructArray(Iterators.map(f, args...)))
-# warning: splitmap(identity, [1,2,3,4]) === NamedTuple()
 splitcast(f, args...) = StructArrays.components(StructArray(Broadcast.instantiate(Broadcast.broadcasted(f, args...))))
 
 #=
@@ -156,9 +163,9 @@ end
 (::∂⃖{1})(::typeof(broadcasted), ::typeof(+), args...) = split_bc_plus(args...)
 (::∂⃖{1})(::typeof(broadcasted), ::typeof(+), arg::Array) = split_bc_plus(arg) # ambiguity
 function split_bc_plus(xs...) where {F}
-    broadcasted(+, xs...), Δ -> let Δun = unthunk(Δ)
+    broadcasted(+, xs...), Δraw -> let Δ = unthunk(Δraw)
         _print("broadcast +")
-        (NoTangent(), NoTangent(), map(x -> unbroadcast(x, Δun), xs)...)
+        (NoTangent(), NoTangent(), map(x -> unbroadcast(x, Δ), xs)...)
     end
 end
 Base.eltype(bc::Broadcast.Broadcasted{<:Any, <:Any, typeof(+), <:Tuple}) = 
@@ -167,9 +174,9 @@ Base.eltype(bc::Broadcast.Broadcasted{<:Any, <:Any, typeof(+), <:Tuple}) =
 (::∂⃖{1})(::typeof(copy), bc::Broadcast.Broadcasted) = copy(bc), Δ -> (NoTangent(), Δ)
 
 function (::∂⃖{1})(::typeof(broadcasted), ::typeof(-), x, y)
-    broadcasted(-, x, y), Δ -> let Δun = unthunk(Δ)
+    broadcasted(-, x, y), Δraw -> let Δ = unthunk(Δraw)
         _print("broadcast -")
-        (NoTangent(), NoTangent(), unbroadcast(x, Δun), -unbroadcast(y, Δun))
+        (NoTangent(), NoTangent(), unbroadcast(x, Δ), -unbroadcast(y, Δ))
         # Ideally you could fuse the - into unbroadcast, mapreduce() not sum, when y is a smaller array
     end
 end
@@ -177,10 +184,10 @@ end
 using LinearAlgebra: dot
 
 function (::∂⃖{1})(::typeof(broadcasted), ::typeof(*), x, y)  # should this be vararg, or will laziness handle it?
-    broadcasted(*, x, y), Δ -> let Δun = unthunk(Δ)
+    broadcasted(*, x, y), Δraw -> let Δ = unthunk(Δraw)
         _print("broadcast *")
-        dx = eltype(x)==Bool ? NoTangent() : x isa Number ? dot(y, Δun) : unbroadcast(x, Δun .* conj.(y))
-        dy = eltype(y)==Bool ? NoTangent() : y isa Number ? dot(x, Δun) : unbroadcast(y, Δun .* conj.(x))
+        dx = eltype(x)==Bool ? NoTangent() : x isa Number ? dot(y, Δ) : unbroadcast(x, Δ .* conj.(y))
+        dy = eltype(y)==Bool ? NoTangent() : y isa Number ? dot(x, Δ) : unbroadcast(y, Δ .* conj.(x))
         # When x is an array but a smaller one, instead of dot you may be able to use mapreduce()
         # Will things like this work? Ref([1,2]) .* [1,2,3]
         (NoTangent(), NoTangent(), dx, dy)

@@ -147,16 +147,16 @@ function ChainRulesCore.rrule(::typeof(Core.tuple), args...)
 end
 
 # TODO: What to do about these integer rules
-@ChainRulesCore.non_differentiable Base.rem(a::Integer, b::Type)
+# @ChainRulesCore.non_differentiable Base.rem(a::Integer, b::Type)  # now in CR 1.18
 
 ChainRulesCore.canonicalize(::ChainRulesCore.ZeroTangent) = ChainRulesCore.ZeroTangent()
 
-# Skip AD'ing through the axis computation
-function ChainRules.rrule(::typeof(Base.Broadcast.instantiate), bc::Base.Broadcast.Broadcasted)
-    return Base.Broadcast.instantiate(bc), Δ->begin
-        Core.tuple(NoTangent(), Δ)
-    end
-end
+# # Skip AD'ing through the axis computation
+# function ChainRules.rrule(::typeof(Base.Broadcast.instantiate), bc::Base.Broadcast.Broadcasted)
+#     return Base.Broadcast.instantiate(bc), Δ->begin
+#         Core.tuple(NoTangent(), Δ)
+#     end
+# end
 
 
 using StaticArrays
@@ -268,3 +268,7 @@ end
 function ChainRulesCore.rrule(::Type{InplaceableThunk}, add!!, val)
     val, Δ->(NoTangent(), NoTangent(), Δ)
 end
+
+# ERROR: ArgumentError: Tangent for the primal Base.Pairs{Symbol, Union{}, Tuple{}, NamedTuple{(), Tuple{}}} should be backed by a AbstractDict type, not by NamedTuple{(:data,), Tuple{ChainRulesCore.ZeroTangent}}.
+ChainRulesCore._backing_error(::Type{<:Base.Pairs{Symbol}}, ::Type{<:NamedTuple}, _) = nothing  # solves that!
+

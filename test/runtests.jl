@@ -231,7 +231,9 @@ exp_log(x) = exp(log(x))
 @test gradient(x -> sum(sum, (x,) ./ x), [1,2,3])[1] ≈ [-4.1666, 0.3333, 1.1666] atol=1e-3
 
 @test unthunk.(gradient(x -> sum(x ./ 4), [1,2,3])) == ([0.25, 0.25, 0.25],)
-@test gradient(x -> sum([1,2,3] ./ x), 4) == (-0.375,)
+@test gradient(x -> sum([1,2,3] ./ x), 4) == (-0.375,)  # x/y rule
+@test gradient(x -> sum(x.^2), [1,2,3]) == ([2.0, 4.0, 6.0],)  # x.^2 rule
+@test gradient(x -> sum([1,2,3] ./ x.^2), 4) == (-0.1875,)  # scalar^2 rule
 
 @test gradient(x -> sum(x .> 2), [1,2,3]) == (ZeroTangent(),)  # Bool output
 @test gradient(x -> sum(1 .+ iseven.(x)), [1,2,3]) == (ZeroTangent(),)

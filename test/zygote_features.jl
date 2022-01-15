@@ -94,10 +94,13 @@ gradback(f, x::Number) = (Diffractor.PrimeDerivativeBack(f)(x),)
 
 end
 
-# Zygote issue 705
-@test gradient(x -> imag(sum(exp, x)), [1,2,3])[1] |> isZero
-@test gradient(x -> imag(sum(exp, x)), [1+0im,2,3])[1] ≈ im .* exp.(1:3)
+@testset "complex arrays" begin
 
+    # Zygote issue 705
+    @test gradient(x -> imag(sum(exp, x)), [1,2,3]) |> only |> isZero
+    @test gradient(x -> imag(sum(exp, x)), [1+0im,2,3])[1] ≈ im .* exp.(1:3)
+
+end
 
 #####
 ##### Zygote/test/features.jl
@@ -143,7 +146,7 @@ end
 
     # misc.
 
-    @test gradient(x -> 1, 2)[1] |> isZero
+    @test gradient(x -> 1, 2) |> only |> isZero
 
     @test gradient(t -> t[1]*t[2], (2, 3)) == ((3, 2),)
     @test_broken gradient(t -> t[1]*t[2], (2, 3)) isa Tangent  # should be!
@@ -264,7 +267,7 @@ end
         sum(H)
     end[1] == 1
 
-    @test gradient(x -> one(eltype(x)), rand(10))[1] |> isZero
+    @test gradient(x -> one(eltype(x)), rand(10)) |> only |> isZero
 
     # three-way control flow merge
 
@@ -349,7 +352,7 @@ end
     @test gradient(x -> real(x.x^2 + im * x.x), Ref(4)) == (Tangent{Base.RefValue{Int}}(x = 8.0,),)
 
     # Field access of contents:
-    @test_broken gradient(x -> abs2(x.x) + 7 * x.x.re, Ref(1+im)) == ((x = 9.0 + 2.0im,),)
+    @test_broken gradient(x -> abs2(x.x) + 7 * x.x.re, Ref(1+im)) == (Tangent{Base.RefValue{Complex{Int}}}(; x = 9.0 + 2.0im),)
     @test_broken gradient(x -> abs2(x[1].x) + 7 * x[1].x.re, [Ref(1+im)]) == ([(x = 9.0 + 2.0im,)],)
     @test_broken gradient(x -> abs2(x[1].x) + 7 * real(x[1].x), [Ref(1+im)]) == ([(x = 9.0 + 2.0im,)],)  # worked on 0.6.0, 0.6.20
     @test_broken gradient(x -> abs2(x[].x) + 7 * real(x[].x), Ref(Ref(1+im))) == ((x = 9.0 + 2.0im,),)  # gives nothing, same in 0.6.0
@@ -383,14 +386,14 @@ end
 
 @testset "Pairs" begin
 
-    @test_broken gradient(x->10*pairs((a=x, b=2))[1], 100) === 10.0  # ArgumentError: Tangent for the primal Base.Pairs{Symbol, Int64, Tuple{Symbol, Symbol}, NamedTuple{(:a, :b), Tuple{Int64, Int64}}} should be backed by a AbstractDict type, not by NamedTuple{(:data,), Tuple{Tuple{Float64, ZeroTangent}}}.
-    @test_broken gradient(x->10*pairs((a=x, b=2))[2], 100) === 0
+    @test gradient(x->10*pairs((a=x, b=2))[1], 100)[1] === 10.0
+    @test gradient(x->10*pairs((a=x, b=2))[2], 100) |> only |> isZero
 
     foo387(; kw...) = 1
-    @test_skip gradient(() -> foo387(a=1,b=2.0)) === ()  # Here Diffractor returns a function, by design?
+    @test_skip gradient(() -> foo387(a=1,b=2.0)) === ()  # Here Diffractor returns a function, by design
 
     @test gradient(x->10*(x => 2)[1], 100) === (10.0,)
-    @test gradient(x->10*(x => 2)[2], 100) === (ZeroTangent(),)
+    @test gradient(x->10*(x => 2)[2], 100) |> only |> isZero
 
     @test gradient(x-> (:x => x)[2], 17) == (1,)
 
@@ -578,31 +581,31 @@ end
 
     # closure captures y -- can't use ForwardDiff
     @test gradient((x,y) -> sum((z->z^2+y[1]).(x)), [1,2,3], [4,5]) == ([2, 4, 6], [3, 0])
-    @test_broken gradient((x,y) -> sum((z->z^2+y[1]), x), [1,2,3], [4,5]) == ([2, 4, 6], [3, 0])  # lastindex(::Diffractor.OpticBundle{Int64})
+    @test gradient((x,y) -> sum((z->z^2+y[1]), x), [1,2,3], [4,5]) == ([2, 4, 6], [3, 0])
     @test_broken gradient((x,y) -> sum(map((z->z^2+y[1]), x)), [1,2,3], [4,5]) == ([2, 4, 6], [3, 0]) # AssertionError: Base.issingletontype(typeof(f))
     @test_broken gradient((x,y) -> mapreduce((z->z^2+y[1]), +, x), [1,2,3], [4,5]) == ([2, 4, 6], [3, 0])
 
     # type unstable
     @test gradient(xs -> sum((x -> x<2 ? false : x^2).(xs)), [1,2,3])[1][2:3] == [4, 6]
-    @test_broken gradient(xs -> sum((x -> x<2 ? false : x^2), xs), [1,2,3])[1][2:3] == [4, 6]
+    @test gradient(xs -> sum((x -> x<2 ? false : x^2), xs), [1,2,3])[1][2:3] == [4, 6]
     @test_broken gradient(xs -> sum(map((x -> x<2 ? false : x^2), xs)), [1,2,3])[1][2:3] == [4, 6]
     @test_broken gradient(xs -> mapreduce((x -> x<2 ? false : x^2), +, xs), [1,2,3])[1][2:3] == [4, 6]
 
     # with Ref, Val, Symbol
     @test gradient(x -> sum(x .+ Ref(x[1])), [1,2,3]) == ([4,1,1],)
     @test gradient(x -> sum(x .+ (x[1],)), [1,2,3]) == ([4,1,1],)
-    @test_broken gradient(x -> sum((first∘tuple).(x, :ignore)), [1,2,3]) == ([1,1,1],)
-    @test_broken gradient(x -> sum((first∘tuple).(x, Symbol)), [1,2,3]) == ([1,1,1],)
+    @test gradient(x -> sum((first∘tuple).(x, :ignore)), [1,2,3]) == ([1,1,1],)
+    @test gradient(x -> sum((first∘tuple).(x, Symbol)), [1,2,3]) == ([1,1,1],)
     _f(x,::Val{y}=Val(2)) where {y} = x/y
     @test gradient(x -> sum(_f.(x, Val(2))), [1,2,3]) == ([0.5, 0.5, 0.5],)
     @test gradient(x -> sum(_f.(x)), [1,2,3]) == ([0.5, 0.5, 0.5],)
     @test_broken gradient(x -> sum(map(_f, x)), [1,2,3]) == ([0.5, 0.5, 0.5],) # InexactError: Int64(0.5)
 
     # with Bool
-    @test_broken gradient(x -> sum(1 .- (x .> 0)), randn(5)) == (nothing,)  # MethodError: no method matching length(::NoTangent)
+    @test gradient(x -> sum(1 .- (x .> 0)), randn(5)) == (ZeroTangent(),)
 
-    @test_broken gradient(x -> sum((y->1-y).(x .> 0)), randn(5)) == (nothing,)
-    @test_broken gradient(x -> sum(x .- (x .> 0)), randn(5)) == ([1,1,1,1,1],)
+    @test gradient(x -> sum((y->1-y).(x .> 0)), randn(5)) == (ZeroTangent(),)
+    @test gradient(x -> sum(x .- (x .> 0)), randn(5)) == ([1,1,1,1,1],)
 
     @test_broken gradient(x -> sum(x ./ [1,2,4]), [1,2,pi]) == ([1.0, 0.5, 0.25],) # DimensionMismatch("arrays could not be broadcast to a common size; got a dimension with lengths 2 and 3")
     @test_broken gradient(x -> sum(map(/, x, [1,2,4])), [1,2,pi]) == ([1.0, 0.5, 0.25],)  # MethodError: no method matching (::Diffractor.∂⃖recurse{1})(::typeof(Core.arrayset), ::Bool, ::Vector{Float64}, ::Float64, ::Int64)
@@ -610,7 +613,7 @@ end
     # negative powers
     @test gradient((x,p) -> sum(x .^ p), [1.0,2.0,4.0], [1,-1,2])[1] ≈ [1.0, -0.25, 8.0]
     @test gradient((x,p) -> sum(x .^ p), [1.0,2.0,4.0], -1)[1] ≈ [-1.0, -0.25, -0.0625]
-    @test_broken gradient((x,p) -> sum(z -> z^p, x), [1.0,2.0,4.0], -1)[1] ≈ [-1.0, -0.25, -0.0625]  # MethodError: no method matching lastindex(::Diffractor.OpticBundle{Float64})
+    @test gradient((x,p) -> sum(z -> z^p, x), [1.0,2.0,4.0], -1)[1] ≈ [-1.0, -0.25, -0.0625]
     @test_broken gradient((x,p) -> mapreduce(z -> z^p, +, x), [1.0,2.0,4.0], -1)[1] ≈ [-1.0, -0.25, -0.0625] # MethodError: no method matching +(::Tuple{NoTangent}, ::Tuple{NoTangent})
 
     # second order
@@ -620,7 +623,7 @@ end
 
     # getproperty, Tangents, etc
     @test gradient(xs -> sum((x->x.im^2).(xs)), [1+2im,3])[1] == [4im, 0]
-    @test_broken gradient(xs -> sum((x->x.im^2), xs), [1+2im,3])[1] == [4im, 0]  # MethodError: no method matching lastindex(::Diffractor.OpticBundle{Int64})
+    @test gradient(xs -> sum((x->x.im^2), xs), [1+2im,3])[1] == [4im, 0]  # MethodError: no method matching lastindex(::Diffractor.OpticBundle{Int64})
     @test_broken gradient(xs -> sum(map(x->x.im^2, xs)), [1+2im,3])[1] == [4im, 0]  # Tried to take the gradient of a complex-valued function
     @test_broken gradient(xs -> mapreduce(x->x.im^2, +, xs), [1+2im,3])[1] == [4im, 0]  # MethodError: Cannot `convert` an object of type Tangent{Complex{Int64}, NamedTuple{(:im,), Tuple{Float64}}} to an object of type Complex{Int64}
 

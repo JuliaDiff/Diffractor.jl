@@ -33,12 +33,12 @@ end
 
 using ChainRulesCore: derivatives_given_output
 
-# _print(s) = nothing
-_print(s) = printstyled(s, "\n"; color=:magenta)
+_print(s) = nothing
+# _print(s) = printstyled(s, "\n"; color=:magenta)
 
 # Broadcast over one element is just map
 function (∂⃖ₙ::∂⃖{N})(::typeof(broadcasted), f, a::Array) where {N}
-    _print("path 0")
+    _print("path 0, order $N")
     ∂⃖ₙ(map, f, a)
 end
 
@@ -47,8 +47,8 @@ end
 function split_bc_rule(f::F, args::Vararg{Any,N}) where {F,N}
     T = Broadcast.combine_eltypes(f, args)
     TΔ = Core.Compiler._return_type(derivatives_given_output, Tuple{T, F, map(eltype, args)...})
-    if eltype(T) == Bool
-        # Trivial case: non-differentiable output
+    if T === Bool
+        # Trivial case: non-differentiable output, e.g. `x .> 0`
         _print("path 1")
         back_1(_) = ntuple(Returns(ZeroTangent()), length(args)+2)
         return f.(args...), back_1
@@ -160,16 +160,14 @@ end
 
 # For certain cheap operations we can easily allow fused broadcast:
 
-(::∂⃖{1})(::typeof(broadcasted), ::typeof(+), args...) = split_bc_plus(args...)
-(::∂⃖{1})(::typeof(broadcasted), ::typeof(+), arg::Array) = split_bc_plus(arg) # ambiguity
-function split_bc_plus(xs...) where {F}
+(::∂⃖{1})(::typeof(broadcasted), ::typeof(+), args...) = lazy_bc_plus(args...)
+(::∂⃖{1})(::typeof(broadcasted), ::typeof(+), arg::Array) = lazy_bc_plus(arg) # ambiguity
+function lazy_bc_plus(xs...) where {F}
     broadcasted(+, xs...), Δraw -> let Δ = unthunk(Δraw)
         _print("broadcast +")
         (NoTangent(), NoTangent(), map(x -> unbroadcast(x, Δ), xs)...)
     end
 end
-Base.eltype(bc::Broadcast.Broadcasted{<:Any, <:Any, typeof(+), <:Tuple}) = 
-    mapreduce(eltype, promote_type, bc.args)  # needed to hit fast path
 
 (::∂⃖{1})(::typeof(copy), bc::Broadcast.Broadcasted) = copy(bc), Δ -> (NoTangent(), Δ)
 
@@ -182,24 +180,22 @@ function (::∂⃖{1})(::typeof(broadcasted), ::typeof(-), x, y)
 end
 
 using LinearAlgebra: dot
+const Numeric{T<:Number} = Union{T, AbstractArray{T}}
 
-function (::∂⃖{1})(::typeof(broadcasted), ::typeof(*), x, y)  # should this be vararg, or will laziness handle it?
+function (::∂⃖{1})(::typeof(broadcasted), ::typeof(*), x::Numeric, y::Numeric)
     broadcasted(*, x, y), Δraw -> let Δ = unthunk(Δraw)
         _print("broadcast *")
         dx = eltype(x)==Bool ? NoTangent() : x isa Number ? dot(y, Δ) : unbroadcast(x, Δ .* conj.(y))
         dy = eltype(y)==Bool ? NoTangent() : y isa Number ? dot(x, Δ) : unbroadcast(y, Δ .* conj.(x))
         # When x is an array but a smaller one, instead of dot you may be able to use mapreduce()
-        # Will things like this work? Ref([1,2]) .* [1,2,3]
         (NoTangent(), NoTangent(), dx, dy)
     end
 end
-# Alternative to `x isa Number` etc above... but not quite right!
-# (::∂⃖{1})(::typeof(broadcasted), ::typeof(*), x, y::Number) = rrule_via_ad(DiffractorRuleConfig(), *, x, y)
 
 function (::∂⃖{1})(::typeof(broadcasted), ::typeof(Base.literal_pow), ::typeof(^), x, ::Val{2})
     _print("broadcast ^2")
     broadcasted(*, x, x), Δ -> begin
-        dx = unbroadcast(x, 2 .* Δ .* conj.(x))
+        dx = unbroadcast(x, 2 .* unthunk(Δ) .* conj.(x))
         (NoTangent(), NoTangent(), NoTangent(), dx, NoTangent()) 
     end
 end
@@ -208,30 +204,25 @@ function (::∂⃖{1})(::typeof(broadcasted), ::typeof(Base.literal_pow), ::type
     x^2, Δ -> (NoTangent(), NoTangent(), NoTangent(), 2 * Δ * conj(x), NoTangent())
 end
 
-# function (::∂⃖{1})(::typeof(broadcasted), ::typeof(/), x, y) # not obvious whether this is better than automatic
-#     broadcasted(/, x, y), Δ -> let Δun = unthunk(Δ)
-#         _print("broadcast /")
-#         dx = unbroadcast(x, Δ ./ conj.(y))
-#         dy = unbroadcast(y, .-Δ .* conj.(res ./ y))
-#         (NoTangent(), NoTangent(), dx, dy)
-#     end
-# end
-function (::∂⃖{1})(::typeof(broadcasted), ::typeof(/), x, y::Number)
+function (::∂⃖{1})(::typeof(broadcasted), ::typeof(/), x::Numeric, y::Number)
     _print("simple /")
     z, back = ∂⃖{1}()(/, x, y)
-    z, Δ -> begin
-        _, dx, dy = back(Δ)
-        (NoTangent(), NoTangent(), dx, dy)  # maybe there should be a funciton for this? Use for conj, identity too
+    z, dz -> begin
+        _, dx, dy = back(dz)
+        (NoTangent(), NoTangent(), dx, dy)
     end
 end
 
+(::∂⃖{1})(::typeof(broadcasted), ::typeof(identity), x) = x, identity_pullback
+(::∂⃖{1})(::typeof(broadcasted), ::typeof(identity), x::Array) = x, identity_pullback # ambiguity
+identity_pullback(Δ) = (NoTangent(), NoTangent(), Δ)
+
+(::∂⃖{1})(::typeof(broadcasted), ::typeof(conj), x::AbstractArray{Real}) = x, identity_pullback
+(::∂⃖{1})(::typeof(broadcasted), ::typeof(conj), x::Array{Real}) = x, identity_pullback
 (::∂⃖{1})(::typeof(broadcasted), ::typeof(conj), x) =
     broadcasted(conj, x), Δ -> (NoTangent(), conj(unthunk(Δ)))
-(::∂⃖{1})(::typeof(broadcasted), ::typeof(conj), x::AbstractArray{Real}) =
-    x, Δ -> (NoTangent(), Δ)
-
-(::∂⃖{1})(::typeof(broadcasted), ::typeof(identity), x) =
-    x, Δ -> (NoTangent(), Δ)
+(::∂⃖{1})(::typeof(broadcasted), ::typeof(conj), x::Array) =
+    broadcasted(conj, x), Δ -> (NoTangent(), conj(unthunk(Δ)))
 
 # All broadcasts use `unbroadcast` to reduce to correct shape:
 
@@ -244,7 +235,7 @@ function unbroadcast(x::Base.AbstractArrayOrBroadcasted, dx)
         ProjectTo(x)(sum(dx; dims))
     end
 end
-unbroadcast(x::Base.AbstractArrayOrBroadcasted, dx::NoTangent) = NoTangent()
+unbroadcast(x::Base.AbstractArrayOrBroadcasted, dx::AbstractZero) = dx
 
 unbroadcast(x::T, dx) where {T<:Tuple{Any}} = ProjectTo(x)(Tangent{T}(sum(dx)))
 function unbroadcast(x::T, dx) where {T<:Tuple{Vararg{Any,N}}} where {N}

@@ -150,6 +150,7 @@ end
 # @ChainRulesCore.non_differentiable Base.rem(a::Integer, b::Type)  # now in CR 1.18
 
 ChainRulesCore.canonicalize(::ChainRulesCore.ZeroTangent) = ChainRulesCore.ZeroTangent()
+ChainRulesCore.canonicalize(::NoTangent) = NoTangent()
 
 # # Skip AD'ing through the axis computation
 # function ChainRules.rrule(::typeof(Base.Broadcast.instantiate), bc::Base.Broadcast.Broadcasted)
@@ -200,12 +201,13 @@ function ChainRules.rrule(::typeof(map), ::typeof(+), A::AbstractVector, B::Abst
     map(+, A, B), Δ->(NoTangent(), NoTangent(), Δ, Δ)
 end
 
-function ChainRules.rrule(AT::Type{<:Array{T,N}}, x::AbstractArray{S,N}) where {T,S,N}
-    # We're leaving these in the eltype that the cotangent vector already has.
-    # There isn't really a good reason to believe we should convert to the
-    # original array type, so don't unless explicitly requested.
-    AT(x), Δ->(NoTangent(), Δ)
-end
+# https://github.com/JuliaDiff/ChainRules.jl/blob/main/src/rulesets/Base/array.jl#L7
+# function ChainRules.rrule(AT::Type{<:Array{T,N}}, x::AbstractArray{S,N}) where {T,S,N}
+#     # We're leaving these in the eltype that the cotangent vector already has.
+#     # There isn't really a good reason to believe we should convert to the
+#     # original array type, so don't unless explicitly requested.
+#     AT(x), Δ->(NoTangent(), Δ)
+# end
 
 # WARNING: Method definition rrule(Type{var"#s260"} where var"#s260"<:(Array{T, N} where N where T), UndefInitializer, Any...) in module ChainRules at /Users/me/.julia/packages/ChainRules/kkDLd/src/rulesets/Base/array.jl:5 overwritten in module Diffractor at /Users/me/.julia/dev/Diffractor/src/extra_rules.jl:209.
 # function ChainRules.rrule(AT::Type{<:Array}, undef::UndefInitializer, args...)
@@ -254,10 +256,9 @@ function ChainRules.frule(_, ::Type{Vector{T}}, undef::UndefInitializer, dims::I
     Vector{T}(undef, dims...), zeros(T, dims...)
 end
 
-@ChainRules.non_differentiable Base.:(|)(a::Integer, b::Integer)
+# @ChainRules.non_differentiable Base.:(|)(a::Integer, b::Integer) CR#558
 @ChainRules.non_differentiable Base.throw(err)
 @ChainRules.non_differentiable Core.Compiler.return_type(args...)
-ChainRulesCore.canonicalize(::NoTangent) = NoTangent()
 
 # Disable thunking at higher order (TODO: These should go into ChainRulesCore)
 function ChainRulesCore.rrule(::Type{Thunk}, thnk)

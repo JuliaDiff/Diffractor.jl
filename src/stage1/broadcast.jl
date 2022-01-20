@@ -33,12 +33,8 @@ end
 
 using ChainRulesCore: derivatives_given_output
 
-_print(s) = nothing
-# _print(s) = printstyled(s, "\n"; color=:magenta)
-
 # Broadcast over one element is just map
 function (∂⃖ₙ::∂⃖{N})(::typeof(broadcasted), f, a::Array) where {N}
-    _print("path 0, order $N")
     ∂⃖ₙ(map, f, a)
 end
 
@@ -49,13 +45,11 @@ function split_bc_rule(f::F, args::Vararg{Any,N}) where {F,N}
     TΔ = Core.Compiler._return_type(derivatives_given_output, Tuple{T, F, map(eltype, args)...})
     if T === Bool
         # Trivial case: non-differentiable output, e.g. `x .> 0`
-        _print("path 1")
         back_1(_) = ntuple(Returns(ZeroTangent()), length(args)+2)
         return f.(args...), back_1
     elseif T <: Number && isconcretetype(TΔ)
         # Fast path: just broadcast, and use x & y to find derivative.
         ys = f.(args...)
-        _print("path 2")
         function back_2_one(dys)  # For f.(x) we do not need StructArrays / unzip at all
             delta = broadcast(unthunk(dys), ys, args...) do dy, y, a
                 das = only(derivatives_given_output(y, f, a))
@@ -76,7 +70,6 @@ function split_bc_rule(f::F, args::Vararg{Any,N}) where {F,N}
         # Slow path: collect all the pullbacks & apply them later.
         # (Since broadcast makes no guarantee about order of calls, and un-fusing 
         # can change the number of calls, this does not bother to try to reverse.)
-        _print("path 3")
         ys, backs = splitcast(∂⃖{1}(), f, args...)
         function back_3(dys)
             deltas = splitmap(backs, unthunk(dys)) do back, dy
@@ -97,66 +90,9 @@ function (::∂⃖{1})(::typeof(Base.Broadcast.instantiate), bc::Base.Broadcast.
 end
 
 # This uses "multimap"-like constructs:
-
 using StructArrays
 splitmap(f, args...) = StructArrays.components(StructArray(Iterators.map(f, args...)))
 splitcast(f, args...) = StructArrays.components(StructArray(Broadcast.instantiate(Broadcast.broadcasted(f, args...))))
-
-#=
-# This is how you could handle CuArrays, route them to unzip(map(...)) fallback path.
-# Maybe 2nd derivatives too, to avoid writing a gradient for splitcast, rule for unzip is easy.
-
-function Diffractor.splitmap(f, args...)
-    if any(a -> a isa CuArray, args)
-        Diffractor._print("unzip splitmap")
-        unzip(map(f, args...))
-    else
-        StructArrays.components(StructArray(Iterators.map(f, args...)))
-    end
-end
-function Diffractor.splitcast(f, args...)
-    if any(a -> a isa CuArray, args)
-        Diffractor._print("unzip splitcast")
-        unzip(broadcast(f, args...))
-    else
-        StructArrays.components(StructArray(Broadcast.instantiate(Broadcast.broadcasted(f, args...))))
-    end
-end
-
-gradient(x -> sum(log.(x) .+ x'), cu([1,2,3]))[1]
-gradient(x -> sum(sqrt.(atan.(x, x'))), cu([1,2,3]))[1]
-
-=#
-
-function unzip(xs::AbstractArray)
-    x1 = first(xs)
-    x1 isa Tuple || throw(ArgumentError("unzip only accepts arrays of tuples"))
-    N = length(x1)
-    unzip(xs, Val(N))  # like Zygote's unzip
-end
-@generated function unzip(xs, ::Val{N}) where {N}
-    each = [:(map($(Get(i)), xs)) for i in 1:N]
-    Expr(:tuple, each...)
-end
-unzip(xs::AbstractArray{Tuple{T}}) where {T} = (reinterpret(T, xs),)  # best case, no copy
-@generated function unzip(xs::AbstractArray{Ts}) where {Ts<:Tuple}
-    each = if count(!Base.issingletontype, Ts.parameters) < 2
-        # good case, no copy of data, some trivial arrays
-        [Base.issingletontype(T) ? :(similar(xs, $T)) : :(reinterpret($T, xs)) for T in Ts.parameters]
-    else
-        [:(map($(Get(i)), xs)) for i in 1:length(fieldnames(Ts))]
-    end
-    Expr(:tuple, each...)
-end
-
-struct Get{i} end
-Get(i) = Get{Int(i)}()
-(::Get{i})(x) where {i} = x[i]
-
-function ChainRulesCore.rrule(::typeof(unzip), xs::AbstractArray)
-    rezip(dy) = (NoTangent(), tuple.(unthunk(dy)...))
-    return unzip(xs), rezip
-end
 
 # For certain cheap operations we can easily allow fused broadcast:
 
@@ -164,7 +100,6 @@ end
 (::∂⃖{1})(::typeof(broadcasted), ::typeof(+), arg::Array) = lazy_bc_plus(arg) # ambiguity
 function lazy_bc_plus(xs...) where {F}
     broadcasted(+, xs...), Δraw -> let Δ = unthunk(Δraw)
-        _print("broadcast +")
         (NoTangent(), NoTangent(), map(x -> unbroadcast(x, Δ), xs)...)
     end
 end
@@ -173,7 +108,6 @@ end
 
 function (::∂⃖{1})(::typeof(broadcasted), ::typeof(-), x, y)
     broadcasted(-, x, y), Δraw -> let Δ = unthunk(Δraw)
-        _print("broadcast -")
         (NoTangent(), NoTangent(), unbroadcast(x, Δ), -unbroadcast(y, Δ))
         # Ideally you could fuse the - into unbroadcast, mapreduce() not sum, when y is a smaller array
     end
@@ -184,7 +118,6 @@ const Numeric{T<:Number} = Union{T, AbstractArray{T}}
 
 function (::∂⃖{1})(::typeof(broadcasted), ::typeof(*), x::Numeric, y::Numeric)
     broadcasted(*, x, y), Δraw -> let Δ = unthunk(Δraw)
-        _print("broadcast *")
         dx = eltype(x)==Bool ? NoTangent() : x isa Number ? dot(y, Δ) : unbroadcast(x, Δ .* conj.(y))
         dy = eltype(y)==Bool ? NoTangent() : y isa Number ? dot(x, Δ) : unbroadcast(y, Δ .* conj.(x))
         # When x is an array but a smaller one, instead of dot you may be able to use mapreduce()
@@ -193,19 +126,16 @@ function (::∂⃖{1})(::typeof(broadcasted), ::typeof(*), x::Numeric, y::Numeri
 end
 
 function (::∂⃖{1})(::typeof(broadcasted), ::typeof(Base.literal_pow), ::typeof(^), x, ::Val{2})
-    _print("broadcast ^2")
     broadcasted(*, x, x), Δ -> begin
         dx = unbroadcast(x, 2 .* unthunk(Δ) .* conj.(x))
         (NoTangent(), NoTangent(), NoTangent(), dx, NoTangent()) 
     end
 end
 function (::∂⃖{1})(::typeof(broadcasted), ::typeof(Base.literal_pow), ::typeof(^), x::Number, ::Val{2})
-    _print("simple ^2")
     x^2, Δ -> (NoTangent(), NoTangent(), NoTangent(), 2 * Δ * conj(x), NoTangent())
 end
 
 function (::∂⃖{1})(::typeof(broadcasted), ::typeof(/), x::Numeric, y::Number)
-    _print("simple /")
     z, back = ∂⃖{1}()(/, x, y)
     z, dz -> begin
         _, dx, dy = back(dz)

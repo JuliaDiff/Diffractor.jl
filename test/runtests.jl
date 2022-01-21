@@ -1,5 +1,5 @@
 using Diffractor
-using Diffractor: var"'", ∂⃖, DiffractorRuleConfig
+using Diffractor: ∂⃖, DiffractorRuleConfig
 using ChainRules
 using ChainRulesCore
 using ChainRulesCore: ZeroTangent, NoTangent, frule_via_ad, rrule_via_ad
@@ -7,6 +7,11 @@ using Symbolics
 using LinearAlgebra
 
 using Test
+
+const fwd = Diffractor.PrimeDerivativeFwd
+const bwd = Diffractor.PrimeDerivativeBack
+
+@testset verbose=true "Unit tests" begin  # from before broadcasting PR
 
 # Unit tests
 function tup2(f)
@@ -43,7 +48,7 @@ ChainRules.rrule(::typeof(my_tuple), args...) = args, Δ->Core.tuple(NoTangent()
 
 # Minimal 2-nd order forward smoke test
 @test Diffractor.∂☆{2}()(Diffractor.ZeroBundle{2}(sin),
-    Diffractor.TangentBundle{2}(1.0, (1.0, 1.0, 0.0)))[Diffractor.CanonicalTangentIndex(1)] == sin'(1.0)
+    Diffractor.TangentBundle{2}(1.0, (1.0, 1.0, 0.0)))[Diffractor.CanonicalTangentIndex(1)] == cos(1.0)
 
 function simple_control_flow(b, x)
     if b
@@ -86,7 +91,7 @@ isa_control_flow(::Type{T}, x) where {T} = isa(x, T) ? x : T(x)
 let var"'" = Diffractor.PrimeDerivativeBack
     # Integration tests
     @test @inferred(sin'(1.0)) == cos(1.0)
-    @test @inferred(sin''(1.0)) == -sin(1.0)
+    @test @inferred(sin''(1.0)) == -sin(1.0)  broken=true
     @test sin'''(1.0) == -cos(1.0)
     @test sin''''(1.0) == sin(1.0)
     @test sin'''''(1.0) == cos(1.0)
@@ -100,10 +105,15 @@ let var"'" = Diffractor.PrimeDerivativeBack
     # Higher order mixed mode tests
 
     complicated_2sin(x) = (x = map(sin, Diffractor.xfill(x, 2)); x[1] + x[2])
-    @test @inferred(complicated_2sin'(1.0)) == 2sin'(1.0)
-    @test @inferred(complicated_2sin''(1.0)) == 2sin''(1.0)
-    @test @inferred(complicated_2sin'''(1.0)) == 2sin'''(1.0)
-    @test @inferred(complicated_2sin''''(1.0)) == 2sin''''(1.0)
+    @test @inferred(complicated_2sin'(1.0)) == 2sin'(1.0)  broken=true  # inference broken on Julia nightly without PR68
+    @test @inferred(complicated_2sin''(1.0)) == 2sin''(1.0)  broken=true
+    @test @inferred(complicated_2sin'''(1.0)) == 2sin'''(1.0)  broken=true
+    @test @inferred(complicated_2sin''''(1.0)) == 2sin''''(1.0)  broken=true
+
+    @test complicated_2sin'(1.0) == 2sin'(1.0)
+    @test complicated_2sin''(1.0) == 2sin''(1.0)
+    @test complicated_2sin'''(1.0) == 2sin'''(1.0)
+    @test complicated_2sin''''(1.0) == 2sin''''(1.0)
 
     # Control flow cases
     @test @inferred((x->simple_control_flow(true, x))'(1.0)) == sin'(1.0)
@@ -149,9 +159,6 @@ end
 # Regression tests
 @test gradient(x -> sum(abs2, x .+ 1.0), zeros(3))[1] == [2.0, 2.0, 2.0]
 
-const fwd = Diffractor.PrimeDerivativeFwd
-const bwd = Diffractor.PrimeDerivativeBack
-
 function f_broadcast(a)
     l = a / 2.0 * [[0. 1. 1.]; [1. 0. 1.]; [1. 1. 0.]]
     return sum(l)
@@ -161,7 +168,7 @@ end
 # Make sure that there's no infinite recursion in kwarg calls
 g_kw(;x=1.0) = sin(x)
 f_kw(x) = g_kw(;x)
-@test bwd(f_kw)(1.0) == bwd(sin)(1.0)
+@test bwd(f_kw)(1.0) == bwd(sin)(1.0)  broken=true   # involves [3] +(a::Tangent{Core.Box, ...}, b::Tangent{Core.Box, ...}
 
 function f_crit_edge(a, b, c, x)
     # A function with two critical edges. This used to trigger an issue where
@@ -214,10 +221,12 @@ z45, delta45 = frule_via_ad(DiffractorRuleConfig(), (0,1), x -> log(exp(x)), 2)
 @test z45 ≈ 2.0
 @test delta45 ≈ 1.0
 
-# Broadcasting
-@testset "broadcast" begin
+
+end # @testset
+
+@testset verbose=true "broadcast" begin
     @test gradient(x -> sum(x ./ x), [1,2,3]) == ([0,0,0],)  # derivatives_given_output
-    @test gradient(x -> sum(sqrt.(atan.(x, x'))), [1,2,3])[1] ≈ [0.2338, -0.0177, -0.0661] atol=1e-3
+    @test gradient(x -> sum(sqrt.(atan.(x, transpose(x)))), [1,2,3])[1] ≈ [0.2338, -0.0177, -0.0661] atol=1e-3
     @test gradient(x -> sum(exp.(log.(x))), [1,2,3]) == ([1,1,1],)
 
     @test gradient(x -> sum((exp∘log).(x)), [1,2,3]) == ([1,1,1],)  # stores pullback
@@ -230,7 +239,7 @@ z45, delta45 = frule_via_ad(DiffractorRuleConfig(), (0,1), x -> log(exp(x)), 2)
     @test gradient(x -> sum(sum, (x,) ./ x), [1,2,3])[1] ≈ [-4.1666, 0.3333, 1.1666] atol=1e-3  # array of arrays
     @test gradient(x -> sum(sum, Ref(x) ./ x), [1,2,3])[1] ≈ [-4.1666, 0.3333, 1.1666] atol=1e-3
     @test gradient(x -> sum(sum, (x,) ./ x), [1,2,3])[1] ≈ [-4.1666, 0.3333, 1.1666] atol=1e-3
-    @test gradient(x -> sum(sum, (x,) .* x'), [1,2,3])[1] ≈ [12, 12, 12]  # must not take the * fast path
+    @test gradient(x -> sum(sum, (x,) .* transpose(x)), [1,2,3])[1] ≈ [12, 12, 12]  # must not take the * fast path
 
     @test unthunk.(gradient(x -> sum(x ./ 4), [1,2,3])) == ([0.25, 0.25, 0.25],)
     @test gradient(x -> sum([1,2,3] ./ x), 4) == (-0.375,)  # x/y rule
@@ -238,7 +247,7 @@ z45, delta45 = frule_via_ad(DiffractorRuleConfig(), (0,1), x -> log(exp(x)), 2)
     @test gradient(x -> sum([1,2,3] ./ x.^2), 4) == (-0.1875,)  # scalar^2 rule
 
     @test gradient(x -> sum((1,2,3) .- x), (1,2,3)) == (Tangent{Tuple{Int,Int,Int}}(-1.0, -1.0, -1.0),)
-    @test gradient(x -> sum([1,2,3]' .- x), (1,2,3)) == (Tangent{Tuple{Int,Int,Int}}(-3.0, -3.0, -3.0),)
+    @test gradient(x -> sum(transpose([1,2,3]) .- x), (1,2,3)) == (Tangent{Tuple{Int,Int,Int}}(-3.0, -3.0, -3.0),)
     @test gradient(x -> sum([1 2 3] .+ x .^ 2), (1,2,3)) == (Tangent{Tuple{Int,Int,Int}}(6.0, 12.0, 18.0),)
 
     @test gradient(x -> sum(x .> 2), [1,2,3]) == (ZeroTangent(),)  # Bool output
@@ -246,17 +255,24 @@ z45, delta45 = frule_via_ad(DiffractorRuleConfig(), (0,1), x -> log(exp(x)), 2)
     @test gradient((x,y) -> sum(x .== y), [1,2,3], [1 2 3]) == (ZeroTangent(), ZeroTangent())
     @test gradient(x -> sum(x .+ [1,2,3]), true) == (NoTangent(),)  # Bool input
     @test gradient(x -> sum(x ./ [1,2,3]), [true false]) == (NoTangent(),)
-    @test_broken gradient(x -> sum(x .* [1,2,3]'), (true, false)) == (NoTangent(),)  # Cannot `convert` an object of type NoTangent to an object of type ZeroTangent
+    @test gradient(x -> sum(x .* transpose([1,2,3])), (true, false)) == (NoTangent(),)
 
-    tup_adj = gradient((x,y) -> sum(2 .* x .+ log.(y)), (1,2), [3,4,5]')
+    tup_adj = gradient((x,y) -> sum(2 .* x .+ log.(y)), (1,2), transpose([3,4,5]))
     @test tup_adj[1] == Tangent{Tuple{Int64, Int64}}(6.0, 6.0)
     @test tup_adj[2] ≈ [0.6666666666666666 0.5 0.4]
-    @test tup_adj[2] isa Adjoint
+    @test tup_adj[2] isa Transpose
     @test gradient(x -> sum(atan.(x, (1,2,3))), Diagonal([4,5,6]))[1] isa Diagonal
 
-    @test_broken gradient(x -> sum(gradient(x -> sum(exp.(x)), x)[1]), [1,2,3])  # path 0, MethodError: no method matching Diffractor.Jet(::Int64, ::Float64, ::Tuple{Float64, Float64})
-    @test_broken gradient(x -> sum(gradient(x -> sum(x' .* x), x)[1]), [1,2,3]) == ([6,6,6],) # Control flow support not fully implemented yet for higher-order reverse mode
-    @test_broken gradient(x -> sum(gradient(x -> sum(x' ./ x.^2), x)[1]), [1,2,3])[1] ≈ [27.675925925925927, -0.824074074074074, -2.1018518518518516]
+    @test_broken gradient(x -> sum(gradient(x -> sum(exp.(x)), x)[1]), [1,2,3])[1] ≈ exp.(1:3)  # path 0, order 2, MethodError: no method matching Diffractor.Jet(::Int64, ::Float64, ::Tuple{Float64, Float64})
+    @test_broken gradient(x -> sum(gradient(x -> sum(exp.(x)), x)[1]), [1,2,3.0])[1] ≈ exp.(1:3)  # path 0, order 2, MethodError: no method matching length(::ChainRulesCore.InplaceableThunk
+    @test_broken gradient(x -> sum(gradient(x -> sum(transpose(x) .* x), x)[1]), [1,2,3]) == ([6,6,6],) # Control flow support not fully implemented yet for higher-order reverse mode
+    @test_broken gradient(x -> sum(gradient(x -> sum(transpose(x) ./ x.^2), x)[1]), [1,2,3])[1] ≈ [27.675925925925927, -0.824074074074074, -2.1018518518518516]
+
+    @test (@inferred Diffractor.split_bc_rule(<, [1,2,3], [4 5]); true)  # path 1, bool
+    @test (@inferred Diffractor.split_bc_rule(+, [1,2,3]); true)  # path 2, derivatives_given_output
+    @test (@inferred Diffractor.split_bc_rule(+, [1,2,3], [4 5]); true)  # path 2 vararg, tuplecast
+    @test (@inferred Diffractor.split_bc_rule(exp_log, [1,2,3]); true)  # path 3 generic
+
 end
 
 # Higher order control flow not yet supported (https://github.com/JuliaDiff/Diffractor.jl/issues/24)

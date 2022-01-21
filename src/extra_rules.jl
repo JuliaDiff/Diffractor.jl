@@ -138,26 +138,16 @@ struct NonDiffOdd{N, O, P}; end
 (::NonDiffEven{N, O, O})(Δ...) where {N, O} = error()
 
 # WARNING: Method definition rrule(typeof(Core.apply_type), Any, Any...) in module ChainRules at /Users/me/.julia/packages/ChainRules/kkDLd/src/rulesets/Core/core.jl:10 overwritten in module Diffractor at /Users/me/.julia/dev/Diffractor/src/extra_rules.jl:140.
-# @Base.pure function ChainRulesCore.rrule(::typeof(Core.apply_type), head, args...)
-#     Core.apply_type(head, args...), NonDiffOdd{plus1(plus1(length(args))), 1, 1}()
-# end
+@Base.pure function ChainRulesCore.rrule(::typeof(Core.apply_type), head, args...)
+    Core.apply_type(head, args...), NonDiffOdd{plus1(plus1(length(args))), 1, 1}()
+end
 
 function ChainRulesCore.rrule(::typeof(Core.tuple), args...)
     Core.tuple(args...), Δ->Core.tuple(NoTangent(), Δ...)
 end
 
-# TODO: What to do about these integer rules
-# @ChainRulesCore.non_differentiable Base.rem(a::Integer, b::Type)  # now in CR 1.18
-
 ChainRulesCore.canonicalize(::ChainRulesCore.ZeroTangent) = ChainRulesCore.ZeroTangent()
 ChainRulesCore.canonicalize(::NoTangent) = NoTangent()
-
-# # Skip AD'ing through the axis computation
-# function ChainRules.rrule(::typeof(Base.Broadcast.instantiate), bc::Base.Broadcast.Broadcasted)
-#     return Base.Broadcast.instantiate(bc), Δ->begin
-#         Core.tuple(NoTangent(), Δ)
-#     end
-# end
 
 
 using StaticArrays
@@ -201,22 +191,6 @@ function ChainRules.rrule(::typeof(map), ::typeof(+), A::AbstractVector, B::Abst
     map(+, A, B), Δ->(NoTangent(), NoTangent(), Δ, Δ)
 end
 
-# https://github.com/JuliaDiff/ChainRules.jl/blob/main/src/rulesets/Base/array.jl#L7
-# function ChainRules.rrule(AT::Type{<:Array{T,N}}, x::AbstractArray{S,N}) where {T,S,N}
-#     # We're leaving these in the eltype that the cotangent vector already has.
-#     # There isn't really a good reason to believe we should convert to the
-#     # original array type, so don't unless explicitly requested.
-#     AT(x), Δ->(NoTangent(), Δ)
-# end
-
-# WARNING: Method definition rrule(Type{var"#s260"} where var"#s260"<:(Array{T, N} where N where T), UndefInitializer, Any...) in module ChainRules at /Users/me/.julia/packages/ChainRules/kkDLd/src/rulesets/Base/array.jl:5 overwritten in module Diffractor at /Users/me/.julia/dev/Diffractor/src/extra_rules.jl:209.
-# function ChainRules.rrule(AT::Type{<:Array}, undef::UndefInitializer, args...)
-#     # We're leaving these in the eltype that the cotangent vector already has.
-#     # There isn't really a good reason to believe we should convert to the
-#     # original array type, so don't unless explicitly requested.
-#     AT(undef, args...), Δ->(NoTangent(), NoTangent(), ntuple(_->NoTangent(), length(args))...)
-# end
-
 function unzip_tuple(t::Tuple)
     map(x->x[1], t), map(x->x[2], t)
 end
@@ -256,7 +230,6 @@ function ChainRules.frule(_, ::Type{Vector{T}}, undef::UndefInitializer, dims::I
     Vector{T}(undef, dims...), zeros(T, dims...)
 end
 
-# @ChainRules.non_differentiable Base.:(|)(a::Integer, b::Integer) CR#558
 @ChainRules.non_differentiable Base.throw(err)
 @ChainRules.non_differentiable Core.Compiler.return_type(args...)
 
@@ -273,3 +246,13 @@ end
 # ERROR: ArgumentError: Tangent for the primal Base.Pairs{Symbol, Union{}, Tuple{}, NamedTuple{(), Tuple{}}} should be backed by a AbstractDict type, not by NamedTuple{(:data,), Tuple{ChainRulesCore.ZeroTangent}}.
 ChainRulesCore._backing_error(::Type{<:Base.Pairs{Symbol}}, ::Type{<:NamedTuple}, _) = nothing  # solves that!
 
+# Rather than have a rule for broadcasted 3-arg *, just send it to the efficient path:
+ChainRulesCore.derivatives_given_output(Ω, ::typeof(*), x::Number, y::Number, z::Number) = ((y*z, x*z, x*y),)
+function ChainRulesCore.derivatives_given_output(Ω, ::typeof(*), x::Number, y::Number, z::Number, w::Number)
+    xy = x*y
+    zw = z*w
+    ((y*zw, x*zw, xy*w, xy*z),)
+end
+
+# Fixes @test (x->sum(isa_control_flow(Matrix{Float64}, x)))'(Float32[1 2;]) == [1.0 1.0;]
+(project::ProjectTo{<:AbstractArray})(th::InplaceableThunk) = project(unthunk(th))

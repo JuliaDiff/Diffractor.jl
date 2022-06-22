@@ -247,7 +247,6 @@ Base.getindex(c::Core.Compiler.IncrementalCompact, args...) = Core.Compiler.geti
 Base.setindex!(c::Core.Compiler.IncrementalCompact, args...) = Core.Compiler.setindex!(c, args...)
 Base.setindex!(urs::Core.Compiler.UseRef, args...) = Core.Compiler.setindex!(urs, args...)
 function transform!(ci, meth, nargs, sparams, N)
-    #Core.Main.Base.display(ci)
     n_closures = 2^N - 1
 
     code = ci.code
@@ -855,7 +854,6 @@ function transform!(ci, meth, nargs, sparams, N)
     non_dce_finish!(compact)
     ir = complete(compact)
     ir = compact!(ir)
-    #Core.Main.Base.display(ir)
     #Core.Compiler.verify_ir(ir)
 
     Core.Compiler.replace_code_newstyle!(ci, ir, nargs+1)

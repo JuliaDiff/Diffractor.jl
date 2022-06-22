@@ -247,6 +247,7 @@ Base.getindex(c::Core.Compiler.IncrementalCompact, args...) = Core.Compiler.geti
 Base.setindex!(c::Core.Compiler.IncrementalCompact, args...) = Core.Compiler.setindex!(c, args...)
 Base.setindex!(urs::Core.Compiler.UseRef, args...) = Core.Compiler.setindex!(urs, args...)
 function transform!(ci, meth, nargs, sparams, N)
+    #Core.Main.Base.display(ci)
     n_closures = 2^N - 1
 
     code = ci.code
@@ -258,7 +259,7 @@ function transform!(ci, meth, nargs, sparams, N)
     ir = IRCode(Core.Compiler.InstructionStream(code, Any[],
         Any[nothing for i = 1:length(code)],
         ci.codelocs, UInt8[0 for i = 1:length(code)]), cfg, Core.LineInfoNode[ci.linetable...],
-        Any[Any for i = 1:2], Any[], Any[sparams...])
+        Any[Any for i = 1:2], Expr[], Any[sparams...]) # TODO: on 1.8, the `Expr[]` should be `Any[]`
 
     # SSA conversion
     domtree = construct_domtree(ir.cfg.blocks)
@@ -629,8 +630,8 @@ function transform!(ci, meth, nargs, sparams, N)
         end
         if nc != n_closures
             lno = LineNumberNode(1, :none)
-            next_oc = insert_node_rev!(Expr(:new_opaque_closure, Tuple{(Any for i = 1:nargs+1)...}, meth.isva, Union{}, Any,
-                Expr(:opaque_closure_method, cname(nc+1, N, meth.name), Int(meth.nargs), lno, opaque_cis[nc+1]), revs[nc+1]...))
+            next_oc = insert_node_rev!(Expr(:new_opaque_closure, Tuple{(Any for i = 1:nargs+1)...}, Union{}, Any,
+                Expr(:opaque_closure_method, cname(nc+1, N, meth.name), Int(meth.nargs),  meth.isva, lno, opaque_cis[nc+1]), revs[nc+1]...))
             ret_tuple = insert_node_rev!(Expr(:call, tuple, arg_tuple, next_oc))
         end
         insert_node_rev!(Core.ReturnNode(ret_tuple))
@@ -684,8 +685,8 @@ function transform!(ci, meth, nargs, sparams, N)
                 revs[nc+1][i] = dual
             elseif isa(stmt, ReturnNode)
                 lno = LineNumberNode(1, :none)
-                next_oc = insert_node_here!(Expr(:new_opaque_closure, Tuple{Any}, false, Union{}, Any,
-                    Expr(:opaque_closure_method, cname(nc+1, N, meth.name), 1, lno, opaque_cis[nc + 1]), revs[nc+1]...))
+                next_oc = insert_node_here!(Expr(:new_opaque_closure, Tuple{Any}, Union{}, Any,
+                    Expr(:opaque_closure_method, cname(nc+1, N, meth.name), 1, false, lno, opaque_cis[nc + 1]), revs[nc+1]...))
                 ret_tup = insert_node_here!(Expr(:call, tuple, stmt.val, next_oc))
                 insert_node_here!(ReturnNode(ret_tup))
             elseif isexpr(stmt, :new)
@@ -703,6 +704,8 @@ function transform!(ci, meth, nargs, sparams, N)
             elseif isexpr(stmt, :splatnew)
                 error()
             elseif isa(stmt, GlobalRef)
+                fwds[i] = ZeroTangent()
+            elseif isexpr(stmt, :static_parameter)
                 fwds[i] = ZeroTangent()
             elseif isa(stmt, Union{GotoNode, GotoIfNot})
                 return :(error("Control flow support not fully implemented yet for higher-order reverse mode (TODO)"))
@@ -793,8 +796,8 @@ function transform!(ci, meth, nargs, sparams, N)
             rev[old_idx] = SSAValue(idx)
         elseif isa(stmt, Core.ReturnNode)
             lno = LineNumberNode(1, :none)
-            compact[idx] = Expr(:new_opaque_closure, Tuple{Any}, false, Union{}, Any,
-                Expr(:opaque_closure_method, cname(1, N, meth.name), 1, lno, opaque_cis[1]), rev[orig_bb_ranges[end]]...)
+            compact[idx] = Expr(:new_opaque_closure, Tuple{Any}, Union{}, Any,
+                Expr(:opaque_closure_method, cname(1, N, meth.name), 1, false, lno, opaque_cis[1]), rev[orig_bb_ranges[end]]...)
             argty = insert_node_here!(compact,
                 NewInstruction(Expr(:call, typeof, stmt.val), Any, compact.result[idx][:line]), true)
             applyty = insert_node_here!(compact,
@@ -852,7 +855,8 @@ function transform!(ci, meth, nargs, sparams, N)
     non_dce_finish!(compact)
     ir = complete(compact)
     ir = compact!(ir)
-    Core.Compiler.verify_ir(ir)
+    #Core.Main.Base.display(ir)
+    #Core.Compiler.verify_ir(ir)
 
     Core.Compiler.replace_code_newstyle!(ci, ir, nargs+1)
     ci.ssavaluetypes = length(ci.code)

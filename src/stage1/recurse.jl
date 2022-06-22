@@ -751,7 +751,7 @@ function transform!(ci, meth, nargs, sparams, N)
     for ((old_idx, idx), stmt) in compact
         # remap arguments
         urs = userefs(stmt)
-        compact[idx] = nothing
+        compact[SSAValue(idx)] = nothing
         for op in urs
             val = op[]
             if isa(val, Argument)
@@ -761,14 +761,14 @@ function transform!(ci, meth, nargs, sparams, N)
                 op[] = quoted(sparams[val.args[1]])
             end
         end
-        compact[idx] = stmt = urs[]
+        compact[SSAValue(idx)] = stmt = urs[]
         # f(args...) -> ∂⃖{N}(args...)
         orig_stmt = stmt
         if isexpr(stmt, :(=))
             stmt = stmt.args[2]
         end
         if isexpr(stmt, :call)
-            compact[idx] = Expr(:call, ∂⃖{N}(), stmt.args...)
+            compact[SSAValue(idx)] = Expr(:call, ∂⃖{N}(), stmt.args...)
             if isexpr(orig_stmt, :(=))
                 orig_stmt.args[2] = stmt
                 stmt = orig_stmt
@@ -785,17 +785,17 @@ function transform!(ci, meth, nargs, sparams, N)
                 orig_stmt.args[2] = stmt
                 stmt = orig_stmt
             end
-            compact[idx] = stmt
+            compact[SSAValue(idx)] = stmt
         elseif isexpr(stmt, :new) || isexpr(stmt, :splatnew)
             rev[old_idx] = stmt.args[1]
         elseif isexpr(stmt, :phi_placeholder)
-            compact[idx] = phi_nodes[active_bb]
+            compact[SSAValue(idx)] = phi_nodes[active_bb]
             # TODO: This is a base julia bug
             push!(compact.late_fixup, idx)
             rev[old_idx] = SSAValue(idx)
         elseif isa(stmt, Core.ReturnNode)
             lno = LineNumberNode(1, :none)
-            compact[idx] = Expr(:new_opaque_closure, Tuple{Any}, Union{}, Any,
+            compact[SSAValue(idx)] = Expr(:new_opaque_closure, Tuple{Any}, Union{}, Any,
                 Expr(:opaque_closure_method, cname(1, N, meth.name), 1, false, lno, opaque_cis[1]), rev[orig_bb_ranges[end]]...)
             argty = insert_node_here!(compact,
                 NewInstruction(Expr(:call, typeof, stmt.val), Any, compact.result[idx][:line]), true)
@@ -816,13 +816,13 @@ function transform!(ci, meth, nargs, sparams, N)
             if length(succs) != 0
                 override = false
                 if has_terminator[active_bb]
-                    terminator = compact[idx]
-                    compact[idx] = nothing
+                    terminator = compact[SSAValue(idx)]
+                    compact[SSAValue(idx)] = nothing
                     override = true
                 end
                 function terminator_insert_node!(node)
                     if override
-                        compact[idx] = node.stmt
+                        compact[SSAValue(idx)] = node.stmt
                         override = false
                         return SSAValue(idx)
                     else

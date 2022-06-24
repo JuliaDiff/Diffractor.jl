@@ -237,6 +237,17 @@ function split_critical_edges!(ir)
     return ir′
 end
 
+function make_opaque_closure(typ, name, meth_nargs, isva, lno, cis, revs...)
+    # PR #44008
+    if VERSION >= v"1.8.0-DEV.1563"
+        Expr(:new_opaque_closure, typ, Union{}, Any,
+            Expr(:opaque_closure_method, name, meth_nargs, isva, lno, cis), revs...)
+    else
+        Expr(:new_opaque_closure, typ, isva, Union{}, Any,
+            Expr(:opaque_closure_method, name, meth_nargs, lno, cis), revs...)
+    end
+end
+
 Base.iterate(c::IncrementalCompact, args...) = Core.Compiler.iterate(c, args...)
 Base.iterate(p::Core.Compiler.Pair, args...) = Core.Compiler.iterate(p, args...)
 Base.iterate(urs::Core.Compiler.UseRefIterator, args...) = Core.Compiler.iterate(urs, args...)
@@ -255,10 +266,12 @@ function transform!(ci, meth, nargs, sparams, N)
     slotflags = UInt8[(0x00 for i = 1:2)..., ci.slotflags...]
     slottypes = UInt8[(0x00 for i = 1:2)..., ci.slotflags...]
 
+    #https://github.com/JuliaLang/julia/pull/45204
+    meta = VERSION < v"1.9.0-DEV.472" ? Any[] : EXPR[]
     ir = IRCode(Core.Compiler.InstructionStream(code, Any[],
         Any[nothing for i = 1:length(code)],
         ci.codelocs, UInt8[0 for i = 1:length(code)]), cfg, Core.LineInfoNode[ci.linetable...],
-        Any[Any for i = 1:2], Expr[], Any[sparams...]) # TODO: on 1.8, the `Expr[]` should be `Any[]`
+        Any[Any for i = 1:2], meta, Any[sparams...])
 
     # SSA conversion
     domtree = construct_domtree(ir.cfg.blocks)
@@ -629,8 +642,13 @@ function transform!(ci, meth, nargs, sparams, N)
         end
         if nc != n_closures
             lno = LineNumberNode(1, :none)
-            next_oc = insert_node_rev!(Expr(:new_opaque_closure, Tuple{(Any for i = 1:nargs+1)...}, Union{}, Any,
-                Expr(:opaque_closure_method, cname(nc+1, N, meth.name), Int(meth.nargs),  meth.isva, lno, opaque_cis[nc+1]), revs[nc+1]...))
+            next_oc = insert_node_rev!(make_opaque_closure(Tuple{(Any for i = 1:nargs+1)...},
+                                                           cname(nc+1, N, meth.name),
+                                                           meth.nargs,
+                                                           meth.isva,
+                                                           lno,
+                                                           opaque_cis[nc+1],
+                                                           revs[nc+1]...))
             ret_tuple = insert_node_rev!(Expr(:call, tuple, arg_tuple, next_oc))
         end
         insert_node_rev!(Core.ReturnNode(ret_tuple))
@@ -684,8 +702,13 @@ function transform!(ci, meth, nargs, sparams, N)
                 revs[nc+1][i] = dual
             elseif isa(stmt, ReturnNode)
                 lno = LineNumberNode(1, :none)
-                next_oc = insert_node_here!(Expr(:new_opaque_closure, Tuple{Any}, Union{}, Any,
-                    Expr(:opaque_closure_method, cname(nc+1, N, meth.name), 1, false, lno, opaque_cis[nc + 1]), revs[nc+1]...))
+                next_oc = insert_node_here!(make_opaque_closure(Tuple{Any},
+                                                                cname(nc+1, N, meth.name),
+                                                                1,
+                                                                false,
+                                                                lno,
+                                                                opaque_cis[nc + 1],
+                                                                revs[nc+1]...))
                 ret_tup = insert_node_here!(Expr(:call, tuple, stmt.val, next_oc))
                 insert_node_here!(ReturnNode(ret_tup))
             elseif isexpr(stmt, :new)
@@ -795,8 +818,13 @@ function transform!(ci, meth, nargs, sparams, N)
             rev[old_idx] = SSAValue(idx)
         elseif isa(stmt, Core.ReturnNode)
             lno = LineNumberNode(1, :none)
-            compact[SSAValue(idx)] = Expr(:new_opaque_closure, Tuple{Any}, Union{}, Any,
-                Expr(:opaque_closure_method, cname(1, N, meth.name), 1, false, lno, opaque_cis[1]), rev[orig_bb_ranges[end]]...)
+            compact[SSAValue(idx)] = make_opaque_closure(Tuple{Any},
+                                                         cname(1, N, meth.name),
+                                                         1,
+                                                         false,
+                                                         lno,
+                                                         opaque_cis[1],
+                                                         rev[orig_bb_ranges[end]]...)
             argty = insert_node_here!(compact,
                 NewInstruction(Expr(:call, typeof, stmt.val), Any, compact.result[idx][:line]), true)
             applyty = insert_node_here!(compact,

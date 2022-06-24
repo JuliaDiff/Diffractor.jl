@@ -267,7 +267,7 @@ function transform!(ci, meth, nargs, sparams, N)
     slottypes = UInt8[(0x00 for i = 1:2)..., ci.slotflags...]
 
     #https://github.com/JuliaLang/julia/pull/45204
-    meta = VERSION < v"1.9.0-DEV.472" ? Any[] : EXPR[]
+    meta = VERSION < v"1.9.0-DEV.472" ? Any[] : Expr[]
     ir = IRCode(Core.Compiler.InstructionStream(code, Any[],
         Any[nothing for i = 1:length(code)],
         ci.codelocs, UInt8[0 for i = 1:length(code)]), cfg, Core.LineInfoNode[ci.linetable...],

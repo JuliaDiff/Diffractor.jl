@@ -879,6 +879,7 @@ function transform!(ci, meth, nargs, sparams, N)
 
     non_dce_finish!(compact)
     ir = complete(compact)
+    #@show ir
     ir = compact!(ir)
     if VERSION < v"1.8"
         Core.Compiler.verify_ir(ir, true)

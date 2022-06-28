@@ -238,7 +238,6 @@ function split_critical_edges!(ir)
 end
 
 function make_opaque_closure(typ, name, meth_nargs, isva, lno, cis, revs...)
-    # PR #44008
     if VERSION >= v"1.8.0-DEV.1563"
         Expr(:new_opaque_closure, typ, Union{}, Any,
             Expr(:opaque_closure_method, name, meth_nargs, isva, lno, cis), revs...)
@@ -266,7 +265,6 @@ function transform!(ci, meth, nargs, sparams, N)
     slotflags = UInt8[(0x00 for i = 1:2)..., ci.slotflags...]
     slottypes = UInt8[(0x00 for i = 1:2)..., ci.slotflags...]
 
-    #https://github.com/JuliaLang/julia/pull/45204
     meta = VERSION < v"1.9.0-DEV.472" ? Any[] : Expr[]
     ir = IRCode(Core.Compiler.InstructionStream(code, Any[],
         Any[nothing for i = 1:length(code)],
@@ -843,7 +841,8 @@ function transform!(ci, meth, nargs, sparams, N)
             if length(succs) != 0
                 override = false
                 if has_terminator[active_bb]
-                    terminator = compact[SSAValue(idx)].inst
+                    terminator = compact[SSAValue(idx)]
+                    terminator = VERSION < v"1.9.0-DEV.739" ? terminator : terminator.inst
                     compact[SSAValue(idx)] = nothing
                     override = true
                 end

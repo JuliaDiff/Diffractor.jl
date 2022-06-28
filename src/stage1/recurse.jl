@@ -746,7 +746,6 @@ function transform!(ci, meth, nargs, sparams, N)
 
     # TODO: This is absolutely aweful, but the best we can do given the data structures we have
     has_terminator = [isa(ir.stmts[last(range)].inst, Union{GotoNode, GotoIfNot}) for range in orig_bb_ranges]
-
     compact = IncrementalCompact(ir)
 
     arg_mapping = Any[]
@@ -844,7 +843,7 @@ function transform!(ci, meth, nargs, sparams, N)
             if length(succs) != 0
                 override = false
                 if has_terminator[active_bb]
-                    terminator = compact[SSAValue(idx)]
+                    terminator = compact[SSAValue(idx)].inst
                     compact[SSAValue(idx)] = nothing
                     override = true
                 end
@@ -882,7 +881,13 @@ function transform!(ci, meth, nargs, sparams, N)
     non_dce_finish!(compact)
     ir = complete(compact)
     ir = compact!(ir)
-    #Core.Compiler.verify_ir(ir)
+    if VERSION < v"1.8"
+        Core.Compiler.verify_ir(ir, true)
+    elseif VERSION >= v"1.9.0-DEV.854"
+        Core.Compiler.verify_ir(ir, true, true)
+    else
+        @warn "ir verification broken. Either use 1.9 or 1.7"
+    end
 
     Core.Compiler.replace_code_newstyle!(ci, ir, nargs+1)
     ci.ssavaluetypes = length(ci.code)

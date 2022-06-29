@@ -237,6 +237,16 @@ function split_critical_edges!(ir)
     return ir′
 end
 
+function make_opaque_closure(typ, name, meth_nargs, isva, lno, cis, revs...)
+    if VERSION >= v"1.8.0-DEV.1563"
+        Expr(:new_opaque_closure, typ, Union{}, Any,
+            Expr(:opaque_closure_method, name, meth_nargs, isva, lno, cis), revs...)
+    else
+        Expr(:new_opaque_closure, typ, isva, Union{}, Any,
+            Expr(:opaque_closure_method, name, meth_nargs, lno, cis), revs...)
+    end
+end
+
 Base.iterate(c::IncrementalCompact, args...) = Core.Compiler.iterate(c, args...)
 Base.iterate(p::Core.Compiler.Pair, args...) = Core.Compiler.iterate(p, args...)
 Base.iterate(urs::Core.Compiler.UseRefIterator, args...) = Core.Compiler.iterate(urs, args...)
@@ -255,10 +265,11 @@ function transform!(ci, meth, nargs, sparams, N)
     slotflags = UInt8[(0x00 for i = 1:2)..., ci.slotflags...]
     slottypes = UInt8[(0x00 for i = 1:2)..., ci.slotflags...]
 
+    meta = VERSION < v"1.9.0-DEV.472" ? Any[] : Expr[]
     ir = IRCode(Core.Compiler.InstructionStream(code, Any[],
         Any[nothing for i = 1:length(code)],
         ci.codelocs, UInt8[0 for i = 1:length(code)]), cfg, Core.LineInfoNode[ci.linetable...],
-        Any[Any for i = 1:2], Any[], Any[sparams...])
+        Any[Any for i = 1:2], meta, Any[sparams...])
 
     # SSA conversion
     domtree = construct_domtree(ir.cfg.blocks)
@@ -629,8 +640,13 @@ function transform!(ci, meth, nargs, sparams, N)
         end
         if nc != n_closures
             lno = LineNumberNode(1, :none)
-            next_oc = insert_node_rev!(Expr(:new_opaque_closure, Tuple{(Any for i = 1:nargs+1)...}, meth.isva, Union{}, Any,
-                Expr(:opaque_closure_method, cname(nc+1, N, meth.name), Int(meth.nargs), lno, opaque_cis[nc+1]), revs[nc+1]...))
+            next_oc = insert_node_rev!(make_opaque_closure(Tuple{(Any for i = 1:nargs+1)...},
+                                                           cname(nc+1, N, meth.name),
+                                                           meth.nargs,
+                                                           meth.isva,
+                                                           lno,
+                                                           opaque_cis[nc+1],
+                                                           revs[nc+1]...))
             ret_tuple = insert_node_rev!(Expr(:call, tuple, arg_tuple, next_oc))
         end
         insert_node_rev!(Core.ReturnNode(ret_tuple))
@@ -684,8 +700,13 @@ function transform!(ci, meth, nargs, sparams, N)
                 revs[nc+1][i] = dual
             elseif isa(stmt, ReturnNode)
                 lno = LineNumberNode(1, :none)
-                next_oc = insert_node_here!(Expr(:new_opaque_closure, Tuple{Any}, false, Union{}, Any,
-                    Expr(:opaque_closure_method, cname(nc+1, N, meth.name), 1, lno, opaque_cis[nc + 1]), revs[nc+1]...))
+                next_oc = insert_node_here!(make_opaque_closure(Tuple{Any},
+                                                                cname(nc+1, N, meth.name),
+                                                                1,
+                                                                false,
+                                                                lno,
+                                                                opaque_cis[nc + 1],
+                                                                revs[nc+1]...))
                 ret_tup = insert_node_here!(Expr(:call, tuple, stmt.val, next_oc))
                 insert_node_here!(ReturnNode(ret_tup))
             elseif isexpr(stmt, :new)
@@ -704,6 +725,8 @@ function transform!(ci, meth, nargs, sparams, N)
                 error()
             elseif isa(stmt, GlobalRef)
                 fwds[i] = ZeroTangent()
+            elseif isexpr(stmt, :static_parameter)
+                fwds[i] = ZeroTangent()
             elseif isa(stmt, Union{GotoNode, GotoIfNot})
                 return :(error("Control flow support not fully implemented yet for higher-order reverse mode (TODO)"))
             elseif !isa(stmt, Expr)
@@ -721,7 +744,6 @@ function transform!(ci, meth, nargs, sparams, N)
 
     # TODO: This is absolutely aweful, but the best we can do given the data structures we have
     has_terminator = [isa(ir.stmts[last(range)].inst, Union{GotoNode, GotoIfNot}) for range in orig_bb_ranges]
-
     compact = IncrementalCompact(ir)
 
     arg_mapping = Any[]
@@ -749,7 +771,7 @@ function transform!(ci, meth, nargs, sparams, N)
     for ((old_idx, idx), stmt) in compact
         # remap arguments
         urs = userefs(stmt)
-        compact[idx] = nothing
+        compact[SSAValue(idx)] = nothing
         for op in urs
             val = op[]
             if isa(val, Argument)
@@ -759,14 +781,14 @@ function transform!(ci, meth, nargs, sparams, N)
                 op[] = quoted(sparams[val.args[1]])
             end
         end
-        compact[idx] = stmt = urs[]
+        compact[SSAValue(idx)] = stmt = urs[]
         # f(args...) -> ∂⃖{N}(args...)
         orig_stmt = stmt
         if isexpr(stmt, :(=))
             stmt = stmt.args[2]
         end
         if isexpr(stmt, :call)
-            compact[idx] = Expr(:call, ∂⃖{N}(), stmt.args...)
+            compact[SSAValue(idx)] = Expr(:call, ∂⃖{N}(), stmt.args...)
             if isexpr(orig_stmt, :(=))
                 orig_stmt.args[2] = stmt
                 stmt = orig_stmt
@@ -783,18 +805,23 @@ function transform!(ci, meth, nargs, sparams, N)
                 orig_stmt.args[2] = stmt
                 stmt = orig_stmt
             end
-            compact[idx] = stmt
+            compact[SSAValue(idx)] = stmt
         elseif isexpr(stmt, :new) || isexpr(stmt, :splatnew)
             rev[old_idx] = stmt.args[1]
         elseif isexpr(stmt, :phi_placeholder)
-            compact[idx] = phi_nodes[active_bb]
+            compact[SSAValue(idx)] = phi_nodes[active_bb]
             # TODO: This is a base julia bug
             push!(compact.late_fixup, idx)
             rev[old_idx] = SSAValue(idx)
         elseif isa(stmt, Core.ReturnNode)
             lno = LineNumberNode(1, :none)
-            compact[idx] = Expr(:new_opaque_closure, Tuple{Any}, false, Union{}, Any,
-                Expr(:opaque_closure_method, cname(1, N, meth.name), 1, lno, opaque_cis[1]), rev[orig_bb_ranges[end]]...)
+            compact[SSAValue(idx)] = make_opaque_closure(Tuple{Any},
+                                                         cname(1, N, meth.name),
+                                                         1,
+                                                         false,
+                                                         lno,
+                                                         opaque_cis[1],
+                                                         rev[orig_bb_ranges[end]]...)
             argty = insert_node_here!(compact,
                 NewInstruction(Expr(:call, typeof, stmt.val), Any, compact.result[idx][:line]), true)
             applyty = insert_node_here!(compact,
@@ -814,13 +841,14 @@ function transform!(ci, meth, nargs, sparams, N)
             if length(succs) != 0
                 override = false
                 if has_terminator[active_bb]
-                    terminator = compact[idx]
-                    compact[idx] = nothing
+                    terminator = compact[SSAValue(idx)]
+                    terminator = VERSION < v"1.9.0-DEV.739" ? terminator : terminator.inst
+                    compact[SSAValue(idx)] = nothing
                     override = true
                 end
                 function terminator_insert_node!(node)
                     if override
-                        compact[idx] = node.stmt
+                        compact[SSAValue(idx)] = node.stmt
                         override = false
                         return SSAValue(idx)
                     else
@@ -851,8 +879,15 @@ function transform!(ci, meth, nargs, sparams, N)
 
     non_dce_finish!(compact)
     ir = complete(compact)
+    #@show ir
     ir = compact!(ir)
-    Core.Compiler.verify_ir(ir)
+    if VERSION < v"1.8"
+        Core.Compiler.verify_ir(ir, true)
+    elseif VERSION >= v"1.9.0-DEV.854"
+        Core.Compiler.verify_ir(ir, true, true)
+    else
+        @warn "ir verification broken. Either use 1.9 or 1.7"
+    end
 
     Core.Compiler.replace_code_newstyle!(ci, ir, nargs+1)
     ci.ssavaluetypes = length(ci.code)

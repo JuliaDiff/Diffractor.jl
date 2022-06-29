@@ -53,6 +53,8 @@ However, users may provide additional overloads for custom representations of
 one dimensional Riemannian manifolds.
 """
 dx(x::Real) = one(x)
+dx(::NoTangent) = NoTangent()
+dx(::ZeroTangent) = ZeroTangent()
 dx(x::Complex) = error("Tried to take the gradient of a complex-valued function.")
 dx(x) = error("Cotangent space not defined for `$(typeof(x))`. Try a real-valued function.")
 

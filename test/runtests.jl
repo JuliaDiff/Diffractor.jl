@@ -184,6 +184,8 @@ end
 @test bwd(x->f_crit_edge(true, true, false, x))(1.0) == 2.0
 @test bwd(x->f_crit_edge(false, true, true, x))(1.0) == 12.0
 @test bwd(x->f_crit_edge(false, false, true, x))(1.0) == 4.0
+@test bwd(bwd(x->5))(1.0) == ZeroTangent()
+@test fwd(fwd(x->5))(1.0) == ZeroTangent()
 
 # Issue #27 - Mixup in lifting of getfield
 let var"'" = bwd

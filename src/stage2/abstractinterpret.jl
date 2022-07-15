@@ -1,23 +1,29 @@
 import Core.Compiler: abstract_call_gf_by_type, abstract_call
 using Core.Compiler: Const, isconstType, argtypes_to_type, tuple_tfunc, Const,
-    getfield_tfunc, _methods_by_ftype, VarTable, cache_lookup, nfields_tfunc
+    getfield_tfunc, _methods_by_ftype, VarTable, cache_lookup, nfields_tfunc,
+    ArgInfo, singleton_type, CallMeta, MethodMatchInfo, specialize_method,
+    PartialOpaque, UnionSplitApplyCallInfo, typeof_tfunc, apply_type_tfunc, instanceof_tfunc
+using Core: PartialStruct
 using Base.Meta
 
-function abstract_call_gf_by_type(interp::ADInterpreter, @nospecialize(f), argtypes::Vector{Any}, @nospecialize(atype), sv::InferenceState, max_methods::Int = InferenceParams(interp).MAX_METHODS)
-    if f isa ∂⃖
+function Core.Compiler.abstract_call_gf_by_type(interp::ADInterpreter, @nospecialize(f),
+        arginfo::ArgInfo, @nospecialize(atype), sv::InferenceState, max_methods::Int)
+    (;argtypes) = arginfo
+    if f isa ∂⃖recurse
         inner_argtypes = argtypes[2:end]
         ft = inner_argtypes[1]
         f = singleton_type(ft)
         rinterp = raise_level(interp)
-        call = abstract_call_gf_by_type(rinterp, f, inner_argtypes, argtypes_to_type(inner_argtypes), sv, max_methods)
+        call = abstract_call_gf_by_type(rinterp, f, ArgInfo(nothing, inner_argtypes), argtypes_to_type(inner_argtypes), sv, max_methods)
         if isa(call.info, MethodMatchInfo)
             if length(call.info.results.matches) == 0
                 @show inner_argtypes
                 error()
             end
-            mi = specialize_method(call.info.results.matches[1], true)
-            ci = get(code_cache(rinterp), mi, nothing)
-            clos = AbstractCompClosure(rinterp.current_level, 1, call.info, ci.inferred.stmts.info)
+            mi = specialize_method(call.info.results.matches[1], preexisting=true)
+            ci = get(rinterp.unopt[rinterp.current_level], mi, nothing)
+            clos = AbstractCompClosure(rinterp.current_level, 1, call.info, ci.stmt_info)
+            clos = Core.PartialOpaque(Core.OpaqueClosure{<:Tuple, <:Any}, nothing, sv.linfo, clos)
         elseif isa(call.info, RRuleInfo)
             if rinterp.current_level == 1
                 clos = getfield_tfunc(call.info.rrule_rt, Const(2))
@@ -26,8 +32,14 @@ function abstract_call_gf_by_type(interp::ADInterpreter, @nospecialize(f), argty
                 clos = PrimClosure(name, rinterp.current_level - 1, 1, getfield_tfunc(call.info.rrule_rt, Const(2)), call.info, nothing)
             end
         end
-        rt2 = tuple_tfunc(Any[call.rt, clos])
-        return CallMeta(rt2, RecurseInfo(call.info))
+        # TODO: use abstract_new instead, when it exists
+        obtype = instanceof_tfunc(apply_type_tfunc(Const(OpticBundle), typeof_tfunc(call.rt)))[1]
+        if obtype isa DataType
+            rt2 = PartialStruct(obtype, Any[call.rt, clos])
+        else
+            rt2 = obtype
+        end
+        return CallMeta(rt2, call.effects, RecurseInfo(call.info))
     end
 
     # Check if there is a rrule for this function
@@ -40,16 +52,15 @@ function abstract_call_gf_by_type(interp::ADInterpreter, @nospecialize(f), argty
         if f == accum
             error()
         end
-        call = abstract_call_gf_by_type(lower_level(interp), ChainRules.rrule, rrule_argtypes, rrule_atype, sv, -1)
+        call = abstract_call_gf_by_type(lower_level(interp), ChainRules.rrule, ArgInfo(nothing, rrule_argtypes), rrule_atype, sv, -1)
         if call.rt != Const(nothing)
-            @show (f,call.rt)
-            return CallMeta(getfield_tfunc(call.rt, Const(1)), RRuleInfo(call.rt, call.info))
+            return CallMeta(getfield_tfunc(call.rt, Const(1)), call.effects, RRuleInfo(call.rt, call.info))
         end
     end
 
     ret = invoke(abstract_call_gf_by_type,
-        Tuple{AbstractInterpreter, Any, Vector{Any}, Any, InferenceState, Int},
-        interp, f, argtypes, atype, sv, max_methods)
+        Tuple{AbstractInterpreter, Any, ArgInfo, Any, InferenceState, Int},
+        interp, f, arginfo, atype, sv, max_methods)
 
     return ret
 end
@@ -58,11 +69,11 @@ function abstract_accum(interp::AbstractInterpreter, args::Vector{Any}, sv::Infe
     args = filter(x->!(widenconst(x) <: Union{ZeroTangent, NoTangent}), args)
 
     if length(args) == 0
-        return CallMeta(ZeroTangent, nothing)
+        return CallMeta(ZeroTangent, Effects(), nothing)
     end
 
     if length(args) == 1
-        return CallMeta(args[1], nothing)
+        return CallMeta(args[1], Effects(), nothing)
     end
 
     rtype = reduce(tmerge, args)
@@ -102,14 +113,10 @@ function repackage_apply_rt(info, Δ, argtypes)
 end
 
 function infer_cc_backward(interp::ADInterpreter, cc::AbstractCompClosure, @nospecialize(cc_Δ), sv::InferenceState)
-    @show ("enter", cc_Δ, cc)
-
-    mi = specialize_method(cc.primal_info.results.matches[1], true)
+    mi = specialize_method(cc.primal_info.results.matches[1], preexisting=true)
     ni = change_level(interp, cc.order)
     ci = get(code_cache(ni), mi, nothing)
     primal = ci.inferred
-
-    @show primal
 
     function derive_closure_type(info)
         isa(info, CallMeta) && (info = info.info)
@@ -122,10 +129,11 @@ function infer_cc_backward(interp::ADInterpreter, cc::AbstractCompClosure, @nosp
                 return (cc.order - 1, PrimClosure(name, cc.order - 1, 1, getfield_tfunc(info.rrule_rt, Const(2)), info, nothing))
             end
         elseif isa(info, MethodMatchInfo)
-            mi′ = specialize_method(info.results.matches[1], true)
+            mi′ = specialize_method(info.results.matches[1], preexisting=true)
             ci′ = get(code_cache(ni), mi′, nothing)
-
-            return (0, AbstractCompClosure(cc.order, cc.seq, info, ci′.inferred.stmts.info))
+            clos = AbstractCompClosure(cc.order, cc.seq, info, ci′.inferred.ir.stmts.info)
+            clos = PartialOpaque(Core.OpaqueClosure{<:Tuple, <:Any}, nothing, mi, clos)
+            return (cc.order, clos)
         elseif isa(info, CompClosInfo)
             return (info.clos.order, AbstractCompClosure(info.clos.order, info.clos.seq + 1, info.clos.primal_info, info.infos))
         elseif isa(info, PrimClosInfo)
@@ -137,6 +145,8 @@ function infer_cc_backward(interp::ADInterpreter, cc::AbstractCompClosure, @nosp
             error()
         end
     end
+
+    primal = primal.ir
 
     ssa_accums = Vector{Union{Nothing, CallMeta}}(undef, length(primal.stmts))
     ssa_infos = Union{Nothing, CallMeta}[nothing for i = 1:length(primal.stmts)]
@@ -166,14 +176,15 @@ function infer_cc_backward(interp::ADInterpreter, cc::AbstractCompClosure, @nosp
     end
 
     function arg_accum!(inst, rt)
+        isinvoke = isexpr(inst, :invoke)
         if rt === Union{}
             @show primal
             @show inst
             @show rt
             error()
         end
-        for i = 1:length(inst.args)
-            accum!(inst.args[i], getfield_tfunc(rt, Const(i)))
+        for i = (isinvoke ? 2 : 1):length(inst.args)
+            accum!(inst.args[i], getfield_tfunc(rt, Const(i - (isinvoke ? 1 : 0))))
         end
     end
 
@@ -186,7 +197,7 @@ function infer_cc_backward(interp::ADInterpreter, cc::AbstractCompClosure, @nosp
         elseif isa(inst, GlobalRef) || isexpr(inst, :static_parameter)
             continue
         else
-            if !(isexpr(inst, :call) || isexpr(inst, :new))
+            if !(isexpr(inst, :call) || isexpr(inst, :new) || isexpr(inst, :invoke))
                 @show mi
                 @show inst
                 @show primal
@@ -223,13 +234,17 @@ function infer_cc_backward(interp::ADInterpreter, cc::AbstractCompClosure, @nosp
         end
 
         if call_info === nothing
-            ft = argextype(inst.args[1], primal, primal.sptypes)
-            f = singleton_type(ft)
-            if isa(f, Core.Builtin)
-                call = CallMeta(backwards_tfunc(f, primal, inst, Δ), nothing)
+            if isexpr(inst, :invoke)
+                error()
             else
-                bail!(inst)
-                continue
+                ft = argextype(inst.args[1], primal, primal.sptypes)
+                f = singleton_type(ft)
+                if isa(f, Core.Builtin)
+                    call = CallMeta(backwards_tfunc(f, primal, inst, Δ), nothing)
+                else
+                    bail!(inst)
+                    continue
+                end
             end
         else
             if cc.seq == 1 && isa(call_info, CompClosInfo)
@@ -244,7 +259,7 @@ function infer_cc_backward(interp::ADInterpreter, cc::AbstractCompClosure, @nosp
                 call = CallMeta(tuple_tfunc(Any[NoTangent; tuple_type_fields(call.rt)...]), ReifyInfo(call.info))
             else
                 (level, close) = derive_closure_type(call_info)
-                call = abstract_call(change_level(interp, level), nothing, Any[close, Δ], sv)
+                call = abstract_call(change_level(interp, level), ArgInfo(nothing, Any[close, Δ]), sv)
             end
         end
 
@@ -296,8 +311,7 @@ function infer_cc_backward(interp::ADInterpreter, cc::AbstractCompClosure, @nosp
     end
 
     rt = tuple_tfunc(Any[tup_elemns...])
-    @show (cc, rt)
-    return CallMeta(rt, CompClosInfo(cc, ssa_infos))
+    return CallMeta(rt, Effects(), CompClosInfo(cc, ssa_infos))
 end
 
 function infer_cc_forward(interp::ADInterpreter, cc::AbstractCompClosure, @nospecialize(cc_Δ), sv::InferenceState)
@@ -527,21 +541,23 @@ function infer_prim_closure(interp::ADInterpreter, pc::PrimClosure, @nospecializ
     error()
 end
 
-function abstract_call(interp::ADInterpreter, fargs::Union{Nothing,Vector{Any}}, argtypes::Vector{Any},
-    sv::InferenceState, max_methods::Int = InferenceParams(interp).MAX_METHODS)
+function Core.Compiler.abstract_call_opaque_closure(interp::ADInterpreter,
+    closure::PartialOpaque, arginfo::ArgInfo, sv::InferenceState, check::Bool=true)
 
-    if isa(argtypes[1], AbstractCompClosure)
+    if isa(closure.source, AbstractCompClosure)
+        (;argtypes) = arginfo
         if length(argtypes) !== 2
             error()
             return CallMeta(Union{}, false)
         end
-        return infer_comp_closure(interp, argtypes[1], argtypes[2], sv)
-    elseif isa(argtypes[1], PrimClosure)
-        return infer_prim_closure(interp, argtypes[1], argtypes[2], sv)
+        return infer_comp_closure(interp, closure.source, argtypes[2], sv)
+    elseif isa(closure.source, PrimClosure)
+        (;argtypes) = arginfo
+        return infer_prim_closure(interp, closure.source, argtypes[2], sv)
     end
 
-    rt = invoke(abstract_call, Tuple{AbstractInterpreter, Union{Nothing, Vector{Any}}, Vector{Any}, InferenceState, Int64},
-        interp, fargs, argtypes, sv, max_methods)
+    rt = invoke(Core.Compiler.abstract_call_opaque_closure, Tuple{AbstractInterpreter, PartialOpaque, ArgInfo, InferenceState, Bool},
+        interp, closure, arginfo, sv, check)
 
     return rt
 end

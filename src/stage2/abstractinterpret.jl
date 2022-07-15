@@ -1,23 +1,26 @@
 import Core.Compiler: abstract_call_gf_by_type, abstract_call
 using Core.Compiler: Const, isconstType, argtypes_to_type, tuple_tfunc, Const,
-    getfield_tfunc, _methods_by_ftype, VarTable, cache_lookup, nfields_tfunc
+    getfield_tfunc, _methods_by_ftype, VarTable, cache_lookup, nfields_tfunc,
+    ArgInfo, singleton_type, CallMeta, MethodMatchInfo, specialize_method
 using Base.Meta
 
-function abstract_call_gf_by_type(interp::ADInterpreter, @nospecialize(f), argtypes::Vector{Any}, @nospecialize(atype), sv::InferenceState, max_methods::Int = InferenceParams(interp).MAX_METHODS)
-    if f isa ∂⃖
+function Core.Compiler.abstract_call_gf_by_type(interp::ADInterpreter, @nospecialize(f),
+        arginfo::ArgInfo, @nospecialize(atype), sv::InferenceState, max_methods::Int)
+    (;argtypes) = arginfo
+    if f isa ∂⃖recurse
         inner_argtypes = argtypes[2:end]
         ft = inner_argtypes[1]
         f = singleton_type(ft)
         rinterp = raise_level(interp)
-        call = abstract_call_gf_by_type(rinterp, f, inner_argtypes, argtypes_to_type(inner_argtypes), sv, max_methods)
+        call = abstract_call_gf_by_type(rinterp, f, ArgInfo(nothing, inner_argtypes), argtypes_to_type(inner_argtypes), sv, max_methods)
         if isa(call.info, MethodMatchInfo)
             if length(call.info.results.matches) == 0
                 @show inner_argtypes
                 error()
             end
-            mi = specialize_method(call.info.results.matches[1], true)
-            ci = get(code_cache(rinterp), mi, nothing)
-            clos = AbstractCompClosure(rinterp.current_level, 1, call.info, ci.inferred.stmts.info)
+            mi = specialize_method(call.info.results.matches[1], preexisting=true)
+            ci = get(rinterp.unopt[rinterp.current_level], mi, nothing)
+            clos = AbstractCompClosure(rinterp.current_level, 1, call.info, ci.stmt_info)
         elseif isa(call.info, RRuleInfo)
             if rinterp.current_level == 1
                 clos = getfield_tfunc(call.info.rrule_rt, Const(2))
@@ -27,7 +30,7 @@ function abstract_call_gf_by_type(interp::ADInterpreter, @nospecialize(f), argty
             end
         end
         rt2 = tuple_tfunc(Any[call.rt, clos])
-        return CallMeta(rt2, RecurseInfo(call.info))
+        return CallMeta(rt2, call.effects, RecurseInfo(call.info))
     end
 
     # Check if there is a rrule for this function
@@ -40,16 +43,16 @@ function abstract_call_gf_by_type(interp::ADInterpreter, @nospecialize(f), argty
         if f == accum
             error()
         end
-        call = abstract_call_gf_by_type(lower_level(interp), ChainRules.rrule, rrule_argtypes, rrule_atype, sv, -1)
+        call = abstract_call_gf_by_type(lower_level(interp), ChainRules.rrule, ArgInfo(nothing, rrule_argtypes), rrule_atype, sv, -1)
         if call.rt != Const(nothing)
             @show (f,call.rt)
-            return CallMeta(getfield_tfunc(call.rt, Const(1)), RRuleInfo(call.rt, call.info))
+            return CallMeta(getfield_tfunc(call.rt, Const(1)), call.effects, RRuleInfo(call.rt, call.info))
         end
     end
 
     ret = invoke(abstract_call_gf_by_type,
-        Tuple{AbstractInterpreter, Any, Vector{Any}, Any, InferenceState, Int},
-        interp, f, argtypes, atype, sv, max_methods)
+        Tuple{AbstractInterpreter, Any, ArgInfo, Any, InferenceState, Int},
+        interp, f, arginfo, atype, sv, max_methods)
 
     return ret
 end

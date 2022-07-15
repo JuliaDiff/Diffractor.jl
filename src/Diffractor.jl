@@ -17,6 +17,11 @@ include("stage1/recurse_fwd.jl")
 include("stage1/mixed.jl")
 include("stage1/broadcast.jl")
 
+include("stage2/interpreter.jl")
+include("stage2/lattice.jl")
+include("stage2/abstractinterpret.jl")
+include("stage2/tfuncs.jl")
+
 include("extra_rules.jl")
 
 include("higher_fwd_rules.jl")

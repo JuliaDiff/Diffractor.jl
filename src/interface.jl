@@ -159,7 +159,7 @@ function (f::PrimeDerivativeBack)(x)
     z = ∂⃖¹(lower_pd(f), x)
     y = getfield(z, 1)
     f☆ = getfield(z, 2)
-    return getfield(f☆(dx(y)), 2)
+    return unthunk(getfield(f☆(dx(y)), 2))
 end
 
 # Forwards primal derivative

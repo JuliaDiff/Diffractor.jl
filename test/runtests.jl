@@ -108,7 +108,7 @@ let var"'" = Diffractor.PrimeDerivativeBack
     # Control flow cases
     @test @inferred((x->simple_control_flow(true, x))'(1.0)) == sin'(1.0)
     @test @inferred((x->simple_control_flow(false, x))'(1.0)) == cos'(1.0)
-    @test_broken (x->sum(isa_control_flow(Matrix{Float64}, x)))'(Float32[1 2;]) == [1.0 1.0;]
+    @test (x->sum(isa_control_flow(Matrix{Float64}, x)))'(Float32[1 2;]) == [1.0 1.0;]
     @test times_three_while'(1.0) == 3.0
 
     pow5p(x) = (x->mypow(x, 5))'(x)

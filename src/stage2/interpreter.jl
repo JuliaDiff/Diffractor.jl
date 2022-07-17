@@ -95,8 +95,13 @@ function Cthulhu.lookup(interp::ADInterpreter, curs::ADCursor, optimize::Bool; a
 end
 
 # TODO: Something is going very wrong here
+using Core.Compiler: Effects
 function Cthulhu.get_effects(interp::ADInterpreter, mi::MethodInstance, opt::Bool)
-    interp.unopt[0][mi].effects
+    if haskey(interp.unopt[0], mi)
+        return interp.unopt[0][mi].effects
+    else
+        return Effects()
+    end
 end
 
 function Core.Compiler.is_same_frame(interp::ADInterpreter, linfo::MethodInstance, frame::InferenceState)
@@ -104,6 +109,72 @@ function Core.Compiler.is_same_frame(interp::ADInterpreter, linfo::MethodInstanc
     return interp.current_level === frame.interp.current_level
 end
 
+# Special handling for Recursion
+struct RecurseCallInfo <: Cthulhu.CallInfo
+    vmi::Cthulhu.CallInfo # callinfo to be descended
+end
+Cthulhu.get_mi((; vmi)::RecurseCallInfo) = Cthulhu.get_mi(vmi)
+Cthulhu.get_rt((; vmi)::RecurseCallInfo) = Cthulhu.get_rt(vmi)
+Cthulhu.get_effects(::RecurseCallInfo) = Effects()
+
+function Cthulhu.print_callsite_info(limiter::IO, info::RecurseCallInfo)
+    print(limiter, " = < Diffractor recurse > ")
+    Cthulhu.show_callinfo(limiter, info.vmi)
+end
+
+# Special handling for rrule
+struct RRuleCallInfo <: Cthulhu.CallInfo
+    ci::Cthulhu.CallInfo # callinfo of the rrule
+end
+Cthulhu.get_mi((; ci)::RRuleCallInfo) = Cthulhu.get_mi(ci)
+Cthulhu.get_rt((; ci)::RRuleCallInfo) = Cthulhu.get_rt(ci)
+Cthulhu.get_effects(::RRuleCallInfo) = Effects()
+
+
+function Cthulhu.print_callsite_info(limiter::IO, info::RRuleCallInfo)
+    print(limiter, " = < rrule > ")
+    Cthulhu.show_callinfo(limiter, info.ci)
+end
+
+# Navigation
+function Cthulhu.navigate(curs::ADCursor, callsite)
+    if isa(callsite.info, RecurseCallInfo)
+        return ADCursor(curs.level + 1, Cthulhu.get_mi(callsite))
+    elseif isa(callsite.info, RRuleCallInfo)
+        return ADCursor(curs.level - 1, Cthulhu.get_mi(callsite))
+    end
+    return ADCursor(curs.level, Cthulhu.get_mi(callsite))
+end
+
+function Cthulhu.process_info(interp::ADInterpreter, @nospecialize(info), argtypes::Cthulhu.ArgTypes, @nospecialize(rt), optimize::Bool)
+    if isa(info, RecurseInfo)
+        newargtypes = argtypes[2:end]
+        callinfos = Cthulhu.process_info(interp, info.info, newargtypes, Cthulhu.unwrapType(widenconst(rt)), optimize)
+        if length(callinfos) == 1
+            vmi = only(callinfos)
+        else
+            @assert isempty(callinfos)
+            argt = Cthulhu.unwrapType(widenconst(newargtypes[2]))::DataType
+            sig = Tuple{widenconst(newargtypes[1]), argt.parameters...}
+            vmi = Cthulhu.FailedCallInfo(sig, Union{})
+        end
+        return Any[RecurseCallInfo(vmi)]
+    elseif isa(info, RRuleInfo)
+        newargtypes = [Const(rrule); argtypes[2:end]]
+        callinfos = Cthulhu.process_info(interp, info.info, newargtypes, Cthulhu.unwrapType(widenconst(rt)), optimize)
+        if length(callinfos) == 1
+            vmi = only(callinfos)
+        else
+            @assert isempty(callinfos)
+            argt = Cthulhu.unwrapType(widenconst(newargtypes[2]))::DataType
+            sig = Tuple{widenconst(newargtypes[1]), argt.parameters...}
+            vmi = Cthulhu.FailedCallInfo(sig, Union{})
+        end
+        return Any[RRuleCallInfo(vmi)]
+    end
+    return invoke(Cthulhu.process_info, Tuple{Any, Any, Cthulhu.ArgTypes, Any, Bool},
+        interp, info, argtypes, rt, optimize)
+end
 
 ADInterpreter() = ADInterpreter(
     OffsetVector([Dict{MethodInstance, CodeInstance}(), Dict{MethodInstance, CodeInstance}()], 0:1),

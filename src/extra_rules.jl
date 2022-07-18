@@ -12,11 +12,11 @@ function (g::∇getindex)(Δ)
     (ChainRulesCore.NoTangent(), Δ′, map(_ -> nothing, g.i)...)
 end
 
-function ChainRulesCore.rrule(g::∇getindex, Δ)
+function ChainRulesCore.rrule(::DiffractorRuleConfig, g::∇getindex, Δ)
     g(Δ), Δ′′->(nothing, Δ′′[1][g.i...])
 end
 
-function ChainRulesCore.rrule(::typeof(getindex), xs::Array, i...)
+function ChainRulesCore.rrule(::DiffractorRuleConfig, ::typeof(getindex), xs::Array, i...)
     xs[i...], ∇getindex(xs, i)
 end
 
@@ -37,14 +37,14 @@ function assert_gf(f)
     @assert sizeof(sin) == 0
 end
 
-function ChainRulesCore.rrule(::typeof(assert_gf), f)
+function ChainRulesCore.rrule(::DiffractorRuleConfig, ::typeof(assert_gf), f)
     assert_gf(f), Δ->begin
         (NoTangent(), NoTangent())
     end
 end
 
 #=
-function ChainRulesCore.rrule(::typeof(map), f, xs::Vector...)
+function ChainRulesCore.rrule(::DiffractorRuleConfig, ::typeof(map), f, xs::Vector...)
     assert_gf(f)
     primal, dual = reversediff_array(f, xs...)
     primal, Δ->begin
@@ -94,7 +94,7 @@ function ChainRulesCore.frule((_, ∂A, ∂B), ::typeof(*), A::AbstractMatrix{<:
 end
 
 #=
-function ChainRulesCore.rrule(::typeof(map), f, xs::Vector)
+function ChainRulesCore.rrule(::DiffractorRuleConfig, ::typeof(map), f, xs::Vector)
     assert_gf(f)
     arrs = reversediff_array(f, xs)
     primal = getfield(arrs, 1)
@@ -105,7 +105,7 @@ end
 =#
 
 #=
-function ChainRulesCore.rrule(::typeof(map), f, xs::Vector, ys::Vector)
+function ChainRulesCore.rrule(::DiffractorRuleConfig, ::typeof(map), f, xs::Vector, ys::Vector)
     assert_gf(f)
     arrs = reversediff_array(f, xs, ys)
     primal = getfield(arrs, 1)
@@ -116,14 +116,14 @@ end
 =#
 
 xsum(x::Vector) = sum(x)
-function ChainRulesCore.rrule(::typeof(xsum), x::Vector)
+function ChainRulesCore.rrule(::DiffractorRuleConfig, ::typeof(xsum), x::Vector)
     xsum(x), let xdims=size(x)
         Δ->(NoTangent(), xfill(Δ, xdims...))
     end
 end
 
 xfill(x, dims...) = fill(x, dims...)
-function ChainRulesCore.rrule(::typeof(xfill), x, dim)
+function ChainRulesCore.rrule(::DiffractorRuleConfig, ::typeof(xfill), x, dim)
     xfill(x, dim), Δ->(NoTangent(), xsum(Δ), NoTangent())
 end
 
@@ -137,11 +137,11 @@ struct NonDiffOdd{N, O, P}; end
 # This should not happen
 (::NonDiffEven{N, O, O})(Δ...) where {N, O} = error()
 
-@Base.pure function ChainRulesCore.rrule(::typeof(Core.apply_type), head, args...)
+@Base.pure function ChainRulesCore.rrule(::DiffractorRuleConfig, ::typeof(Core.apply_type), head, args...)
     Core.apply_type(head, args...), NonDiffOdd{plus1(plus1(length(args))), 1, 1}()
 end
 
-function ChainRulesCore.rrule(::typeof(Core.tuple), args...)
+function ChainRulesCore.rrule(::DiffractorRuleConfig, ::typeof(Core.tuple), args...)
     Core.tuple(args...), Δ->Core.tuple(NoTangent(), Δ...)
 end
 
@@ -151,7 +151,7 @@ end
 ChainRulesCore.canonicalize(::ChainRulesCore.ZeroTangent) = ChainRulesCore.ZeroTangent()
 
 # Skip AD'ing through the axis computation
-function ChainRules.rrule(::typeof(Base.Broadcast.instantiate), bc::Base.Broadcast.Broadcasted)
+function ChainRules.rrule(::DiffractorRuleConfig, ::typeof(Base.Broadcast.instantiate), bc::Base.Broadcast.Broadcasted)
     return Base.Broadcast.instantiate(bc), Δ->begin
         Core.tuple(NoTangent(), Δ)
     end
@@ -169,11 +169,11 @@ struct to_tuple{N}; end
 end
 (::to_tuple)(Δ::SArray) = getfield(Δ, :data)
 
-function ChainRules.rrule(::Type{SArray{S, T, N, L}}, x::NTuple{L,T}) where {S, T, N, L}
+function ChainRules.rrule(::DiffractorRuleConfig, ::Type{SArray{S, T, N, L}}, x::NTuple{L,T}) where {S, T, N, L}
     SArray{S, T, N, L}(x), to_tuple{L}()
 end
 
-function ChainRules.rrule(::Type{SArray{S, T, N, L}}, x::NTuple{L,Any}) where {S, T, N, L}
+function ChainRules.rrule(::DiffractorRuleConfig, ::Type{SArray{S, T, N, L}}, x::NTuple{L,Any}) where {S, T, N, L}
     SArray{S, T, N, L}(x), to_tuple{L}()
 end
 
@@ -191,22 +191,22 @@ function ChainRules.frule((_, ∂A), ::typeof(getindex), A::AbstractArray, args.
     getindex(A, args...), getindex(∂A, args...)
 end
 
-function ChainRules.rrule(::typeof(map), ::typeof(+), A::AbstractArray, B::AbstractArray)
+function ChainRules.rrule(::DiffractorRuleConfig, ::typeof(map), ::typeof(+), A::AbstractArray, B::AbstractArray)
     map(+, A, B), Δ->(NoTangent(), NoTangent(), Δ, Δ)
 end
 
-function ChainRules.rrule(::typeof(map), ::typeof(+), A::AbstractVector, B::AbstractVector)
+function ChainRules.rrule(::DiffractorRuleConfig, ::typeof(map), ::typeof(+), A::AbstractVector, B::AbstractVector)
     map(+, A, B), Δ->(NoTangent(), NoTangent(), Δ, Δ)
 end
 
-function ChainRules.rrule(AT::Type{<:Array{T,N}}, x::AbstractArray{S,N}) where {T,S,N}
+function ChainRules.rrule(::DiffractorRuleConfig, AT::Type{<:Array{T,N}}, x::AbstractArray{S,N}) where {T,S,N}
     # We're leaving these in the eltype that the cotangent vector already has.
     # There isn't really a good reason to believe we should convert to the
     # original array type, so don't unless explicitly requested.
     AT(x), Δ->(NoTangent(), Δ)
 end
 
-function ChainRules.rrule(AT::Type{<:Array}, undef::UndefInitializer, args...)
+function ChainRules.rrule(::DiffractorRuleConfig, AT::Type{<:Array}, undef::UndefInitializer, args...)
     # We're leaving these in the eltype that the cotangent vector already has.
     # There isn't really a good reason to believe we should convert to the
     # original array type, so don't unless explicitly requested.
@@ -217,7 +217,7 @@ function unzip_tuple(t::Tuple)
     map(x->x[1], t), map(x->x[2], t)
 end
 
-function ChainRules.rrule(::typeof(unzip_tuple), args::Tuple)
+function ChainRules.rrule(::DiffractorRuleConfig, ::typeof(unzip_tuple), args::Tuple)
     unzip_tuple(args), Δ->(NoTangent(), map((x,y)->(x,y), Δ...))
 end
 
@@ -228,7 +228,7 @@ end
 back_apply(x, y) = x(y)
 back_apply_zero(x) = x(Zero())
 
-function ChainRules.rrule(::typeof(map), f, args::Tuple)
+function ChainRules.rrule(::DiffractorRuleConfig, ::typeof(map), f, args::Tuple)
     a, b = unzip_tuple(map(BackMap(f), args))
     function back(Δ)
         (fs, xs) = unzip_tuple(map(back_apply, b, Δ))
@@ -241,14 +241,14 @@ function ChainRules.rrule(::typeof(map), f, args::Tuple)
     a, back
 end
 
-function ChainRules.rrule(::typeof(Base.ntuple), f, n)
+function ChainRules.rrule(::DiffractorRuleConfig, ::typeof(Base.ntuple), f, n)
     a, b = unzip_tuple(ntuple(BackMap(f), n))
     a, function (Δ)
         (NoTangent(), sum(map(back_apply, b, Δ)), NoTangent())
     end
 end
 
-function ChainRules.frule(_, ::Type{Vector{T}}, undef::UndefInitializer, dims::Int...) where {T}
+function ChainRules.frule(::DiffractorRuleConfig, _, ::Type{Vector{T}}, undef::UndefInitializer, dims::Int...) where {T}
     Vector{T}(undef, dims...), zeros(T, dims...)
 end
 
@@ -258,11 +258,11 @@ end
 ChainRulesCore.canonicalize(::NoTangent) = NoTangent()
 
 # Disable thunking at higher order (TODO: These should go into ChainRulesCore)
-function ChainRulesCore.rrule(::Type{Thunk}, thnk)
+function ChainRulesCore.rrule(::DiffractorRuleConfig, ::Type{Thunk}, thnk)
     z, ∂z = ∂⃖¹(thnk)
     z, Δ->(NoTangent(), ∂z(Δ)...)
 end
 
-function ChainRulesCore.rrule(::Type{InplaceableThunk}, add!!, val)
+function ChainRulesCore.rrule(::DiffractorRuleConfig, ::Type{InplaceableThunk}, add!!, val)
     val, Δ->(NoTangent(), NoTangent(), Δ)
 end

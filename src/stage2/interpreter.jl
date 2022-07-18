@@ -54,6 +54,9 @@ lower_level(interp::ADInterpreter) = change_level(interp, interp.current_level -
 Cthulhu.get_optimized_code(interp::ADInterpreter, curs::ADCursor) = interp.opt[curs.level][curs.mi]
 Cthulhu.AbstractCursor(interp::ADInterpreter, mi::MethodInstance) = ADCursor(0, mi)
 
+# This is a lie, but let's clean this up later
+Cthulhu.can_descend(interp::ADInterpreter, mi::MethodInstance, optimize::Bool) = true
+
 function Cthulhu.lookup(interp::ADInterpreter, curs::ADCursor, optimize::Bool; allow_no_src::Bool=false)
     if !optimize
         entry = interp.unopt[curs.level][curs.mi]
@@ -95,7 +98,7 @@ function Cthulhu.lookup(interp::ADInterpreter, curs::ADCursor, optimize::Bool; a
 end
 
 # TODO: Something is going very wrong here
-using Core.Compiler: Effects
+using Core.Compiler: Effects, OptimizationState
 function Cthulhu.get_effects(interp::ADInterpreter, mi::MethodInstance, opt::Bool)
     if haskey(interp.unopt[0], mi)
         return interp.unopt[0][mi].effects
@@ -130,10 +133,21 @@ Cthulhu.get_mi((; ci)::RRuleCallInfo) = Cthulhu.get_mi(ci)
 Cthulhu.get_rt((; ci)::RRuleCallInfo) = Cthulhu.get_rt(ci)
 Cthulhu.get_effects(::RRuleCallInfo) = Effects()
 
-
 function Cthulhu.print_callsite_info(limiter::IO, info::RRuleCallInfo)
     print(limiter, " = < rrule > ")
     Cthulhu.show_callinfo(limiter, info.ci)
+end
+
+# Special handling for comp closure
+struct CompClosCallInfo <: Cthulhu.CallInfo
+    rt
+end
+Cthulhu.get_mi((; ci)::CompClosCallInfo) = nothing
+Cthulhu.get_rt((; rt)::CompClosCallInfo) = rt
+Cthulhu.get_effects(::CompClosCallInfo) = Effects()
+
+function Cthulhu.print_callsite_info(limiter::IO, info::CompClosCallInfo)
+    print(limiter, " = < cc > ")
 end
 
 # Navigation
@@ -171,6 +185,8 @@ function Cthulhu.process_info(interp::ADInterpreter, @nospecialize(info), argtyp
             vmi = Cthulhu.FailedCallInfo(sig, Union{})
         end
         return Any[RRuleCallInfo(vmi)]
+    elseif isa(info, CompClosInfo)
+        return Any[CompClosCallInfo(rt)]
     end
     return invoke(Cthulhu.process_info, Tuple{Any, Any, Cthulhu.ArgTypes, Any, Bool},
         interp, info, argtypes, rt, optimize)
@@ -206,7 +222,7 @@ function Core.Compiler.code_cache(ei::ADInterpreter)
     end
     ei.opt[ei.current_level]
 end
-Core.Compiler.may_optimize(ei::ADInterpreter) = false
+Core.Compiler.may_optimize(ei::ADInterpreter) = true
 Core.Compiler.may_compress(ei::ADInterpreter) = false
 Core.Compiler.may_discard_trees(ei::ADInterpreter) = false
 function Core.Compiler.get(view::CodeInfoView, mi::MethodInstance, default)
@@ -244,11 +260,88 @@ end
 function Core.Compiler.transform_result_for_cache(interp::ADInterpreter,
     linfo::MethodInstance, valid_worlds::WorldRange, @nospecialize(inferred_result),
     ipo_effects::Core.Compiler.Effects)
-    return Cthulhu.maybe_create_optsource(inferred_result, ipo_effects)
+    return Cthulhu.create_cthulhu_source(inferred_result, ipo_effects)
 end
+
+#=
+function Core.Compiler.optimize(interp::ADInterpreter, opt::OptimizationState,
+    params::OptimizationParams, caller::InferenceResult)
+
+    # TODO: Enable some amount of inlining
+    #@timeit "optimizer" ir = run_passes(opt.src, opt, caller)
+    
+    sv = opt
+    ci = opt.src
+    ir = Core.Compiler.convert_to_ircode(ci, sv)
+    ir = Core.Compiler.slot2reg(ir, ci, sv)
+    # TODO: Domsorting can produce an updated domtree - no need to recompute here
+    ir = Core.Compiler.compact!(ir)
+    return Core.Compiler.finish(interp, opt, params, ir, caller)
+end
+=#
 
 function Core.Compiler.finish!(interp::ADInterpreter, caller::InferenceResult)
     effects = caller.ipo_effects
-    caller.src = Cthulhu.maybe_create_optsource(caller.src, effects)
-    @show typeof(caller.src)
+    caller.src = Cthulhu.create_cthulhu_source(caller.src, effects)
+end
+
+using Core: OpaqueClosure
+function codegen(interp::ADInterpreter, curs::ADCursor, cache=Dict{ADCursor, OpaqueClosure}())
+    ir = Core.Compiler.copy(Cthulhu.get_optimized_code(interp, curs).inferred.ir)
+    @show curs.mi
+    display(ir)
+    duals = Vector{SSAValue}(undef, length(ir.stmts))
+    for i = 1:length(ir.stmts)
+        inst = ir.stmts[i][:inst]
+        info = ir.stmts[i][:info]
+        if isexpr(inst, :invoke)
+            if isa(info, RecurseInfo)
+                @show info
+                new_curs = ADCursor(curs.level + 1, inst.args[1])
+                error()
+            else
+                new_curs = ADCursor(curs.level, inst.args[1])
+            end    
+            if haskey(cache, new_curs)
+                oc = cache[new_curs]
+            else
+                oc = codegen(interp, new_curs, cache)
+            end
+            inst.args[1] = oc.source.specializations[1]
+        elseif isexpr(inst, :call)
+            if isa(info, RecurseInfo)
+                @show inst
+                mi′ = specialize_method(info.info.results.matches[1], preexisting=true)
+                new_curs = ADCursor(curs.level + 1, mi′)
+                if haskey(cache, new_curs)
+                    oc = cache[new_curs]
+                else
+                    oc = codegen(interp, new_curs, cache)
+                end
+                rrule_mi = oc.source.specializations[1]
+                rrule_rt = Any # TODO
+                rrule_call = insert_node!(ir, i, NewInstruction(Expr(:invoke, rrule_mi, inst.args[2:end]...), rrule_rt))
+                arg1 = insert_node!(ir, i, NewInstruction(Expr(:call, getfield, rrule_call, 1), getfield_tfunc(rrule_rt, Const(1))))
+                arg2 = insert_node!(ir, i, NewInstruction(Expr(:call, getfield, rrule_call, 2), getfield_tfunc(rrule_rt, Const(2))))
+                ir.stmts[i][:inst] = arg1
+                duals[i] = arg2
+            elseif isa(info, RRuleInfo)
+                rrule_mi = specialize_method(info.info.results.matches[1], preexisting=true)
+                (;rrule_rt) = info
+                rrule_call = insert_node!(ir, i, NewInstruction(Expr(:invoke, rrule_mi, rrule, inst.args...), rrule_rt))
+                arg1 = insert_node!(ir, i, NewInstruction(Expr(:call, getfield, rrule_call, 1), getfield_tfunc(rrule_rt, Const(1))))
+                arg2 = insert_node!(ir, i, NewInstruction(Expr(:call, getfield, rrule_call, 2), getfield_tfunc(rrule_rt, Const(2))))
+                ir.stmts[i][:inst] = arg1
+                duals[i] = arg2
+            elseif curs.level != 0
+                @show inst
+                @show info
+                error()
+            end
+        end
+    end
+    ir = compact!(ir)
+    resize!(ir.argtypes, length(curs.mi.specTypes.parameters))
+    display(ir)
+    return OpaqueClosure(ir)
 end

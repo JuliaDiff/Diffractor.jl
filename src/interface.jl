@@ -172,7 +172,7 @@ end
 
 function (f::JacobianBack)(x)
     y, f☆ = ∂⃖(getfield(f, :f), x)
-    return transpose(reduce(hcat, f☆(collect(row))[2] for row in dx_jacobian(y)))
+    return reduce(vcat, reshape(f☆(collect(row))[2], (1, size(x)...)) for row in dx_jacobian(y))
 end
 
 jacobian(f) = JacobianBack{1, typeof(f)}(f)

@@ -2,8 +2,7 @@ module Diffractor
 
 using StructArrays
 
-export ∂⃖, gradient
-
+export ∂⃖, gradient, jacobian
 include("runtime.jl")
 include("interface.jl")
 include("utils.jl")

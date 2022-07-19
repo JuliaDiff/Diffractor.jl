@@ -1,6 +1,7 @@
 using Base: tail
 using ChainRules
 using ChainRulesCore
+using LinearAlgebra
 
 """
     ∂⃖{N}
@@ -57,6 +58,8 @@ dx(::NoTangent) = NoTangent()
 dx(::ZeroTangent) = ZeroTangent()
 dx(x::Complex) = error("Tried to take the gradient of a complex-valued function.")
 dx(x) = error("Cotangent space not defined for `$(typeof(x))`. Try a real-valued function.")
+
+dx_jacobian(x::AbstractVector{<:Real}) = eachrow(eltype(x).(I(length(x))))
 
 """
     ∂x(x)
@@ -161,6 +164,18 @@ function (f::PrimeDerivativeBack)(x)
     f☆ = getfield(z, 2)
     return unthunk(getfield(f☆(dx(y)), 2))
 end
+
+
+struct JacobianBack{N, T} <: AbstractPrimeDerivative{N, T}
+    f::T
+end
+
+function (f::JacobianBack)(x)
+    y, f☆ = ∂⃖(getfield(f, :f), x)
+    return transpose(reduce(hcat, f☆(collect(row))[2] for row in dx_jacobian(y)))
+end
+
+jacobian(f) = JacobianBack{1, typeof(f)}(f)
 
 # Forwards primal derivative
 struct PrimeDerivativeFwd{N, T}

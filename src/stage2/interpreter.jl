@@ -269,7 +269,7 @@ function Core.Compiler.optimize(interp::ADInterpreter, opt::OptimizationState,
 
     # TODO: Enable some amount of inlining
     #@timeit "optimizer" ir = run_passes(opt.src, opt, caller)
-    
+
     sv = opt
     ci = opt.src
     ir = Core.Compiler.convert_to_ircode(ci, sv)
@@ -288,8 +288,13 @@ end
 using Core: OpaqueClosure
 function codegen(interp::ADInterpreter, curs::ADCursor, cache=Dict{ADCursor, OpaqueClosure}())
     ir = Core.Compiler.copy(Cthulhu.get_optimized_code(interp, curs).inferred.ir)
+    ci = interp.opt[curs.level][curs.mi].inferred.src
     @show curs.mi
     display(ir)
+    if curs.level >= 1
+        ir = diffract_ir!(ir, ci, curs.mi.def, curs.level, interp, curs)
+        return OpaqueClosure(ir; isva=true)
+    end
     duals = Vector{SSAValue}(undef, length(ir.stmts))
     for i = 1:length(ir.stmts)
         inst = ir.stmts[i][:inst]
@@ -301,7 +306,7 @@ function codegen(interp::ADInterpreter, curs::ADCursor, cache=Dict{ADCursor, Opa
                 error()
             else
                 new_curs = ADCursor(curs.level, inst.args[1])
-            end    
+            end
             if haskey(cache, new_curs)
                 oc = cache[new_curs]
             else
@@ -320,7 +325,7 @@ function codegen(interp::ADInterpreter, curs::ADCursor, cache=Dict{ADCursor, Opa
                 end
                 rrule_mi = oc.source.specializations[1]
                 rrule_rt = Any # TODO
-                rrule_call = insert_node!(ir, i, NewInstruction(Expr(:invoke, rrule_mi, inst.args[2:end]...), rrule_rt))
+                rrule_call = insert_node!(ir, i, NewInstruction(Expr(:invoke, rrule_mi, inst.args...), rrule_rt))
                 arg1 = insert_node!(ir, i, NewInstruction(Expr(:call, getfield, rrule_call, 1), getfield_tfunc(rrule_rt, Const(1))))
                 arg2 = insert_node!(ir, i, NewInstruction(Expr(:call, getfield, rrule_call, 2), getfield_tfunc(rrule_rt, Const(2))))
                 ir.stmts[i][:inst] = arg1
@@ -343,5 +348,8 @@ function codegen(interp::ADInterpreter, curs::ADCursor, cache=Dict{ADCursor, Opa
     ir = compact!(ir)
     resize!(ir.argtypes, length(curs.mi.specTypes.parameters))
     display(ir)
-    return OpaqueClosure(ir)
+    @show (curs.mi.def.isva, curs.mi.def.nargs, ir.argtypes)
+    oc = OpaqueClosure(ir; isva=curs.mi.def.isva)
+    @show oc
+    return oc
 end

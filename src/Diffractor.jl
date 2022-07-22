@@ -22,6 +22,8 @@ include("stage2/lattice.jl")
 include("stage2/abstractinterpret.jl")
 include("stage2/tfuncs.jl")
 
+include("codegen/reverse.jl")
+
 include("extra_rules.jl")
 
 include("higher_fwd_rules.jl")

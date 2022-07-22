@@ -19,4 +19,4 @@ function do_the_thing()
     (interp, mi)
 end
 (interp, mi) = do_the_thing();
-Diffractor.codegen(interp, Diffractor.ADCursor(0, mi))
+Diffractor.codegen(interp, Diffractor.ADCursor(0, mi))(1.0)

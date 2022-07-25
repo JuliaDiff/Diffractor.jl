@@ -51,7 +51,7 @@ change_level(interp::ADInterpreter, new_level::Int) = ADInterpreter(interp.opt, 
 raise_level(interp::ADInterpreter) = change_level(interp, interp.current_level + 1)
 lower_level(interp::ADInterpreter) = change_level(interp, interp.current_level - 1)
 
-Cthulhu.get_optimized_code(interp::ADInterpreter, curs::ADCursor) = interp.opt[curs.level][curs.mi]
+Cthulhu.get_optimized_codeinst(interp::ADInterpreter, curs::ADCursor) = interp.opt[curs.level][curs.mi]
 Cthulhu.AbstractCursor(interp::ADInterpreter, mi::MethodInstance) = ADCursor(0, mi)
 
 # This is a lie, but let's clean this up later
@@ -121,7 +121,7 @@ Cthulhu.get_rt((; vmi)::RecurseCallInfo) = Cthulhu.get_rt(vmi)
 Cthulhu.get_effects(::RecurseCallInfo) = Effects()
 
 function Cthulhu.print_callsite_info(limiter::IO, info::RecurseCallInfo)
-    print(limiter, " = < Diffractor recurse > ")
+    print(limiter, "< Diffractor recurse > ")
     Cthulhu.show_callinfo(limiter, info.vmi)
 end
 
@@ -134,7 +134,7 @@ Cthulhu.get_rt((; ci)::RRuleCallInfo) = Cthulhu.get_rt(ci)
 Cthulhu.get_effects(::RRuleCallInfo) = Effects()
 
 function Cthulhu.print_callsite_info(limiter::IO, info::RRuleCallInfo)
-    print(limiter, " = < rrule > ")
+    print(limiter, "< rrule > ")
     Cthulhu.show_callinfo(limiter, info.ci)
 end
 
@@ -147,11 +147,11 @@ Cthulhu.get_rt((; rt)::CompClosCallInfo) = rt
 Cthulhu.get_effects(::CompClosCallInfo) = Effects()
 
 function Cthulhu.print_callsite_info(limiter::IO, info::CompClosCallInfo)
-    print(limiter, " = < cc > ")
+    print(limiter, "< cc > ")
 end
 
 # Navigation
-function Cthulhu.navigate(curs::ADCursor, callsite)
+function Cthulhu.navigate(curs::ADCursor, callsite::Cthulhu.Callsite)
     if isa(callsite.info, RecurseCallInfo)
         return ADCursor(curs.level + 1, Cthulhu.get_mi(callsite))
     elseif isa(callsite.info, RRuleCallInfo)
@@ -188,7 +188,7 @@ function Cthulhu.process_info(interp::ADInterpreter, @nospecialize(info), argtyp
     elseif isa(info, CompClosInfo)
         return Any[CompClosCallInfo(rt)]
     end
-    return invoke(Cthulhu.process_info, Tuple{Any, Any, Cthulhu.ArgTypes, Any, Bool},
+    return invoke(Cthulhu.process_info, Tuple{AbstractInterpreter, Any, Cthulhu.ArgTypes, Any, Bool},
         interp, info, argtypes, rt, optimize)
 end
 
@@ -287,10 +287,8 @@ end
 
 using Core: OpaqueClosure
 function codegen(interp::ADInterpreter, curs::ADCursor, cache=Dict{ADCursor, OpaqueClosure}())
-    ir = Core.Compiler.copy(Cthulhu.get_optimized_code(interp, curs).inferred.ir)
+    ir = Core.Compiler.copy(Cthulhu.get_optimized_codeinst(interp, curs).inferred.ir)
     ci = interp.opt[curs.level][curs.mi].inferred.src
-    @show curs.mi
-    display(ir)
     if curs.level >= 1
         ir = diffract_ir!(ir, ci, curs.mi.def, curs.level, interp, curs)
         return OpaqueClosure(ir; isva=true)
@@ -315,7 +313,6 @@ function codegen(interp::ADInterpreter, curs::ADCursor, cache=Dict{ADCursor, Opa
             inst.args[1] = oc.source.specializations[1]
         elseif isexpr(inst, :call)
             if isa(info, RecurseInfo)
-                @show inst
                 mi′ = specialize_method(info.info.results.matches[1], preexisting=true)
                 new_curs = ADCursor(curs.level + 1, mi′)
                 if haskey(cache, new_curs)
@@ -347,9 +344,6 @@ function codegen(interp::ADInterpreter, curs::ADCursor, cache=Dict{ADCursor, Opa
     end
     ir = compact!(ir)
     resize!(ir.argtypes, length(curs.mi.specTypes.parameters))
-    display(ir)
-    @show (curs.mi.def.isva, curs.mi.def.nargs, ir.argtypes)
     oc = OpaqueClosure(ir; isva=curs.mi.def.isva)
-    @show oc
     return oc
 end

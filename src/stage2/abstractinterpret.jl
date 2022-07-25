@@ -47,7 +47,6 @@ function Core.Compiler.abstract_call_gf_by_type(interp::ADInterpreter, @nospecia
         end
         call = abstract_call_gf_by_type(lower_level(interp), ChainRules.rrule, ArgInfo(nothing, rrule_argtypes), rrule_atype, sv, -1)
         if call.rt != Const(nothing)
-            @show (f,call.rt)
             return CallMeta(getfield_tfunc(call.rt, Const(1)), call.effects, RRuleInfo(call.rt, call.info))
         end
     end
@@ -107,14 +106,10 @@ function repackage_apply_rt(info, Δ, argtypes)
 end
 
 function infer_cc_backward(interp::ADInterpreter, cc::AbstractCompClosure, @nospecialize(cc_Δ), sv::InferenceState)
-    @show ("enter", cc_Δ, cc)
-
     mi = specialize_method(cc.primal_info.results.matches[1], preexisting=true)
     ni = change_level(interp, cc.order)
     ci = get(code_cache(ni), mi, nothing)
     primal = ci.inferred
-
-    @show primal
 
     function derive_closure_type(info)
         isa(info, CallMeta) && (info = info.info)
@@ -210,8 +205,6 @@ function infer_cc_backward(interp::ADInterpreter, cc::AbstractCompClosure, @nosp
             error()
         end
 
-        @show inst
-
         if isexpr(inst, :new)
             for i = 2:length(inst.args)
                 # TODO: This is wrong
@@ -225,7 +218,6 @@ function infer_cc_backward(interp::ADInterpreter, cc::AbstractCompClosure, @nosp
         end
 
         info = cc.prev_seq_infos[i]
-        @show info
         isa(info, CallMeta) && (info = info.info)
 
         call_info = info
@@ -312,7 +304,6 @@ function infer_cc_backward(interp::ADInterpreter, cc::AbstractCompClosure, @nosp
     end
 
     rt = tuple_tfunc(Any[tup_elemns...])
-    @show (cc, rt)
     return CallMeta(rt, Effects(), CompClosInfo(cc, ssa_infos))
 end
 

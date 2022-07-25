@@ -127,7 +127,7 @@ end
 # N.B: This means the gradient is not available for zero-arg function, but such
 # a gradient would be guaranteed to be `()`, which is a bit of a useless thing
 function (::Type{∇})(f, x1, args...)
-    ∇(f)(x1, args...)
+    unthunk.(∇(f)(x1, args...))
 end
 
 const gradient = ∇
@@ -159,7 +159,7 @@ function (f::PrimeDerivativeBack)(x)
     z = ∂⃖¹(lower_pd(f), x)
     y = getfield(z, 1)
     f☆ = getfield(z, 2)
-    return getfield(f☆(dx(y)), 2)
+    return unthunk(getfield(f☆(dx(y)), 2))
 end
 
 # Forwards primal derivative

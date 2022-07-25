@@ -127,7 +127,7 @@ end
 # N.B: This means the gradient is not available for zero-arg function, but such
 # a gradient would be guaranteed to be `()`, which is a bit of a useless thing
 function (::Type{∇})(f, x1, args...)
-    ∇(f)(x1, args...)
+    unthunk.(∇(f)(x1, args...))
 end
 
 const gradient = ∇

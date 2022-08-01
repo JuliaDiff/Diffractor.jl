@@ -313,13 +313,19 @@ function (::∂⃖{N})(::typeof(Core.getfield), s, field::Symbol) where {N}
     end
 end
 
+# Modified version of the function used in Zygote.∇getindex
+# Works around cases where `a` is immutable or has an eltype that does not define `zero` (e.g. Any)
+_zero(xs::AbstractArray{<:Number}, T::Type{<:AbstractZero}) = fill!(similar(xs), zero(eltype(xs)))
+_zero(xs::AbstractArray{<:Number}, T) = fill!(similar(xs, T), false)
+_zero(xs::AbstractArray, T) = fill!(similar(xs, Union{ZeroTangent, T}), ZeroTangent())
+
 # TODO: Temporary - make better
 function (::∂⃖{N})(::typeof(Base.getindex), a::Array, inds...) where {N}
     getindex(a, inds...), let
         EvenOddOdd{1, c_order(N)}(
             (@Base.constprop :aggressive Δ->begin
                 Δ isa AbstractZero && return (NoTangent(), Δ, map(Returns(Δ), inds)...)
-                BB = zero(a)
+                BB = _zero(a, eltype(Δ))
                 BB[inds...] = Δ
                 (NoTangent(), BB, map(x->NoTangent(), inds)...)
             end),

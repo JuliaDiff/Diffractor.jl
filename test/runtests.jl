@@ -208,7 +208,9 @@ x43 = rand(10, 10)
 @test Diffractor.gradient(x->loss(svd(x), x[:,1], x[:,2]), x43) isa Tuple{Matrix{Float64}}
 
 # PR # 45 - Calling back into AD from ChainRules
-y45, back45 = rrule_via_ad(DiffractorRuleConfig(), x -> log(exp(x)), 2)
+r45 = rrule_via_ad(DiffractorRuleConfig(), x -> log(exp(x)), 2)
+@test r45 isa Tuple
+y45, back45 = r45
 @test y45 ≈ 2.0
 @test back45(1) == (ZeroTangent(), 1.0)
 

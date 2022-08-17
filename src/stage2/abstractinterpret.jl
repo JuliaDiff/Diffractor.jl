@@ -2,7 +2,8 @@ import Core.Compiler: abstract_call_gf_by_type, abstract_call
 using Core.Compiler: Const, isconstType, argtypes_to_type, tuple_tfunc, Const,
     getfield_tfunc, _methods_by_ftype, VarTable, cache_lookup, nfields_tfunc,
     ArgInfo, singleton_type, CallMeta, MethodMatchInfo, specialize_method,
-    PartialOpaque, UnionSplitApplyCallInfo
+    PartialOpaque, UnionSplitApplyCallInfo, typeof_tfunc, apply_type_tfunc, instanceof_tfunc
+using Core: PartialStruct
 using Base.Meta
 
 function Core.Compiler.abstract_call_gf_by_type(interp::ADInterpreter, @nospecialize(f),
@@ -31,7 +32,13 @@ function Core.Compiler.abstract_call_gf_by_type(interp::ADInterpreter, @nospecia
                 clos = PrimClosure(name, rinterp.current_level - 1, 1, getfield_tfunc(call.info.rrule_rt, Const(2)), call.info, nothing)
             end
         end
-        rt2 = tuple_tfunc(Any[call.rt, clos])
+        # TODO: use abstract_new instead, when it exists
+        obtype = instanceof_tfunc(apply_type_tfunc(Const(OpticBundle), typeof_tfunc(call.rt)))[1]
+        if obtype isa DataType
+            rt2 = PartialStruct(obtype, Any[call.rt, clos])
+        else
+            rt2 = obtype
+        end
         return CallMeta(rt2, call.effects, RecurseInfo(call.info))
     end
 

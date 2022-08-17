@@ -323,10 +323,7 @@ function codegen(interp::ADInterpreter, curs::ADCursor, cache=Dict{ADCursor, Opa
                 rrule_mi = oc.source.specializations[1]
                 rrule_rt = Any # TODO
                 rrule_call = insert_node!(ir, i, NewInstruction(Expr(:invoke, rrule_mi, inst.args...), rrule_rt))
-                arg1 = insert_node!(ir, i, NewInstruction(Expr(:call, getfield, rrule_call, 1), getfield_tfunc(rrule_rt, Const(1))))
-                arg2 = insert_node!(ir, i, NewInstruction(Expr(:call, getfield, rrule_call, 2), getfield_tfunc(rrule_rt, Const(2))))
-                ir.stmts[i][:inst] = arg1
-                duals[i] = arg2
+                ir.stmts[i][:inst] = rrule_call
             elseif isa(info, RRuleInfo)
                 rrule_mi = specialize_method(info.info.results.matches[1], preexisting=true)
                 (;rrule_rt) = info

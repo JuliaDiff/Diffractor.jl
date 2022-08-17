@@ -4,8 +4,10 @@ using Cthulhu
 struct ADCursor <: Cthulhu.AbstractCursor
     level::Int
     mi::MethodInstance
+    transformed::Bool
 end
 Cthulhu.get_mi(c::ADCursor) = c.mi
+ADCursor(level::Int, mi::MethodInstance) = ADCursor(level, mi, false)
 
 #=
 Cthulhu.get_cursor(c::ADCursor, callinfo::Cthulhu.PullbackCallInfo) = ADCursor(c.level+1, Cthulhu.get_mi(callinfo.mi))
@@ -42,17 +44,18 @@ struct ADInterpreter <: AbstractInterpreter
     # and so on
     opt::OffsetVector{Dict{MethodInstance, CodeInstance}}
     unopt::Union{OffsetVector{Dict{Union{MethodInstance, InferenceResult}, Cthulhu.InferredSource}}, Nothing}
+    transformed::OffsetVector{Dict{MethodInstance, CodeInstance}}
 
     native_interpreter::NativeInterpreter
     current_level::Int
     msgs::Vector{Tuple{Int, MethodInstance, Int, String}}
 end
-change_level(interp::ADInterpreter, new_level::Int) = ADInterpreter(interp.opt, interp.unopt, interp.native_interpreter, new_level, interp.msgs)
+change_level(interp::ADInterpreter, new_level::Int) = ADInterpreter(interp.opt, interp.unopt, interp.transformed, interp.native_interpreter, new_level, interp.msgs)
 raise_level(interp::ADInterpreter) = change_level(interp, interp.current_level + 1)
 lower_level(interp::ADInterpreter) = change_level(interp, interp.current_level - 1)
 
-Cthulhu.get_optimized_codeinst(interp::ADInterpreter, curs::ADCursor) = interp.opt[curs.level][curs.mi]
-Cthulhu.AbstractCursor(interp::ADInterpreter, mi::MethodInstance) = ADCursor(0, mi)
+Cthulhu.get_optimized_codeinst(interp::ADInterpreter, curs::ADCursor) = (curs.transformed ? interp.transformed : interp.opt)[curs.level][curs.mi]
+Cthulhu.AbstractCursor(interp::ADInterpreter, mi::MethodInstance) = ADCursor(0, mi, false)
 
 # This is a lie, but let's clean this up later
 Cthulhu.can_descend(interp::ADInterpreter, mi::MethodInstance, optimize::Bool) = true
@@ -69,7 +72,7 @@ function Cthulhu.lookup(interp::ADInterpreter, curs::ADCursor, optimize::Bool; a
             slottypes = Any[ Any for i = 1:length(src.slotflags) ]
         end
     else
-        codeinst = interp.opt[curs.level][curs.mi]
+        codeinst = Cthulhu.get_optimized_codeinst(interp, curs)
         rt = Cthulhu.codeinst_rt(codeinst)
         opt = codeinst.inferred
         if opt !== nothing
@@ -95,6 +98,24 @@ function Cthulhu.lookup(interp::ADInterpreter, curs::ADCursor, optimize::Bool; a
         effects = Cthulhu.get_effects(codeinst)
     end
     (; src, rt, infos, slottypes, codeinf, effects)
+end
+
+function Cthulhu.custom_toggles(interp::ADInterpreter)
+    return Cthulhu.CustomToggle[
+        Cthulhu.CustomToggle(false, 'a', "utomatic differentiation",
+            function (curs::Cthulhu.AbstractCursor)
+                if curs isa ADCursor
+                    return ADCursor(curs.level, curs.mi, true)
+                end
+                return curs
+            end,
+            function (curs::Cthulhu.AbstractCursor)
+                if curs isa ADCursor
+                    return ADCursor(curs.level, curs.mi, false)
+                end
+                return curs
+            end)
+    ]
 end
 
 # TODO: Something is going very wrong here
@@ -195,6 +216,7 @@ end
 ADInterpreter() = ADInterpreter(
     OffsetVector([Dict{MethodInstance, CodeInstance}(), Dict{MethodInstance, CodeInstance}()], 0:1),
     OffsetVector([Dict{MethodInstance, Cthulhu.InferredSource}(), Dict{MethodInstance, Cthulhu.InferredSource}()], 0:1),
+    OffsetVector([Dict{MethodInstance, CodeInstance}(), Dict{MethodInstance, CodeInstance}()], 0:1),
     NativeInterpreter(),
     0,
     Vector{Tuple{Int, MethodInstance, Int, String}}()
@@ -285,12 +307,21 @@ function Core.Compiler.finish!(interp::ADInterpreter, caller::InferenceResult)
     caller.src = Cthulhu.create_cthulhu_source(caller.src, effects)
 end
 
+function ir2codeinst(ir::IRCode, inst::CodeInstance, ci::CodeInfo)
+    CodeInstance(inst.def, inst.rettype, isdefined(inst, :rettype_const) ? inst.rettype_const : nothing,
+                 Cthulhu.OptimizedSource(Core.Compiler.copy(ir), ci, inst.inferred.isinlineable, Core.Compiler.decode_effects(inst.purity_bits)),
+                 Int32(0), inst.min_world, inst.max_world, inst.ipo_purity_bits, inst.purity_bits,
+                 inst.argescapes, inst.relocatability)
+end
+
 using Core: OpaqueClosure
 function codegen(interp::ADInterpreter, curs::ADCursor, cache=Dict{ADCursor, OpaqueClosure}())
     ir = Core.Compiler.copy(Cthulhu.get_optimized_codeinst(interp, curs).inferred.ir)
-    ci = interp.opt[curs.level][curs.mi].inferred.src
+    codeinst = interp.opt[curs.level][curs.mi]
+    ci = codeinst.inferred.src
     if curs.level >= 1
         ir = diffract_ir!(ir, ci, curs.mi.def, curs.level, interp, curs)
+        interp.transformed[curs.level][curs.mi] = ir2codeinst(ir, codeinst, ci)
         return OpaqueClosure(ir; isva=true)
     end
     duals = Vector{SSAValue}(undef, length(ir.stmts))
@@ -344,6 +375,7 @@ function codegen(interp::ADInterpreter, curs::ADCursor, cache=Dict{ADCursor, Opa
     end
     ir = compact!(ir)
     resize!(ir.argtypes, length(curs.mi.specTypes.parameters))
+    interp.transformed[curs.level][curs.mi] = ir2codeinst(ir, codeinst, ci)
     oc = OpaqueClosure(ir; isva=curs.mi.def.isva)
     return oc
 end

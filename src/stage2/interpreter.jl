@@ -285,6 +285,25 @@ function Core.Compiler.transform_result_for_cache(interp::ADInterpreter,
     return Cthulhu.create_cthulhu_source(inferred_result, ipo_effects)
 end
 
+#@static if isdefined(Compiler, :is_stmt_inline)
+function Core.Compiler.inlining_policy(
+    interp::ADInterpreter, @nospecialize(src), stmt_flag::UInt8,
+    mi::MethodInstance, argtypes::Vector{Any})
+    @assert isa(src, Cthulhu.OptimizedSource) || isnothing(src)
+    if isa(src, Cthulhu.OptimizedSource)
+        if Core.Compiler.is_stmt_inline(stmt_flag) || src.isinlineable
+            return src.ir
+        end
+    else
+        # the default inlining policy may try additional effor to find the source in a local cache
+        return @invoke Core.Compiler.inlining_policy(
+            interp::AbstractInterpreter, nothing, stmt_flag::UInt8,
+            mi::MethodInstance, argtypes::Vector{Any})
+    end
+    return nothing
+end
+#end # @static if isdefined(Compiler, :is_stmt_inline)
+
 #=
 function Core.Compiler.optimize(interp::ADInterpreter, opt::OptimizationState,
     params::OptimizationParams, caller::InferenceResult)

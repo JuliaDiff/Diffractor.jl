@@ -333,6 +333,8 @@ function ir2codeinst(ir::IRCode, inst::CodeInstance, ci::CodeInfo)
                  inst.argescapes, inst.relocatability)
 end
 
+const adcodeinsts = Dict{MethodInstance, CodeInstance}()
+
 using Core: OpaqueClosure
 function codegen(interp::ADInterpreter, curs::ADCursor, cache=Dict{ADCursor, OpaqueClosure}())
     ir = Core.Compiler.copy(Cthulhu.get_optimized_codeinst(interp, curs).inferred.ir)
@@ -340,8 +342,11 @@ function codegen(interp::ADInterpreter, curs::ADCursor, cache=Dict{ADCursor, Opa
     ci = codeinst.inferred.src
     if curs.level >= 1
         ir = diffract_ir!(ir, ci, curs.mi.def, curs.level, interp, curs)
-        interp.transformed[curs.level][curs.mi] = ir2codeinst(ir, codeinst, ci)
-        return OpaqueClosure(ir; isva=true)
+        ci2 = ir2codeinst(ir, codeinst, ci)
+        interp.transformed[curs.level][curs.mi] = ci2
+        oc = OpaqueClosure(ir; isva=true)
+        adcodeinsts[oc.source.specializations[1]] = ci2
+        return oc
     end
     duals = Vector{SSAValue}(undef, length(ir.stmts))
     for i = 1:length(ir.stmts)
@@ -370,10 +375,15 @@ function codegen(interp::ADInterpreter, curs::ADCursor, cache=Dict{ADCursor, Opa
                 else
                     oc = codegen(interp, new_curs, cache)
                 end
+                # we went through the OpaqueClosure machinery to create this, but it is
+                # actually just a specialization of a @generated function. we are only using
+                # the MethodInstance and IRCode, so unset the is_for_opaque_closure flag.
+                oc.source.is_for_opaque_closure = false
                 rrule_mi = oc.source.specializations[1]
                 rrule_rt = Any # TODO
                 rrule_call = insert_node!(ir, i, NewInstruction(Expr(:invoke, rrule_mi, inst.args...), rrule_rt))
                 ir.stmts[i][:inst] = rrule_call
+                ir.stmts[i][:info] = info.info
             elseif isa(info, RRuleInfo)
                 rrule_mi = specialize_method(info.info.results.matches[1], preexisting=true)
                 (;rrule_rt) = info
@@ -391,7 +401,19 @@ function codegen(interp::ADInterpreter, curs::ADCursor, cache=Dict{ADCursor, Opa
     end
     ir = compact!(ir)
     resize!(ir.argtypes, length(curs.mi.specTypes.parameters))
-    interp.transformed[curs.level][curs.mi] = ir2codeinst(ir, codeinst, ci)
+    inlstate = Core.Compiler.InliningState(OptimizationParams(interp.native_interpreter),
+                                           nothing,
+                                           adcodeinsts,
+                                           interp)
+    ir = Core.Compiler.ssa_inlining_pass!(ir, ir.linetable, inlstate, ci.propagate_inbounds)
+    ir = Core.Compiler.compact!(ir)
+    ir = Core.Compiler.sroa_pass!(ir, inlstate)
+    ir = Core.Compiler.adce_pass!(ir)
+    ir = Core.Compiler.type_lift_pass!(ir)
+    ir = Core.Compiler.compact!(ir)
+    ci2 = ir2codeinst(ir, codeinst, ci)
+    interp.transformed[curs.level][curs.mi] = ci2
     oc = OpaqueClosure(ir; isva=curs.mi.def.isva)
+    adcodeinsts[oc.source.specializations[1]] = ci2
     return oc
 end

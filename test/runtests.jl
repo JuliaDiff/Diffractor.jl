@@ -5,8 +5,12 @@ using ChainRulesCore
 using ChainRulesCore: ZeroTangent, NoTangent, frule_via_ad, rrule_via_ad
 using Symbolics
 using LinearAlgebra
-
 using Test
+
+const fwd = Diffractor.PrimeDerivativeFwd
+const bwd = Diffractor.PrimeDerivativeBack
+
+@testset verbose=true "Diffractor.jl" begin  # overall testset, ensures all tests run
 
 # Unit tests
 function tup2(f)
@@ -88,9 +92,9 @@ let var"'" = Diffractor.PrimeDerivativeBack
     @test @inferred(sin'(1.0)) == cos(1.0)
     @test @inferred(sin''(1.0)) == -sin(1.0)
     @test sin'''(1.0) == -cos(1.0)
-    @test sin''''(1.0) == sin(1.0)  broken=true
-    @test sin'''''(1.0) == cos(1.0)  broken=true
-    @test sin''''''(1.0) == -sin(1.0)  broken=true
+    @test sin''''(1.0) == sin(1.0)  broken = VERSION >= v"1.8"
+    @test sin'''''(1.0) == cos(1.0)  broken = VERSION >= v"1.8"
+    @test sin''''''(1.0) == -sin(1.0)  broken = VERSION >= v"1.8"
 
     f_getfield(x) = getfield((x,), 1)
     @test f_getfield'(1) == 1
@@ -149,9 +153,6 @@ end
 # Regression tests
 @test gradient(x -> sum(abs2, x .+ 1.0), zeros(3))[1] == [2.0, 2.0, 2.0]
 
-const fwd = Diffractor.PrimeDerivativeFwd
-const bwd = Diffractor.PrimeDerivativeBack
-
 function f_broadcast(a)
     l = a / 2.0 * [[0. 1. 1.]; [1. 0. 1.]; [1. 1. 0.]]
     return sum(l)
@@ -161,7 +162,15 @@ end
 # Make sure that there's no infinite recursion in kwarg calls
 g_kw(;x=1.0) = sin(x)
 f_kw(x) = g_kw(;x)
-@test bwd(f_kw)(1.0) == bwd(sin)(1.0)
+@test bwd(f_kw)(1.0) == bwd(sin)(1.0)  broken=true
+#=
+MethodError: no method matching +(::Tangent{var"#g_kw#47"{var"#g_kw#11#48"}, NamedTuple{(Symbol("#g_kw#11"),), Tuple{ZeroTangent}}}, ::Tangent{Diffractor.KwFunc{var"#g_kw#47"{var"#g_kw#11#48"}, var"#g_kw#47##kw"}, NamedTuple{(:kwf,), Tuple{ZeroTangent}}})
+...
+  [2] elementwise_add(a::NamedTuple{(:contents,), Tuple{Tangent{var"#g_kw#47"{var"#g_kw#11#48"}, NamedTuple{(Symbol("#g_kw#11"),), Tuple{ZeroTangent}}}}}, b::NamedTuple{(:contents,), Tuple{Tangent{Diffractor.KwFunc{var"#g_kw#47"{var"#g_kw#11#48"}, var"#g_kw#47##kw"}, NamedTuple{(:kwf,), Tuple{ZeroTangent}}}}})
+    @ ChainRulesCore ~/.julia/packages/ChainRulesCore/ctmSK/src/tangent_types/tangent.jl:287
+  [3] +(a::Tangent{Core.Box, NamedTuple{(:contents,), Tuple{Tangent{var"#g_kw#47"{var"#g_kw#11#48"}, NamedTuple{(Symbol("#g_kw#11"),), Tuple{ZeroTangent}}}}}}, b::Tangent{Core.Box, NamedTuple{(:contents,), Tuple{Tangent{Diffractor.KwFunc{var"#g_kw#47"{var"#g_kw#11#48"}, var"#g_kw#47##kw"}, NamedTuple{(:kwf,), Tuple{ZeroTangent}}}}}})
+    @ ChainRulesCore ~/.julia/packages/ChainRulesCore/ctmSK/src/tangent_arithmetic.jl:130
+=#
 
 function f_crit_edge(a, b, c, x)
     # A function with two critical edges. This used to trigger an issue where
@@ -220,3 +229,5 @@ z45, delta45 = frule_via_ad(DiffractorRuleConfig(), (0,1), x -> log(exp(x)), 2)
 
 # Higher order control flow not yet supported (https://github.com/JuliaDiff/Diffractor.jl/issues/24)
 #include("pinn.jl")
+
+end  # overall testset

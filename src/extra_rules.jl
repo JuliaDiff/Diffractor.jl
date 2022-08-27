@@ -150,12 +150,6 @@ end
 
 ChainRulesCore.canonicalize(::ChainRulesCore.ZeroTangent) = ChainRulesCore.ZeroTangent()
 
-# Skip AD'ing through the axis computation
-function ChainRules.rrule(::DiffractorRuleConfig, ::typeof(Base.Broadcast.instantiate), bc::Base.Broadcast.Broadcasted)
-    return Base.Broadcast.instantiate(bc), Δ->begin
-        Core.tuple(NoTangent(), Δ)
-    end
-end
 
 
 using StaticArrays

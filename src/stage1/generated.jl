@@ -52,6 +52,7 @@ Base.getindex(o::OpticBundle, i::Int) = i == 1 ? o.x :
 Base.iterate(o::OpticBundle) = (o.x, nothing)
 Base.iterate(o::OpticBundle, ::Nothing) = (o.clos, missing)
 Base.iterate(o::OpticBundle, ::Missing) = nothing
+Base.length(o::OpticBundle) = 2
 
 # Desturucture using `getfield` rather than iterate to make
 # inference happier
@@ -227,7 +228,7 @@ function (::∂⃖{N})(f::T, args...) where {T, N}
 end
 
 function ChainRulesCore.rrule_via_ad(::DiffractorRuleConfig, f::T, args...) where {T}
-    ∂⃖{1}()(f, args...)
+    Tuple{Any, Any}(∂⃖{1}()(f, args...))
 end
 
 @Base.pure function (::∂⃖{1})(::typeof(Core.apply_type), head, args...)

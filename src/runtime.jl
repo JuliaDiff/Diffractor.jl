@@ -13,3 +13,17 @@ end
 @Base.constprop :aggressive accum(a::NoTangent, b) = b
 @Base.constprop :aggressive accum(a, b::NoTangent) = a
 @Base.constprop :aggressive accum(a::NoTangent, b::NoTangent) = NoTangent()
+
+using ChainRulesCore: Tangent, backing
+
+function accum(x::Tangent{T}, y::NamedTuple) where T
+  # @warn "gradient is both a Tangent and a NamedTuple" x y
+  z = accum(backing(x), y)
+  Tangent{T,typeof(z)}(z)
+end
+accum(x::NamedTuple, y::Tangent) = accum(y, x)
+
+function accum(x::Tangent{T}, y::Tangent) where T
+  z = accum(backing(x), backing(y))
+  Tangent{T,typeof(z)}(z)
+end

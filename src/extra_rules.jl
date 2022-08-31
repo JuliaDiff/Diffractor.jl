@@ -266,3 +266,6 @@ end
 function ChainRulesCore.rrule(::DiffractorRuleConfig, ::Type{InplaceableThunk}, add!!, val)
     val, Δ->(NoTangent(), NoTangent(), Δ)
 end
+
+Base.real(z::ZeroTangent) = z  # TODO should be in CRC
+Base.real(z::NoTangent) = z

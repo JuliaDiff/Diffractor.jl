@@ -181,9 +181,10 @@ end
 
 @ChainRulesCore.non_differentiable StaticArrays.promote_tuple_eltype(T)
 
-function ChainRules.frule((_, ∂A), ::typeof(getindex), A::AbstractArray, args...)
-    getindex(A, args...), getindex(∂A, args...)
-end
+# function ChainRules.frule((_, ∂A), ::typeof(getindex), A::AbstractArray, args...)
+#     getindex(A, args...), getindex(∂A, args...)
+# end
+# WARNING: Method definition frule(Any, typeof(Base.getindex), AbstractArray{T, N} where N where T, Any...) in module ChainRules at /Users/me/.julia/packages/ChainRules/KVV0e/src/rulesets/Base/indexing.jl:59 overwritten in module Diffractor at /Users/me/.julia/dev/Diffractor/src/extra_rules.jl:184
 
 function ChainRules.rrule(::DiffractorRuleConfig, ::typeof(map), ::typeof(+), A::AbstractArray, B::AbstractArray)
     map(+, A, B), Δ->(NoTangent(), NoTangent(), Δ, Δ)
@@ -266,5 +267,4 @@ function ChainRulesCore.rrule(::DiffractorRuleConfig, ::Type{InplaceableThunk}, 
     val, Δ->(NoTangent(), NoTangent(), Δ)
 end
 
-Base.real(z::ZeroTangent) = z  # TODO should be in CRC
-Base.real(z::NoTangent) = z
+Base.real(z::NoTangent) = z  # TODO should be in CRC, https://github.com/JuliaDiff/ChainRulesCore.jl/pull/581

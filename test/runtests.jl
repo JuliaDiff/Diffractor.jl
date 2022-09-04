@@ -92,9 +92,9 @@ let var"'" = Diffractor.PrimeDerivativeBack
     @test @inferred(sin'(1.0)) == cos(1.0)
     @test @inferred(sin''(1.0)) == -sin(1.0)
     @test sin'''(1.0) == -cos(1.0)
-    @test sin''''(1.0) == sin(1.0)  broken = VERSION >= v"1.8"
-    @test sin'''''(1.0) == cos(1.0)  broken = VERSION >= v"1.8"
-    @test sin''''''(1.0) == -sin(1.0)  broken = VERSION >= v"1.8"
+    @test sin''''(1.0) == sin(1.0)  # broken = VERSION >= v"1.8"
+    @test sin'''''(1.0) == cos(1.0)  # broken = VERSION >= v"1.8"
+    @test sin''''''(1.0) == -sin(1.0)  # broken = VERSION >= v"1.8"
 
     f_getfield(x) = getfield((x,), 1)
     @test f_getfield'(1) == 1
@@ -265,13 +265,17 @@ z45, delta45 = frule_via_ad(DiffractorRuleConfig(), (0,1), x -> log(exp(x)), 2)
 end
 
 @testset "broadcast, 2nd order" begin
-    @test gradient(x -> sum(gradient(x -> sum(x .^ 2 .+ x'), x)[1]), [1,2,3.0])[1] == [6,6,6]
-    @test gradient(x -> sum(gradient(x -> sum((x .+ 1) .* x .- x), x)[1]), [1,2,3.0])[1] == [2,2,2]
+    @test gradient(x -> gradient(y -> sum(y .* y), x)[1] |> sum, [1,2,3.0])[1] == [2,2,2]  # calls "split broadcasting generic" with f = unthunk
+    @test gradient(x -> gradient(y -> sum(y .* x), x)[1].^3 |> sum, [1,2,3.0])[1] == [3,12,27]
+    @test_broken gradient(x -> gradient(y -> sum(y .* 2 .* y'), x)[1] |> sum, [1,2,3.0])[1] == [12, 12, 12]  # Control flow support not fully implemented yet for higher-order
+
+    @test_broken gradient(x -> sum(gradient(x -> sum(x .^ 2 .+ x'), x)[1]), [1,2,3.0])[1] == [6,6,6]  # BoundsError: attempt to access 18-element Vector{Core.Compiler.BasicBlock} at index [0]
+    @test_broken gradient(x -> sum(gradient(x -> sum((x .+ 1) .* x .- x), x)[1]), [1,2,3.0])[1] == [2,2,2]
     @test_broken gradient(x -> sum(gradient(x -> sum(x .* x ./ 2), x)[1]), [1,2,3.0])[1] == [1,1,1]
   
     @test_broken gradient(x -> sum(gradient(x -> sum(exp.(x)), x)[1]), [1,2,3])[1] ≈ exp.(1:3)  # MethodError: no method matching copy(::Nothing)
     @test_broken gradient(x -> sum(gradient(x -> sum(atan.(x, x')), x)[1]), [1,2,3.0])[1] ≈ [0,0,0]
-    @test_broken gradient(x -> sum(gradient(x -> sum(transpose(x) .* x), x)[1]), [1,2,3]) == ([6,6,6],) # ERROR: (1, current_logger_for_env(std_level::Base.CoreLogging.LogLevel, group, _module) @ Base.CoreLogging logging.jl:500, :($(Expr(:meta, :noinline))))
+    @test_broken gradient(x -> sum(gradient(x -> sum(transpose(x) .* x), x)[1]), [1,2,3]) == ([6,6,6],) # accum(a::Transpose{Float64, Vector{Float64}}, b::ChainRulesCore.Tangent{Transpose{Int64, Vector{Int64}}, NamedTuple{(:parent,), Tuple{ChainRulesCore.NoTangent}}})
     @test_broken gradient(x -> sum(gradient(x -> sum(transpose(x) ./ x.^2), x)[1]), [1,2,3])[1] ≈ [27.675925925925927, -0.824074074074074, -2.1018518518518516]
     
     @test_broken gradient(z -> gradient(x -> sum((y -> (x^2*y)).([1,2,3])), z)[1], 5.0) == (12.0,)

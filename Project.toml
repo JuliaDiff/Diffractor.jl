@@ -13,8 +13,8 @@ StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
 StructArrays = "09ab397b-f2b6-538f-b94a-2f83cf4a842a"
 
 [compat]
-ChainRules = "1.5"
-ChainRulesCore = "1.2"
+ChainRules = "1.44.6"
+ChainRulesCore = "1.15.3"
 Combinatorics = "1"
 StaticArrays = "1"
 StatsBase = "0.33"

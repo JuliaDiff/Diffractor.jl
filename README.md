@@ -5,7 +5,6 @@
 
 **Docs:**
 [![](https://img.shields.io/badge/docs-master-blue.svg)](https://juliadiff.org/Diffractor.jl/dev)
-[![](https://img.shields.io/badge/docs-stable-blue.svg)](https://juliadiff.org/Diffractor.jl/stable)
 
 # General Overview
 

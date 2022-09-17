@@ -181,11 +181,6 @@ end
 
 @ChainRulesCore.non_differentiable StaticArrays.promote_tuple_eltype(T)
 
-# function ChainRules.frule((_, ∂A), ::typeof(getindex), A::AbstractArray, args...)
-#     getindex(A, args...), getindex(∂A, args...)
-# end
-# WARNING: Method definition frule(Any, typeof(Base.getindex), AbstractArray{T, N} where N where T, Any...) in module ChainRules at /Users/me/.julia/packages/ChainRules/KVV0e/src/rulesets/Base/indexing.jl:59 overwritten in module Diffractor at /Users/me/.julia/dev/Diffractor/src/extra_rules.jl:184
-
 function ChainRules.rrule(::DiffractorRuleConfig, ::typeof(map), ::typeof(+), A::AbstractArray, B::AbstractArray)
     map(+, A, B), Δ->(NoTangent(), NoTangent(), Δ, Δ)
 end
@@ -220,7 +215,7 @@ struct BackMap{T}
     f::T
 end
 (f::BackMap{N})(args...) where {N} = ∂⃖¹(getfield(f, :f), args...)
-back_apply(x, y) = x(y)
+back_apply(x, y) = x(y)  # this is just |> with arguments reversed
 back_apply_zero(x) = x(Zero()) # Zero is not defined
 
 function ChainRules.rrule(::DiffractorRuleConfig, ::typeof(map), f, args::Tuple)
@@ -230,10 +225,6 @@ function ChainRules.rrule(::DiffractorRuleConfig, ::typeof(map), f, args::Tuple)
         (NoTangent(), sum(fs), xs)
     end
     map_back(Δ::AbstractZero) = (NoTangent(), NoTangent(), NoTangent())
-    # function back(Δ::ZeroTangent)
-    #     (fs, xs) = unzip_tuple(map(back_apply_zero, b))
-    #     (NoTangent(), sum(fs), xs)
-    # end
     a, map_back
 end
 

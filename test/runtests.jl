@@ -92,7 +92,7 @@ let var"'" = Diffractor.PrimeDerivativeBack
     @test @inferred(sin'(1.0)) == cos(1.0)
     @test @inferred(sin''(1.0)) == -sin(1.0)
     @test sin'''(1.0) == -cos(1.0)
-    @test sin''''(1.0) == sin(1.0)  # broken = VERSION >= v"1.8"
+    @test sin''''(1.0) == sin(1.0)
     @test sin'''''(1.0) == cos(1.0)  # broken = VERSION >= v"1.8"
     @test sin''''''(1.0) == -sin(1.0)  # broken = VERSION >= v"1.8"
 

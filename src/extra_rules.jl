@@ -16,7 +16,7 @@ function ChainRulesCore.rrule(::DiffractorRuleConfig, g::∇getindex, Δ)
     g(Δ), Δ′′->(nothing, Δ′′[1][g.i...])
 end
 
-function ChainRulesCore.rrule(::DiffractorRuleConfig, ::typeof(getindex), xs::Array, i...)
+function ChainRulesCore.rrule(::DiffractorRuleConfig, ::typeof(getindex), xs::Array{<:Number}, i...)
     xs[i...], ∇getindex(xs, i)
 end
 
@@ -150,12 +150,6 @@ end
 
 ChainRulesCore.canonicalize(::ChainRulesCore.ZeroTangent) = ChainRulesCore.ZeroTangent()
 
-# Skip AD'ing through the axis computation
-function ChainRules.rrule(::DiffractorRuleConfig, ::typeof(Base.Broadcast.instantiate), bc::Base.Broadcast.Broadcasted)
-    return Base.Broadcast.instantiate(bc), Δ->begin
-        Core.tuple(NoTangent(), Δ)
-    end
-end
 
 
 using StaticArrays
@@ -186,10 +180,6 @@ function ChainRules.frule((_, ∂x), ::Type{SArray{S, T, N, L}}, x::NTuple{L,Any
 end
 
 @ChainRulesCore.non_differentiable StaticArrays.promote_tuple_eltype(T)
-
-function ChainRules.frule((_, ∂A), ::typeof(getindex), A::AbstractArray, args...)
-    getindex(A, args...), getindex(∂A, args...)
-end
 
 function ChainRules.rrule(::DiffractorRuleConfig, ::typeof(map), ::typeof(+), A::AbstractArray, B::AbstractArray)
     map(+, A, B), Δ->(NoTangent(), NoTangent(), Δ, Δ)
@@ -225,27 +215,28 @@ struct BackMap{T}
     f::T
 end
 (f::BackMap{N})(args...) where {N} = ∂⃖¹(getfield(f, :f), args...)
-back_apply(x, y) = x(y)
-back_apply_zero(x) = x(Zero())
+back_apply(x, y) = x(y)  # this is just |> with arguments reversed
+back_apply_zero(x) = x(Zero()) # Zero is not defined
 
 function ChainRules.rrule(::DiffractorRuleConfig, ::typeof(map), f, args::Tuple)
     a, b = unzip_tuple(map(BackMap(f), args))
-    function back(Δ)
+    function map_back(Δ)
         (fs, xs) = unzip_tuple(map(back_apply, b, Δ))
         (NoTangent(), sum(fs), xs)
     end
-    function back(Δ::ZeroTangent)
-        (fs, xs) = unzip_tuple(map(back_apply_zero, b))
-        (NoTangent(), sum(fs), xs)
-    end
-    a, back
+    map_back(Δ::AbstractZero) = (NoTangent(), NoTangent(), NoTangent())
+    a, map_back
 end
+
+ChainRules.rrule(::DiffractorRuleConfig, ::typeof(map), f, args::Tuple{}) = (), _ -> (NoTangent(), NoTangent(), NoTangent())
 
 function ChainRules.rrule(::DiffractorRuleConfig, ::typeof(Base.ntuple), f, n)
     a, b = unzip_tuple(ntuple(BackMap(f), n))
-    a, function (Δ)
+    function ntuple_back(Δ)
         (NoTangent(), sum(map(back_apply, b, Δ)), NoTangent())
     end
+    ntuple_back(::AbstractZero) = (NoTangent(), NoTangent(), NoTangent())
+    a, ntuple_back
 end
 
 function ChainRules.frule(::DiffractorRuleConfig, _, ::Type{Vector{T}}, undef::UndefInitializer, dims::Int...) where {T}
@@ -267,5 +258,4 @@ function ChainRulesCore.rrule(::DiffractorRuleConfig, ::Type{InplaceableThunk}, 
     val, Δ->(NoTangent(), NoTangent(), Δ)
 end
 
-Base.real(z::ZeroTangent) = z  # TODO should be in CRC
-Base.real(z::NoTangent) = z
+Base.real(z::NoTangent) = z  # TODO should be in CRC, https://github.com/JuliaDiff/ChainRulesCore.jl/pull/581

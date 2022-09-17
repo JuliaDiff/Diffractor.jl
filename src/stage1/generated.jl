@@ -315,13 +315,13 @@ function (::∂⃖{N})(::typeof(Core.getfield), s, field::Symbol) where {N}
 end
 
 # TODO: Temporary - make better
-function (::∂⃖{N})(::typeof(Base.getindex), a::Array, inds...) where {N}
+function (::∂⃖{N})(::typeof(Base.getindex), a::Array{<:Number}, inds...) where {N}
     getindex(a, inds...), let
         EvenOddOdd{1, c_order(N)}(
             (@Base.constprop :aggressive Δ->begin
                 Δ isa AbstractZero && return (NoTangent(), Δ, map(Returns(Δ), inds)...)
                 BB = zero(a)
-                BB[inds...] = Δ
+                BB[inds...] = unthunk(Δ)
                 (NoTangent(), BB, map(x->NoTangent(), inds)...)
             end),
             (@Base.constprop :aggressive (_, Δ, _)->begin
@@ -334,6 +334,7 @@ struct tuple_back{M}; end
 (::tuple_back)(Δ::Tuple) = Core.tuple(NoTangent(), Δ...)
 (::tuple_back{N})(Δ::AbstractZero) where {N} = Core.tuple(NoTangent(), ntuple(i->Δ, N)...)
 (::tuple_back{N})(Δ::Tangent) where {N} = Core.tuple(NoTangent(), ntuple(i->lifted_getfield(Δ, i), N)...)
+(t::tuple_back)(Δ::AbstractThunk) = t(unthunk(Δ))
 
 function (::∂⃖{N})(::typeof(Core.tuple), args::Vararg{Any, M}) where {N, M}
     Core.tuple(args...),

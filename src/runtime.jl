@@ -27,3 +27,4 @@ accum(x::Tangent{T}, y::Tangent) where T = _tangent(T, accum(backing(x), backing
 
 _tangent(::Type{T}, z) where T = Tangent{T,typeof(z)}(z)
 _tangent(::Type, ::NamedTuple{()}) = NoTangent()
+_tangent(::Type, ::NamedTuple{<:Any, <:Tuple{Vararg{AbstractZero}}}) = NoTangent()

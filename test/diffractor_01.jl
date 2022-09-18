@@ -1,16 +1,20 @@
-# The rest of this file is unchanged, except the very end,
-# but IMO we should move these tests to a new file.
+# This file has tests written specifically for Diffractor v0.1,
+# which were in runtests.jl before PR 73 moved them all.
+# (This commit has all changes to 27 Dec 2022.)
 
-# Loading Diffractor: var"'" globally will break many tests above, which use it for adjoint.
+using Test
 
-using Diffractor: var"'", ∂⃖, DiffractorRuleConfig
+using Diffractor
+using Diffractor: ∂⃖, DiffractorRuleConfig
+
 using ChainRules
 using ChainRulesCore
 using ChainRulesCore: ZeroTangent, NoTangent, frule_via_ad, rrule_via_ad
 using Symbolics
+
 using LinearAlgebra
 
-
+# Loading Diffractor: var"'" globally will break many tests above, which use it for adjoint.
 const fwd = Diffractor.PrimeDerivativeFwd
 const bwd = Diffractor.PrimeDerivativeBack
 
@@ -48,8 +52,10 @@ ChainRules.rrule(::typeof(my_tuple), args...) = args, Δ->Core.tuple(NoTangent()
 @test isequal(simplify(x8), simplify((η + (α*ζ) + (β*ϵ) + (δ*(γ + (α*β))))*exp(ω)))
 
 # Minimal 2-nd order forward smoke test
-@test Diffractor.∂☆{2}()(Diffractor.ZeroBundle{2}(sin),
-    Diffractor.TangentBundle{2}(1.0, (1.0, 1.0, 0.0)))[Diffractor.CanonicalTangentIndex(1)] == sin'(1.0)
+let var"'" = Diffractor.PrimeDerivativeFwd
+    @test Diffractor.∂☆{2}()(Diffractor.ZeroBundle{2}(sin),
+        Diffractor.ExplicitTangentBundle{2}(1.0, (1.0, 1.0, 0.0)))[Diffractor.CanonicalTangentIndex(1)] == sin'(1.0)
+end
 
 function simple_control_flow(b, x)
     if b
@@ -95,8 +101,8 @@ let var"'" = Diffractor.PrimeDerivativeBack
     @test @inferred(sin''(1.0)) == -sin(1.0)
     @test sin'''(1.0) == -cos(1.0)
     @test sin''''(1.0) == sin(1.0)
-    @test sin'''''(1.0) == cos(1.0)  # broken = VERSION >= v"1.8"
-    @test sin''''''(1.0) == -sin(1.0)  # broken = VERSION >= v"1.8"
+    @test sin'''''(1.0) == cos(1.0)
+    @test sin''''''(1.0) == -sin(1.0)
 
     f_getfield(x) = getfield((x,), 1)
     @test f_getfield'(1) == 1
@@ -149,7 +155,7 @@ function sin_twice_fwd(x)
     end
 end
 let var"'" = Diffractor.PrimeDerivativeFwd
-    @test sin_twice_fwd'(1.0) == sin'''(1.0)
+    @test_broken sin_twice_fwd'(1.0) == sin'''(1.0)
 end
 
 # Regression tests
@@ -262,24 +268,31 @@ z45, delta45 = frule_via_ad(DiffractorRuleConfig(), (0,1), x -> log(exp(x)), 2)
     @test tup_adj[2] ≈ [0.6666666666666666 0.5 0.4]
     @test tup_adj[2] isa Transpose
     @test gradient(x -> sum(atan.(x, (1,2,3))), Diagonal([4,5,6]))[1] isa Diagonal
-    
+
     @test gradient(x -> sum((y -> (x*y)).([1,2,3])), 4.0) == (6.0,)  # closure
 end
 
 @testset "broadcast, 2nd order" begin
     @test gradient(x -> gradient(y -> sum(y .* y), x)[1] |> sum, [1,2,3.0])[1] == [2,2,2]  # calls "split broadcasting generic" with f = unthunk
     @test gradient(x -> gradient(y -> sum(y .* x), x)[1].^3 |> sum, [1,2,3.0])[1] == [3,12,27]
-    @test_broken gradient(x -> gradient(y -> sum(y .* 2 .* y'), x)[1] |> sum, [1,2,3.0])[1] == [12, 12, 12]  # Control flow support not fully implemented yet for higher-order
+    @test_broken gradient(x -> gradient(y -> sum(y .* 2 .* y'), x)[1] |> sum, [1,2,3.0])[1] == [12, 12, 12]
 
     @test_broken gradient(x -> sum(gradient(x -> sum(x .^ 2 .+ x'), x)[1]), [1,2,3.0])[1] == [6,6,6]  # BoundsError: attempt to access 18-element Vector{Core.Compiler.BasicBlock} at index [0]
     @test_broken gradient(x -> sum(gradient(x -> sum((x .+ 1) .* x .- x), x)[1]), [1,2,3.0])[1] == [2,2,2]
     @test_broken gradient(x -> sum(gradient(x -> sum(x .* x ./ 2), x)[1]), [1,2,3.0])[1] == [1,1,1]
-  
+
     @test_broken gradient(x -> sum(gradient(x -> sum(exp.(x)), x)[1]), [1,2,3])[1] ≈ exp.(1:3)  # MethodError: no method matching copy(::Nothing)
     @test_broken gradient(x -> sum(gradient(x -> sum(atan.(x, x')), x)[1]), [1,2,3.0])[1] ≈ [0,0,0]
     @test_broken gradient(x -> sum(gradient(x -> sum(transpose(x) .* x), x)[1]), [1,2,3]) == ([6,6,6],) # accum(a::Transpose{Float64, Vector{Float64}}, b::ChainRulesCore.Tangent{Transpose{Int64, Vector{Int64}}, NamedTuple{(:parent,), Tuple{ChainRulesCore.NoTangent}}})
     @test_broken gradient(x -> sum(gradient(x -> sum(transpose(x) ./ x.^2), x)[1]), [1,2,3])[1] ≈ [27.675925925925927, -0.824074074074074, -2.1018518518518516]
-    
+
     @test_broken gradient(z -> gradient(x -> sum((y -> (x^2*y)).([1,2,3])), z)[1], 5.0) == (12.0,)
 end
 
+# Issue 67, due to https://github.com/JuliaDiff/ChainRulesCore.jl/pull/495
+@test gradient(identity∘sqrt, 4.0) == (0.25,)
+
+# Issue #70 - Complex & getproperty
+@test_broken gradient(x -> x.re, 2+3im)[1] == 1  # Tangent{Complex{Int64}}(re = 1,)
+@test_broken gradient(x -> abs2(x * x.re), 4+5im)[1] == 456 + 160im  # accum(a::ComplexF64, b::Tangent)
+@test gradient(x -> abs2(x * real(x)), 4+5im)[1] == 456 + 160im

@@ -246,6 +246,7 @@ end
 @ChainRules.non_differentiable Base.:(|)(a::Integer, b::Integer)
 @ChainRules.non_differentiable Base.throw(err)
 @ChainRules.non_differentiable Core.Compiler.return_type(args...)
+
 ChainRulesCore.canonicalize(::NoTangent) = NoTangent()
 
 # Disable thunking at higher order (TODO: These should go into ChainRulesCore)
@@ -262,3 +263,12 @@ Base.real(z::NoTangent) = z  # TODO should be in CRC, https://github.com/JuliaDi
 
 # Avoid https://github.com/JuliaDiff/ChainRulesCore.jl/pull/495
 ChainRulesCore._backing_error(P::Type{<:Base.Pairs}, G::Type{<:NamedTuple}, E::Type{<:AbstractDict}) = nothing
+
+# For gradient(pow_simd, 2, 3)[1] in zygote_features.jl
+ChainRulesCore.@non_differentiable Base.SimdLoop.simd_inner_length(::Any, ::Any)
+
+# This allows fill!(similar([1,2,3], ZeroTangent), false)
+function Base.convert(::Type{ZeroTangent}, x::Number)
+    iszero(x) || throw(InexactError(:convert, ZeroTangent, x))
+    ZeroTangent()
+end

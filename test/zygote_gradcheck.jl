@@ -16,7 +16,7 @@ using Test, LinearAlgebra, Random, Distributed, Statistics
 #####
 
 begin
-
+    # Replace simple finite differencing code with FiniteDifferences:
     n_grad(f, x::Real) = (central_fdm(5, 1)(f, x),)
     n_grad(f, x::AbstractArray{<:Real}) = FiniteDifferences.grad(central_fdm(5, 1), f, float(x))
     n_grad(f, xs::Vararg{Any,N}) where {N} = ntuple(N) do i
@@ -38,7 +38,6 @@ begin
     jacobicheck(f, dims...) = jacobicheck(f, randn.(Float64, dims)...)
     @test jacobicheck(identity, (4,5))  # one random matrix
     @test jacobicheck(+, 3, 3)  # two random vectors
-
 end
 
 isZero(x) = x isa AbstractZero
@@ -88,7 +87,7 @@ end
 
     # https://github.com/FluxML/Zygote.jl/issues/314
     @test gradient((x,y) -> sum(yi -> yi*x, y), 1, [1,1]) == (2, [1, 1])
-    @test_broken gradient((x,y) -> prod(yi -> yi*x, y), 1, [1,1]) == (2, [1, 1]) # no method matching +(::Tuple{NoTangent}, ::Tuple{NoTangent})
+    @test gradient((x,y) -> prod(yi -> yi*x, y), 1, [1,1]) == (2, [1, 1])
 
     @test_broken gradient((x,y) -> sum(map(yi -> yi*x, y)), 1, [1,1]) == (2, [1, 1])  # AssertionError: Base.issingletontype(typeof(f))
     @test_broken gradient((x,y) -> prod(map(yi -> yi*x, y)), 1, [1,1]) == (2, [1, 1])
@@ -99,11 +98,11 @@ end
 end
 
 @testset "cumsum" begin
-    @test_broken jacobicheck(x -> cumsum(x, dims=2), (3,4,5))  #  TypeError: in typeassert, expected Int64, got a value of type Nothing
-    @test_broken jacobicheck(x -> cumsum(x, dims=1), (3,))
-    @test_broken jacobicheck(x -> cumsum(x), (4,))
-    @test_broken jacobicheck(x -> cumsum(x, dims=3), (5,))  # trivial
-    @test_broken jacobicheck(x -> cumsum(x, dims=3), (3,4)) # trivial
+    @test jacobicheck(x -> cumsum(x, dims=2), (3,4,5))
+    @test jacobicheck(x -> cumsum(x, dims=1), (3,))
+    @test jacobicheck(x -> cumsum(x), (4,))
+    @test jacobicheck(x -> cumsum(x, dims=3), (5,))  # trivial
+    @test jacobicheck(x -> cumsum(x, dims=3), (3,4)) # trivial
 end
 
 # 146
@@ -132,7 +131,7 @@ end
     @test gradient(x -> sum(inv, transpose(x[1, :])), ones(2, 2)) == ([-1 -1; 0 0],)  # same with transpose, in case ' overloaded!
     @test gradient(x -> sum(inv, x[1:1, :]'), ones(2, 2)) == ([-1 -1; 0 0],)
     @test gradient(x -> sum(inv, transpose(x[1:1, :])), ones(2, 2)) == ([-1 -1; 0 0],)
-    @test_broken gradient(x -> sum(inv, transpose(view(x, 1, :))), ones(2, 2)) == ([-1 -1; 0 0],)
+    @test gradient(x -> sum(inv, transpose(view(x, 1, :))), ones(2, 2)) == ([-1 -1; 0 0],)
 
     # https://github.com/FluxML/Zygote.jl/issues/513
     @test_broken gradient(p -> sum(Float32[1, 0] - p), [2, 3]) == ([-1, -1],)
@@ -143,7 +142,7 @@ end
     @test back([ZeroTangent()]) == (zeros(4), NoTangent())
     # Ensure that nothings work with non-numeric types.
     _, back = pullback(getindex, [randn(2) for _ in 1:3], [1])
-    @test_broken back([ZeroTangent()]) == (NoTangent(), NoTangent())  # MethodError: no method matching zero(::Type{Vector{Float64}})
+    @test back([ZeroTangent()]) == (NoTangent(), NoTangent())
 end
 
 @test_skip @testset "view" begin  # Rewrite reached intrinsic function and_int. Missing rule?
@@ -166,7 +165,7 @@ end
     @test_broken jacobicheck(x -> map(norm, eachslice(x, dims=3)), (3,4,5))
 
     # some slices may have gradient nothing
-    @test_broken gradient(x -> sum(y -> rand()>0.5 ? 0 : first(y), eachcol(x)), rand(3,10))[1] isa Matrix  # MethodError: no method matching lastindex(::Diffractor.OpticBundle{Int64})
+    @test gradient(x -> sum(y -> rand()>0.5 ? 0 : first(y), eachcol(x)), rand(3,10))[1] isa Matrix
 
     # strange errors (on Zygote)
     @test gradient(x -> sum(norm, eachcol(x)), [1 2 3; 4 5 6])[1] isa Matrix  # BoundsError: attempt to access InplaceableThunk{Thunk{ChainRules.var"#1689#1692"{Float64, SubArray{Int64, 1, Matrix{Int64}, Tuple{Base.Slice{Base.OneTo{Int64}}, Int64}, true}, Float64}}, ChainRules.var"#1688#1691"{Float64, SubArray{Int64, 1, Matrix{Int64}, Tuple{Base.Slice{Base.OneTo{Int64}}, Int64}, true}, Float64}} at index [3]
@@ -278,7 +277,7 @@ end
         @test_broken pb(out) === (ZeroTangent(), ())  # ArgumentError: reducing with add_sum over an empty collection of element type Union{} is not allowed. You may be able to prevent this error by supplying an `init` value to the reducer.
 
         out, pb = pullback(map, +, (), ())
-        @test pb(()) === (ZeroTangent(), ZeroTangent(), ZeroTangent())
+        @test_broken pb(()) === (ZeroTangent(), ZeroTangent(), ZeroTangent())  # MethodError: reducing over an empty collection is not allowed, ChainRules.var"#map_pullback#1234"{typeof(+), Tuple{Tuple{}, Tuple{}},
 
         function build_foo(z)
             foo(x) = x * z
@@ -311,7 +310,7 @@ end
 end
 
 # Check that map infers correctly. pmap still doesn't infer.
-@testset "map inference" begin
+@test_skip @testset "map inference" begin
   @testset "$name" for (name, f, ȳ, xs) in [
     ("unary empty vector", sin, Float64[], (Float64[], )),
     ("unary vector", sin, randn(3), (randn(3), )),
@@ -328,17 +327,12 @@ end
   end
 end
     
-
-
-
-end
-
 @testset "map and tuples" begin
     # arrays of tuples
     @test_broken gradient(x -> sum(map(first, x)), [(1,2), (3,4)]) == ([(1.0, NoTangent()), (1.0, NoTangent())],)  # MethodError: no method matching one(::Tuple{Int64, Int64})
-    @test gradient(x -> sum(first, x), [(1,2), (3,4)]) == ([Tangent{Tuple{Int,Int}}(1.0, ZeroTangent()), Tangent{Tuple{Int,Int}}(1.0, ZeroTangent())],)   # MethodError: no method matching lastindex(::Diffractor.OpticBundle{Int64})
+    @test gradient(x -> sum(first, x), [(1,2), (3,4)]) == ([Tangent{Tuple{Int,Int}}(1.0, NoTangent()), Tangent{Tuple{Int,Int}}(1.0, NoTangent())],)
 
-    @test gradient(x -> map(+, x, (1,2,3))[1], (4,5,6)) == ((1.0, ZeroTangent(), ZeroTangent()),)
+    @test gradient(x -> map(+, x, (1,2,3))[1], (4,5,6)) |> only == Tangent{Tuple{Int,Int,Int}}(1.0, ZeroTangent(), ZeroTangent())
     @test_broken gradient(x -> map(+, x, [1,2,3])[1], (4,5,6)) == ((1.0, 0.0, 0.0),)  # MethodError: no method matching (::Diffractor.∂⃖recurse{1})(::typeof(Core.arrayset), ::Bool, ::Vector{Int64}, ::Int64, ::Int64)
     @test_broken gradient(x -> map(+, x, (1,2,3))[1], [4,5,6]) == ([1,0,0],)  # Rewrite reached intrinsic function bitcast. Missing rule?
 
@@ -351,9 +345,9 @@ end
 @testset "filter" begin
     @test jacobicheck(xs -> filter(x -> x > 0.5, xs), rand(20))
 
-    @test_broken gradient(x -> sum(log, filter(iseven, x)), 1:10) ==  # MethodError: no method matching iterate(::Nothing)
+    @test gradient(x -> sum(log, filter(iseven, x)), 1:10) ==
         (map(x -> iseven(x) ? 1/x : 0, 1:10),)
-    @test_broken gradient(x -> sum(abs2, im .+ filter(iseven, x)), 1:10) ==
+    @test gradient(x -> sum(abs2, im .+ filter(iseven, x)), 1:10) ==
         (map(x -> iseven(x) ? 2x : 0, 1:10),)
         # (map(x -> iseven(x) ? 2x+2im : 0, 1:10),)
 end
@@ -377,8 +371,8 @@ end
 end
 
 @testset "dropdims" begin  # https://github.com/JuliaDiff/Diffractor.jl/issues/72
-    @test_broken jacobicheck(x -> dropdims(x, dims = 3), rand(2, 2, 1, 2))
-    @test_broken jacobicheck(x -> dropdims(x, dims = (2, 3)), rand(2, 1, 1, 3))
+    @test jacobicheck(x -> dropdims(x, dims = 3), rand(2, 2, 1, 2))
+    @test jacobicheck(x -> dropdims(x, dims = (2, 3)), rand(2, 1, 1, 3))
 end
 
 # 1186
@@ -464,20 +458,35 @@ end
     # mixing arrays & Ref(array)
     a = rand(3)
     b = rand(2,2)
-    @test_broken jacobicheck(x -> sum(diag.((x,) .* a)), b)
-    @test_broken jacobicheck(x -> sum(diag.(Ref(x) .* a)), b)
-    @test_broken jacobicheck(x -> sum(diag.([x] .* a)), b)
+    @test jacobicheck(x -> sum(diag.((x,) .* a)), b)
+    @test jacobicheck(x -> sum(diag.(Ref(x) .* a)), b)
+    @test jacobicheck(x -> sum(diag.([x] .* a)), b)
 
     # tests for https://github.com/FluxML/Zygote.jl/issues/724
     x1 = rand(3, 3)
     @test gradient(x -> sum(x .== 0.5), x1) |> only |> isZero
-    @test_broken gradient(x -> sum(x .* (x .== maximum(x, dims=1))), x1)[1] == (x1 .== maximum(x1, dims=1))  #  BoundsError: attempt to access Tuple{NoTangent, ZeroTangent, ZeroTangent} at index [4]
+    @test gradient(x -> sum(x .* (x .== maximum(x, dims=1))), x1)[1] == (x1 .== maximum(x1, dims=1))
 
     # tests for un-broadcasting *, / via scalar rules
     @test all(gradient((x,y) -> sum(x .* y), [1,2], 5) .≈ ([5, 5], 3))
     @test all(gradient((x,y) -> sum(x .* y), 5, [1,2]) .≈ (3, [5, 5]))
     @test all(gradient((x,y) -> sum(x .* y), [1,2], [3 4 5]) .≈ ([12, 12], [3 3 3]))
     @test all(gradient((x,y) -> sum(x ./ y), [1,2], 5) .≈ ([0.2, 0.2], -0.12))
+
+    @test_skip begin
+        using SparseArrays  # not loaded at present
+        # https://github.com/FluxML/Zygote.jl/pull/1171
+        sm = sprand(5, 5, 0.5)
+        @test gradient(x -> sum(abs2, Float32.(x)), sm)[1] ≈ gradient(x -> sum(abs2, x), Matrix{Float32}(sm))[1]
+        @test_broken gradient(x -> real(sum(ComplexF32.(x) .+ 1 .+ im)), sm)[1] isa SparseMatrixCSC{Float64}  # MethodError: no method matching zero(::Type{Any}), in ProjectTo(xs::SparseMatrixCSC{Any, Int64})
+    end
+
+    # https://github.com/FluxML/Zygote.jl/issues/1178
+    function f1179(x)
+        fs = Ref.(x)
+        getindex.(fs)
+    end
+    @test_broken gradient(sum∘f1179, ones(2)) == ([2.0, 2.0],)  # MethodError: no method matching one(::Base.RefValue{Float64})
 end
 
 # 1489
@@ -508,10 +517,10 @@ end
 
 # 1683
 @testset "fastmath" begin
-    @test gradient(x -> begin @fastmath sin(x) end, 1) == gradient(x -> sin(x), 1)
-    @test gradient(x -> begin @fastmath tanh(x) end, 1) == gradient(x -> tanh(x), 1)
-    @test gradient((x, y) -> begin @fastmath x*y end, 3, 2) == gradient((x, y) -> x*y, 3, 2)
-    @test gradient(x -> begin @fastmath real(log(x)) end, 1 + 2im) == gradient(x -> real(log(x)), 1 + 2im)
+    @test_broken gradient(x -> begin @fastmath sin(x) end, 1) == gradient(x -> sin(x), 1)
+    @test_broken gradient(x -> begin @fastmath tanh(x) end, 1) == gradient(x -> tanh(x), 1)
+    @test_broken gradient((x, y) -> begin @fastmath x*y end, 3, 2) == gradient((x, y) -> x*y, 3, 2)
+    @test_broken gradient(x -> begin @fastmath real(log(x)) end, 1 + 2im) == gradient(x -> real(log(x)), 1 + 2im) # MethodError: no method matching copy(::Nothing)  from perform_optic_transform(ff::Type{Diffractor.∂⃖recurse{1}}, args::Any)
 end
 
 # 1704
@@ -549,8 +558,8 @@ end
 @testset "misc issues" begin
 
     # https://github.com/FluxML/Zygote.jl/issues/957
-    @test_broken gradcheck(x -> prod(Base.Fix1(+, 1), x), randn(10))  # MethodError: no method matching +(::Tuple{NoTangent}, ::Tuple{NoTangent})
-    @test_broken gradcheck(x -> prod(Base.Fix2(+, 1), x), randn(10))
+    @test gradcheck(x -> prod(Base.Fix1(+, 1), x), randn(10))  # MethodError: no method matching +(::Tuple{NoTangent}, ::Tuple{NoTangent})
+    @test gradcheck(x -> prod(Base.Fix2(+, 1), x), randn(10))
 
     # https://github.com/FluxML/Zygote.jl/issues/996
     @test gradient(x->sum(x .+ rand.()), rand(3)) == (ones(3),)
@@ -563,7 +572,8 @@ end
         return x[:, filledLoc..., extraAxe...]
     end
     y, back = pullback(example660, randn(5,3,4,3), 2)
-    @test back(zero(y) .= 1) isa Tuple{Array{Float64,4}, ZeroTangent}
+    @test back(zero(y) .= 1)[1] isa Array{Float64,4}
+    @test back(zero(y) .= 1)[2] |> isZero
 
     # https://github.com/JuliaDiff/ChainRulesCore.jl/issues/440
     f440(x,y) = sum(sum, [[x[i],y[i]] for i=1:length(x)])
@@ -608,6 +618,28 @@ end
 
 end # skip
 
+end
+
+@testset "Zygote #1184" begin
+   n, d = 3, 2
+   x = [randn(d) for _ in 1:n]
+
+   g1184(x) = sum.((sin,), x)
+   h1184(x) = sum(abs2, g1184(x))
+   @test gradient(h1184, x)[1] isa typeof(x)
+end
+
+@testset "Zygote #1162" begin
+    function zygote1162(as, bs)
+        results = [f1162(a, b) for (a, b) in zip(as, bs)]
+        return results[2][1] + results[2][2]
+    end
+    f1162(a, b) = [a^2, b^2]
+
+    as = (1.0, 2.0, 3.0)
+    bs = (4.0, 5.0, 6.0)
+
+    @test_broken gradient(zygote1162, as, bs) == ((NoTangent(), 2*as[2], NoTangent()), (NoTangent(), 2*bs[2], NoTangent()))  # MethodError: no method matching copy(::Nothing)
 end
 
 #####
@@ -767,11 +799,11 @@ end
     
     @testset "dense" begin
         A = randn(7, 7)
-        @test_broken cholesky(A' * A + I).U ≈ first(pullback(A->cholesky(A' * A + I), A)).U  # ERROR: (1, unsafe_copyto!(dest::Array{T}, doffs, src::Array{T}, soffs, n) where T in Base at array.jl:280, :($(Expr(:gc_preserve_end, :(%1)))))
-        @test_broken jacobicheck(A->cholesky(A' * A + I).U, A)
-        @test_broken jacobicheck(A->logdet(cholesky(A' * A + I)), A)
+        @test cholesky(A' * A + I).U ≈ first(pullback(A->cholesky(A' * A + I), A)).U
+        @test jacobicheck(A->cholesky(A' * A + I).U, A)
+        @test jacobicheck(A->logdet(cholesky(A' * A + I)), A)
         @test jacobicheck(B->cholesky(Symmetric(B)).U, A * A' + I)
-        @test_broken jacobicheck(B->logdet(cholesky(Symmetric(B))), A * A' + I) # MethodError: no method matching +(::Nothing, ::Nothing)
+        @test jacobicheck(B->logdet(cholesky(Symmetric(B))), A * A' + I)
     end
 
     @testset "scalar" begin
@@ -779,8 +811,7 @@ end
         y′, back′ = pullback(cholesky, 5.0)
         C̄ = randn(1, 1)
         @test back′(Tangent{Cholesky}(factors=C̄,))[1] isa Real 
-        @test_broken back′(Tangent{Cholesky}(factors=C̄,))[1] ≈ back(Tangent{Cholesky}(factors=C̄,))[1][1, 1]  # MethodError: no method matching mul!(::Matrix{Float64}, ::ZeroTangent, ::LowerTriangular{Float64, Adjoint{Float64, Matrix{Float64}}}, ::Bool, ::Bool)
-
+        @test back′(Tangent{Cholesky}(factors=C̄,))[1] ≈ back(Tangent{Cholesky}(factors=C̄,))[1][1, 1] 
     end
     
     @testset "Diagonal" begin
@@ -790,7 +821,7 @@ end
         y′, back′ = pullback(cholesky, D)
         C̄ = Tangent{Cholesky}(; factors=randn(8, 8))
         @test back′(C̄)[1] isa Diagonal
-        @test_broken diag(back′(C̄)[1]) ≈ diag(back(C̄)[1])  # MethodError: no method matching mul!(::Matrix{Float64}, ::ZeroTangent, ::LowerTriangular{Float64, Adjoint{Float64, Matrix{Float64}}}, ::Bool, ::Bool)
+        @test diag(back′(C̄)[1]) ≈ diag(back(C̄)[1])
     end
 
 end
@@ -903,3 +934,50 @@ end
     @test jacobicheck(x -> var(x, corrected=false, mean=mean(x)), rand(2, 3))
     @test jacobicheck(x -> var(x, dims=1, corrected=false, mean=mean(x, dims=1)), rand(2, 3))
 end
+
+
+#####
+##### Yota/test/test_grad.jl
+#####
+
+@testset "grad: multipath" begin
+
+    # originally a simplified version of lstm_forward
+    function multipath(y, c)
+        f = tanh.(y[1:5, :])
+        c_ = f .* c
+        h_ = tanh.(c_)
+        return h_, c_
+    end
+
+    y = rand(20, 4)
+    c = rand(5, 4)
+    loss = (y, c) -> begin
+            h, c = multipath(y, c)
+            sum(h)
+            end
+    args = (y, c)
+    @test gradcheck(loss, args...)
+end
+
+@testset "grad: mean with kw" begin
+
+    loss_simple(W, b, x) = sum(W * x .+ b)
+    loss_double_broadcast(W, b, x) = sum(sin.(W * x) .+ b)
+    loss_double_broadcast2(b, x) = sum(x .* x .+ b)
+    loss_kw_mean(W, b, x) = Statistics.mean(W * x .+ b; dims=1)[1]
+
+    args = (rand(3, 4), rand(3), rand(4))
+    @test gradcheck(loss_simple, args...)
+    @test gradcheck(loss_double_broadcast, args...)
+    @test gradcheck(loss_double_broadcast2, rand(3), rand(3))
+
+    @test_skip begin
+        val, g = withgradient(loss_kw_mean, args...)
+        @test val == loss_kw_mean(args...)
+    end
+    @test gradcheck(loss_kw_mean, args...)
+
+    @test gradcheck(x -> sum(sum(x, dims=1)), rand(2, 3))
+end
+

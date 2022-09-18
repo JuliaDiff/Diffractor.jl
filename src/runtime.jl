@@ -28,3 +28,9 @@ accum(x::Tangent{T}, y::Tangent) where T = _tangent(T, accum(backing(x), backing
 _tangent(::Type{T}, z) where T = Tangent{T,typeof(z)}(z)
 _tangent(::Type, ::NamedTuple{()}) = NoTangent()
 _tangent(::Type, ::NamedTuple{<:Any, <:Tuple{Vararg{AbstractZero}}}) = NoTangent()
+
+function accum(x::Tangent{T}, y::Tuple) where {T<:Tuple}
+  # @warn "gradient is both a Tangent and a Tuple" x y
+  _tangent(T, accum(backing(x), y))
+end
+accum(x::Tuple, y::Tangent{<:Tuple}) = accum(y, x)

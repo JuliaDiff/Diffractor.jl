@@ -1,6 +1,6 @@
 
 # This file contains tests adapted from FowardDiff.jl, many of them using DiffTests.jl
-# Organised here file-by-file in alphabetical order!
+# Organised here file-by-file in alphabetical order, after some definitions, fully self-contained.
 
 #####
 ##### setup
@@ -10,7 +10,7 @@ using Test, LinearAlgebra
 using ForwardDiff, DiffTests
 using Diffractor, ChainRulesCore
 
-# Define functions which behave like the ones ForwardDiff doesn't export.
+# Define functions which behave like the ones from ForwardDiff.
 # These have plenty of sharp edges!
 begin
 
@@ -77,12 +77,12 @@ begin
     rev_fwd_hessian(f, x::AbstractArray) = rev_jacobian(y -> fwd_gradient(f, y), float(x))
 
     @test ForwardDiff.hessian(x -> -log(x[1]), [2,3]) == [0.25 0; 0 0]
-    @test_broken fwd_hessian(x -> -log(x[1]), [2,3]) == [0.25 0; 0 0]  # UndefVarError: B not defined
+    @test_broken fwd_hessian(x -> -log(x[1]), [2,3]) == [0.25 0; 0 0]  # TypeError: in new, expected DataType, got Type{Diffractor.TangentBundle{1, Type{Diffractor.UniformBundle{1, var"#s305", ZeroTangent}}, Tuple{NoTangent}}}
     @test rev_hessian(x -> -log(x[1]), [2,3]) == [0.25 0; 0 0]
     @test_broken rev_fwd_hessian(x -> -log(x[1]), [2,3]) == [0.25 0; 0 0]  # MethodError: no method matching (::Diffractor.∂⃖recurse{1})(::typeof(Core.arrayset), ::Bool, ::Vector{Float64}, ::Float64, ::Int64)
     @test_skip fwd_rev_hessian(x -> -log(x[1]), [2,3])  # Internal error: encountered unexpected error in runtime: AssertionError(msg="argextype only works on argument-position values")  MethodError: no method matching (::Core.OpaqueClosure{Tuple{Any}, Any})(::Float64)
 
-    HESSIANS = (ForwardDiff.hessian, rev_hessian)
+    HESSIANS = (ForwardDiff.hessian, rev_hessian)  # omitting fwd_hessian, rev_fwd_hessian, fwd_rev_hessian
 
 end
 
@@ -97,7 +97,9 @@ end
 
     @testset "issue 83: perturbation confusion 1" begin # for D in DERIVATIVES
 
-        g = ForwardDiff.gradient(v -> sum(v) * norm(v), [1])
+        g = [2.0]
+        @test g == ForwardDiff.gradient(v -> sum(v) * norm(v), [1])
+
         @testset "ForwardDiff.derivative" begin
             D = ForwardDiff.derivative
 
@@ -115,7 +117,7 @@ end
 
             @test ForwardDiff.gradient(v -> sum(v) * D(y -> y * norm(v), 1), [1]) == g
             @test_broken fwd_gradient(v -> sum(v) * D(y -> y * norm(v), 1), [1]) == g
-            @test rev_gradient(v -> sum(v) * D(y -> y * norm(v), 1), [1]) == g
+            @test_broken rev_gradient(v -> sum(v) * D(y -> y * norm(v), 1), [1]) == g
 
         end
         @testset "rev_derivative" begin
@@ -124,9 +126,8 @@ end
             @test_broken D(x -> x * D(y -> x + y, 1), 1) == 1  # MethodError: no method matching +(::Float64, ::Tangent{var"#269#271"{Float64}, NamedTuple{(:x,), Tuple{ZeroTangent}}})
 
             @test ForwardDiff.gradient(v -> sum(v) * D(y -> y * norm(v), 1), [1]) == g  
-            @test_broken fwd_gradient(v -> sum(v) * D(y -> y * norm(v), 1), [1]) == g  # Internal error: encountered unexpected error in runtime: AssertionError(msg="argextype only works on argument-position values")
-            @test_broken rev_gradient(v -> sum(v) * D(y -> y * norm(v), 1), [1]) == g  # MethodError: no method matching ndims(::ZeroTangent)
-
+            @test_skip fwd_gradient(v -> sum(v) * D(y -> y * norm(v), 1), [1]) == g  # Internal error: encountered unexpected error in runtime: AssertionError(msg="argextype only works on argument-position values")
+            @test_broken rev_gradient(v -> sum(v) * D(y -> y * norm(v), 1), [1]) == g  # accum(a::Vector{Float64}, b::Tangent{var"#705#707"{Vector{Float64}}, NamedTuple{(:v,), Tuple{InplaceableThunk{Thunk{ChainRules.var"#1976#1979"{NoTangent, Vector{Float64}, Float64}}, ChainRules.var"#1975#1978"{NoTangent, Vector{Float64}, Float64}}}}})
         end
 
     end
@@ -136,6 +137,8 @@ end
         A = rand(10,8)
         y = rand(10)
         x = rand(8)
+        
+        (jacobian, gradient) == (fwd_jacobian, rev_gradient) && continue  # avoids Internal error: encountered unexpected error in runtime: AssertionError(msg="argextype only works on argument-position values")
 
         @test A == jacobian(x) do x
             gradient(y) do y
@@ -161,6 +164,7 @@ end
         @test Dqq̇(L, t, q, q̇)  == fill(0.0, 2, 2)
 
     end
+
     @testset "issue 238: legendre transformation 2, $hessian + $gradient" for hessian in HESSIANS, gradient in GRADIENTS
 
         m,g = 1, 9.8
@@ -183,7 +187,7 @@ end
             Legendre_transformation(L, p)
         end
 
-        @test Lagrangian2Hamiltonian(L, t, q, p) isa Number  broken = hessian==rev_hessian  # ?? InexactError: Int64(-9.8)
+        @test Lagrangian2Hamiltonian(L, t, q, p) isa Number
         @test_broken gradient(a->Lagrangian2Hamiltonian(L, t, a, p), q) == [0.0,g]
 
     end
@@ -208,6 +212,43 @@ end
             end
         end == 0.0  broken = derivative != ForwardDiff.derivative
         # Cotangent space not defined for `ZeroTangent`. Try a real-valued function.
+
+    end
+
+    @testset "assignment within closure: $D1, $D2" for D1 in DERIVATIVES, D2 in DERIVATIVES
+        # https://github.com/JuliaDiff/ForwardDiff.jl/issues/443
+        # https://github.com/JuliaDiff/Diffractor.jl/issues/23
+
+        function evil443(x)
+            f(y) = begin x = x*y end
+            D1(f, 1)
+            D1(f, 1)
+        end
+
+        # Answers with D = ForwardDiff.derivative
+        # 2 ≈ evil443(1)
+        # 2 ≈ (evil443(1.0001) - evil443(1.0)) / 0.0001 
+        # 2 ≈ D2(evil443, 1)
+
+        # The claim is that the correct answer here is 1.
+        # Certainly if that disagrees with the next, then
+        # something fishy has occurred:
+        function easy443(x)
+            f(y) = begin x = x*y end
+            ff(y) = begin x = x*y end  # different tag
+            D1(f, 1)
+            D1(ff, 1)
+        end
+        # ForwardDiff:
+        # easy443(1) isa ForwardDiff.Dual
+        # @test_throws Exception D(easy443, 1)  # throws DualMismatchError
+
+        @test_broken easy443(1) ≈ evil443(1)
+        @test_broken D2(easy443, 1) ≈ D2(evil443, 1)
+
+        # Diffractor:
+        # "UndefVarError: B not defined" Diffractor.TangentBundle  src/tangent.jl:88
+        # MethodError: no method matching setfield!(::Core.Box, ::Symbol, ::Float64)
 
     end
 
@@ -239,12 +280,12 @@ end
         @test d ≈ rev_derivative(f, x)
     end
 
-    # @testset "exponential function at base zero: $derivative" for derivative in DERIVATIVES
-    #     @test (x -> derivative(y -> x^y, -0.5))(0.0) === -Inf
-    #     @test (x -> derivative(y -> x^y,  0.0))(0.0) === -Inf
-    #     @test (x -> derivative(y -> x^y,  0.5))(0.0) === 0.0
-    #     @test (x -> derivative(y -> x^y,  1.5))(0.0) === 0.0
-    # end
+    @testset "exponential function at base zero: $derivative" for derivative in DERIVATIVES
+        @test (x -> derivative(y -> x^y, -0.5))(0.0) === -Inf  broken = (derivative != ForwardDiff.derivative)
+        @test (x -> derivative(y -> x^y,  0.0))(0.0) === -Inf  broken = (derivative != ForwardDiff.derivative)
+        @test (x -> derivative(y -> x^y,  0.5))(0.0) === 0.0
+        @test (x -> derivative(y -> x^y,  1.5))(0.0) === 0.0
+    end
 
 end
 
@@ -279,12 +320,12 @@ end
         # https://github.com/JuliaDiff/DiffTests.jl/blob/master/src/DiffTests.jl#L64-L121
     end
 
-    # @testset "exponential function at base zero: $gradient" for gradient in GRADIENTS 
-    #     @test isequal(gradient(t -> t[1]^t[2], [0.0, -0.5]), [NaN, NaN])
-    #     @test isequal(gradient(t -> t[1]^t[2], [0.0,  0.0]), [NaN, NaN])
-    #     @test isequal(gradient(t -> t[1]^t[2], [0.0,  0.5]), [Inf, NaN])
-    #     @test isequal(gradient(t -> t[1]^t[2], [0.0,  1.5]), [0.0, 0.0])
-    # end
+    @testset "exponential function at base zero: $gradient" for gradient in GRADIENTS
+        @test isequal(gradient(t -> t[1]^t[2], [0.0, -0.5]), [NaN, NaN])  broken = (gradient != ForwardDiff.gradient)
+        @test isequal(gradient(t -> t[1]^t[2], [0.0,  0.0]), [NaN, NaN])  broken = (gradient != ForwardDiff.gradient)
+        @test isequal(gradient(t -> t[1]^t[2], [0.0,  0.5]), [Inf, NaN])  broken = (gradient != ForwardDiff.gradient)
+        @test isequal(gradient(t -> t[1]^t[2], [0.0,  1.5]), [0.0, 0.0])
+    end
 
     @testset "chunk size zero - issue 399: $gradient" for gradient in GRADIENTS
         f_const(x) = 1.0
@@ -335,7 +376,7 @@ end
 
         @test_broken fwd_hessian(det2, A) ≈ H  # UndefVarError: B not defined
         @test_broken rev_hessian(det2, A) ≈ H
-        @test_broken fwd_rev_hessian(det2, A) ≈ H  # Internal error: encountered unexpected error in runtime: AssertionError(msg="argextype only works on argument-position values")
+        @test_skip fwd_rev_hessian(det2, A) ≈ H  # Internal error: encountered unexpected error in runtime: AssertionError(msg="argextype only works on argument-position values")
         @test_broken rev_fwd_hessian(det2, A) ≈ H  # MethodError: no method matching (::Diffractor.∂⃖recurse{1})(::typeof(Core.arrayset)
     end
 
@@ -344,9 +385,18 @@ end
 
         # Issue 536, version with 3-arg *, Julia 1.7:
         @test_broken ForwardDiff.derivative(x -> sum(x*a*b), 0.0) ≈ sum(a * b)
-
         @test fwd_derivative(x -> sum(x*a*b), 0.0) ≈ sum(a * b)
         @test rev_derivative(x -> sum(x*a*b), 0.0) ≈ sum(a * b)
+
+        # version with just mul!
+        function f536(x)
+            c = similar(a, typeof(x))
+            mul!(c, a, b, x, false)
+            sum(c)
+        end
+        @test_broken ForwardDiff.derivative(f536, 0.0) ≈ sum(a * b)
+        @test_broken fwd_derivative(f536, 0.0) ≈ sum(a * b)
+        @test_broken rev_derivative(f536, 0.0) ≈ sum(a * b)  # maybe no hope...
     end
 
 end
@@ -385,6 +435,18 @@ end
         @test_broken g ≈ rev_gradient(f, x)
         @test_broken h ≈ rev_hessian(f, x)
     end
+
+    @testset "branches in dot" begin # $hessian" for hessian in HESSIANS
+         # https://github.com/JuliaDiff/ForwardDiff.jl/issues/551
+         M = [1 2 3; 4 5 6; 7 8 9];
+         H = [2 6 10; 6 10 14; 10 14 18]
+         @test ForwardDiff.hessian(x->dot(x,M,x), fill(0.00001, 3)) ≈ H
+         @test_broken ForwardDiff.hessian(x->dot(x,M,x), zeros(3)) ≈ H
+
+         @test_broken rev_hessian(x->dot(x,M,x), fill(0.00001, 3)) ≈ H  # DimensionMismatch("variable with size(x) == (1, 3) cannot have a gradient with size(dx) == (3,)")
+         @test rev_hessian(x->(x'*M*x), fill(0.00001, 3)) ≈ H
+         @test_broken rev_hessian(x->dot(x,M,x), zeros(3)) ≈ H
+     end
 
 end
 
@@ -467,21 +529,26 @@ end
     # Nested Differentiation #
     ##########################
 
-    @testset "nested README example, $jacobian + $gradient" for jacobian in JACOBIANS, gradient in GRADIENTS
+    @testset "nested README example" begin # , $jacobian + $gradient" for jacobian in JACOBIANS, gradient in GRADIENTS
 
         # README example #
         #----------------#
 
         x = rand(5)
-
         f = x -> sum(sin, x) + prod(tan, x) * sum(sqrt, x)
-        g = x -> gradient(f, x)
-        j = x -> jacobian(g, x)
 
-        @test isapprox(ForwardDiff.hessian(f, x), j(x))  broken = (jacobian, gradient) != (ForwardDiff.jacobian, ForwardDiff.gradient)
-        # MethodError: no method matching +(::Tuple{NoTangent}, ::Tuple{NoTangent})
-        # MethodError: no method matching rebundle(::Vector{Diffractor.CompositeBundle{1, Tuple{Float64, ChainRules.var"#sin_pullback#1175"{Float64}}, Tuple{Diffractor.TangentBundle{1, Float64, Tuple{Float64}}, Diffractor.CompositeBundle{1, ChainRules.var"#sin_pullback#1175"{Float64}, Tuple{Diffractor.TangentBundle{1, Float64, Tuple{Float64}}}}}}})
-        # Internal error: encountered unexpected error in runtime: AssertionError(msg="argextype only works on argument-position values") argextype at ./compiler/optimize.jl:357
+        g = x -> ForwardDiff.gradient(f, x)
+        j = x -> ForwardDiff.jacobian(g, x)
+        @test isapprox(ForwardDiff.hessian(f, x), j(x))
+        
+        # Trying to run that in a loop of cases, and mark some broken, is confusing.
+        
+        H = ForwardDiff.hessian(f, x)
+        @test H ≈ ForwardDiff.jacobian(x -> fwd_gradient(f, x), x)
+        @test H ≈ ForwardDiff.jacobian(x -> rev_gradient(f, x), x)
+
+        @test_skip H ≈ fwd_jacobian(x -> fwd_gradient(f, x), x)  # TypeError: in new, expected DataType, got Type{Diffractor.TangentBundle{1, Type{Diffractor.UniformBundle{1, var"#s305", ZeroTangent}}, Tuple{NoTangent}}}
+        @test_skip H ≈ rev_jacobian(x -> rev_gradient(f, x), x)  # error() in perform_optic_transform(ff::Type{Diffractor.∂⃖recurse{2}}, args::Any)
     end
 
     # higher-order derivatives #
@@ -509,7 +576,7 @@ end
 
     end
 
-    @testset "broadcast 4rd order, $jacobian + $jacobian2" for jacobian in JACOBIANS, jacobian2 in JACOBIANS
+    @test_skip @testset "broadcast 4rd order, $jacobian + $jacobian2" for jacobian in JACOBIANS, jacobian2 in JACOBIANS
 
         test_nested_jacobian_output = [-sin(1)  0.0     0.0;
                                        -0.0    -0.0    -0.0;
@@ -524,6 +591,7 @@ end
         sin_jacobian = x -> jacobian2(y -> broadcast(sin, y), x)
 
         @test isapprox(jacobian(sin_jacobian, [1., 2., 3.]), test_nested_jacobian_output)  broken = jacobian != ForwardDiff.jacobian
+        # segmentation fault  julia
 
     end
 
@@ -610,10 +678,22 @@ end
 
     @testset "arithmetic element-wise functions, $jacobian" for jacobian in JACOBIANS
 
-        if jacobian == rev_jacobian
+        if jacobian != ForwardDiff.jacobian
             @test_broken false
             # Got exception outside of a @test
             # DimensionMismatch("arrays could not be broadcast to a common size; got a dimension with lengths 2 and 4")
+
+            # Later:
+            #             ArgumentError: Tangent for the primal Base.Broadcast.Broadcasted{Base.Broadcast.DefaultArrayStyle{1}, Nothing, typeof(-), Tuple{Float64, Vector{Float64}}} should be backed by a NamedTuple type, not by Tuple{ZeroTangent, Tangent{Tuple{Float64, Vector{Float64}}, Tuple{Float64, ZeroTangent}}, ZeroTangent}.
+            # Stacktrace:
+            #   [1] _backing_error(P::Type, G::Type, E::Type)
+            #     @ ChainRulesCore ~/.julia/packages/ChainRulesCore/C73ay/src/tangent_types/tangent.jl:62
+            #   [2] Tangent{Base.Broadcast.Broadcasted{Base.Broadcast.DefaultArrayStyle{1}, Nothing, typeof(-), Tuple{Float64, Vector{Float64}}}, Tuple{ZeroTangent, Tangent{Tuple{Float64, Vector{Float64}}, Tuple{Float64, ZeroTangent}}, ZeroTangent}}(backing::Tuple{ZeroTangent, Tangent{Tuple{Float64, Vector{Float64}}, Tuple{Float64, ZeroTangent}}, ZeroTangent})
+            #     @ ChainRulesCore ~/.julia/packages/ChainRulesCore/C73ay/src/tangent_types/tangent.jl:36
+            #   [3] (Tangent{Base.Broadcast.Broadcasted{Base.Broadcast.DefaultArrayStyle{1}, Nothing, typeof(-), Tuple{Float64, Vector{Float64}}}})(::ZeroTangent, ::Vararg{Any})
+            #     @ ChainRulesCore ~/.julia/packages/ChainRulesCore/C73ay/src/tangent_types/tangent.jl:48
+            #   [4] partial(x::Diffractor.CompositeBundle{1, Base.Broadcast.Broadcasted{Base.Broadcast.DefaultArrayStyle{1}, Nothing, typeof(-), Tuple{Float64, Vector{Float64}}}, Tuple{Diffractor.TangentBundle{1, typeof(-), Diffractor.UniformTangent{ZeroTangent}}, Diffractor.CompositeBundle{1, Tuple{Float64, Vector{Float64}}, Tuple{Diffractor.TangentBundle{1, Float64, Diffractor.ExplicitTangent{Tuple{Float64}}}, Diffractor.TangentBundle{1, Vector{Float64}, Diffractor.UniformTangent{ZeroTangent}}}}, Diffractor.TangentBundle{1, Nothing, Diffractor.UniformTangent{ZeroTangent}}}}, i::Int64)
+            #     @ Diffractor ~/.julia/dev/Diffractor/src/stage1/forward.jl:7
             continue
         end
 

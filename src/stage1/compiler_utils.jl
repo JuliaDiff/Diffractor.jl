@@ -23,7 +23,7 @@ function Base.setindex!(ir::Core.Compiler.IRCode, ni::NewInstruction, i::Int)
     stmt = ir.stmts[i]
     stmt.inst = ni.stmt
     stmt.type = ni.type
-    stmt.flag = ni.flag
+    stmt.flag = something(ni.flag, 0)  # fixes 1.9?
     stmt.line = something(ni.line, 0)
     ni
 end
@@ -31,7 +31,13 @@ end
 function Base.push!(ir::IRCode, ni::NewInstruction)
     # TODO: This should be a check in insert_node!
     @assert length(ir.new_nodes.stmts) == 0
-    ir[Core.Compiler.add!(ir.stmts)] = ni
+    @static if isdefined(Core.Compiler, :add!)
+        # Julia 1.7 & 1.8
+        ir[Core.Compiler.add!(ir.stmts)] = ni
+    else
+        # Re-named in https://github.com/JuliaLang/julia/pull/47051
+        ir[Core.Compiler.add_new_idx!(ir.stmts)] = ni
+    end
     ir
 end
 
@@ -47,3 +53,9 @@ end
 
 Base.lastindex(x::Core.Compiler.InstructionStream) =
     Core.Compiler.length(x)
+
+# Solves an error after https://github.com/JuliaLang/julia/pull/46961
+# as does https://github.com/FluxML/IRTools.jl/pull/101
+if isdefined(Core.Compiler, :CallInfo)
+    Base.convert(::Type{Core.Compiler.CallInfo}, ::Nothing) = Core.Compiler.NoCallInfo()
+end

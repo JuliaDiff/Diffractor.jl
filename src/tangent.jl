@@ -260,7 +260,7 @@ function StructArrays.staticschema(::Type{<:TaylorBundle{N, B}}) where {N, B}
     Tuple{B, Vararg{Any, N}}
 end
 
-function StructArrays.component(m::TaylorBundle{N, B}, i::Int) where {N, B, T}
+function StructArrays.component(m::TaylorBundle{N, B}, i::Int) where {N, B}
     i == 1 && return m.primal
     return m.coeffs[i - 1]
 end

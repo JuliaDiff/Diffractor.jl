@@ -23,7 +23,7 @@ function Base.show(io::IO, cc::AbstractCompClosure)
     end
 end
 
-widenconst(::AbstractCompClosure) = CompClosure
+widenconst(::AbstractCompClosure) = Core.OpaqueClosure
 
 struct RRuleInfo
     rrule_rt

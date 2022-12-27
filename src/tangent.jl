@@ -78,51 +78,20 @@ function Base.getindex(a::AbstractTangentBundle, b::TaylorTangentIndex)
     error("$(typeof(a)) is not taylor-like. Taylor indexing is ambiguous")
 end
 
-"""
-    struct TangentBundle{N, B, P}
+abstract type AbstractTangentSpace; end
 
-A fully explicit coordinate representation of the tangent bundle.
-Represented by a primal value in `B` and a vector of `2^(N-1)` partials.
 """
-struct TangentBundle{N, B, P} <: AbstractTangentBundle{N, B}
-    primal::B
+    struct ExplicitTangent{P}
+
+A fully explicit coordinate representation of the tangent space,
+represented by a vector of `2^(N-1)` partials.
+"""
+struct ExplicitTangent{P <: Tuple} <: AbstractTangentSpace
     partials::P
 end
 
-check_tangent_invariant(lp, N) = @assert lp == 2^N - 1
-@ChainRulesCore.non_differentiable check_tangent_invariant(lp, N)
-
-function TangentBundle{N}(primal::B, partials::P) where {N, B, P}
-    check_tangent_invariant(length(partials), N)
-    TangentBundle{N, Core.Typeof(primal), P}(primal, partials)
-end
-
-function TangentBundle{N,B}(primal::B, partials::P) where {N, B, P}
-    check_tangent_invariant(length(partials), N)
-    TangentBundle{N, B, P}(primal, partials)
-end
-
-function Base.show(io::IO, x::TangentBundle)
-    print(io, x.primal)
-    print(io, " + ")
-    print(io, x.partials[1], " ∂₁")
-    length(x.partials) >= 2 && print(io, " + ", x.partials[2], " ∂₂")
-    length(x.partials) >= 3 && print(io, " + ", x.partials[3], " ∂₁ ∂₂")
-    length(x.partials) >= 4 && print(io, " + ", x.partials[4], " ∂₃")
-    length(x.partials) >= 5 && print(io, " + ", x.partials[5], " ∂₁ ∂₃")
-    length(x.partials) >= 6 && print(io, " + ", x.partials[6], " ∂₂ ∂₃")
-    length(x.partials) >= 7 && print(io, " + ", x.partials[7], " ∂₁ ∂₂ ∂₃")
-end
-
-function Base.getindex(a::TangentBundle{N}, b::TaylorTangentIndex) where {N}
-    if b.i === N
-        return a.partials[end]
-    end
-    error("$(typeof(a)) is not taylor-like. Taylor indexing is ambiguous")
-end
-
 """
-    struct TaylorBundle{N, B, P}
+    struct TaylorTangent{C}
 
 The taylor bundle construction mods out the full N-th order tangent bundle
 by the equivalence relation that coefficients of like-order basis elements be
@@ -143,16 +112,91 @@ This restriction forms a submanifold of the original manifold. The naming is
 by analogy with the (truncated) Taylor series
 
     c₀ + c₁ x + 1/2 c₂ x² + 1/3! c₃ x³ + O(x⁴)
+"""
+struct TaylorTangent{C <: Tuple} <: AbstractTangentSpace
+    coeffs::C
+end
 
 """
-struct TaylorBundle{N, B, P} <: AbstractTangentBundle{N, B}
-    primal::B
-    coeffs::P
+    struct ProductTangent{T <: Tuple{Vararg{AbstractTangentSpace}}}
 
-    function TaylorBundle{N, B}(primal::B, coeffs::P) where {N, B, P}
-        check_taylor_invariants(coeffs, primal, N)
-        new{N, B, P}(primal, coeffs)
+Represents the product space of the given representations of the
+tangent space.
+"""
+struct ProductTangent{T <: Tuple} <: AbstractTangentSpace
+    factors::T
+end
+
+"""
+    struct UniformTangent
+
+Represents an N-th order tangent bundle with all unform partials. Particularly
+useful for representing singleton values.
+"""
+struct UniformTangent{U} <: AbstractTangentSpace
+    val::U
+end
+
+"""
+    struct TangentBundle{N, B, P}
+
+Represents a tangent bundle as an explicit primal together
+with some representation of (potentially a product of) the tangent space.
+"""
+struct TangentBundle{N, B, P <: AbstractTangentSpace} <: AbstractTangentBundle{N, B}
+    primal::B
+    tangent::P
+    TangentBundle{N, B, P}(primal::B, tangent::P) where {N, B, P} = new{N, B, P}(primal, tangent)
+end
+
+TangentBundle{N}(primal::B, tangent::P) where {N, B, P<:AbstractTangentSpace} =
+    TangentBundle{N, B, P}(primal, tangent)
+
+const ExplicitTangentBundle{N, B, P} = TangentBundle{N, B, ExplicitTangent{P}}
+
+check_tangent_invariant(lp, N) = @assert lp == 2^N - 1
+@ChainRulesCore.non_differentiable check_tangent_invariant(lp, N)
+
+function ExplicitTangentBundle{N}(primal::B, partials::P) where {N, B, P}
+    check_tangent_invariant(length(partials), N)
+    TangentBundle{N, Core.Typeof(primal), ExplicitTangent{P}}(primal, ExplicitTangent{P}(partials))
+end
+
+function ExplicitTangentBundle{N,B}(primal::B, partials::P) where {N, B, P}
+    check_tangent_invariant(length(partials), N)
+    TangentBundle{N, B, ExplicitTangent{P}}(primal, ExplicitTangent{P}(partials))
+end
+
+function ExplicitTangentBundle{N,B,P}(primal::B, partials::P) where {N, B, P}
+    check_tangent_invariant(length(partials), N)
+    TangentBundle{N, B, ExplicitTangent{P}}(primal, ExplicitTangent{P}(partials))
+end
+
+function Base.show(io::IO, x::ExplicitTangentBundle)
+    print(io, x.primal)
+    print(io, " + ")
+    x = x.tangent
+    print(io, x.partials[1], " ∂₁")
+    length(x.partials) >= 2 && print(io, " + ", x.partials[2], " ∂₂")
+    length(x.partials) >= 3 && print(io, " + ", x.partials[3], " ∂₁ ∂₂")
+    length(x.partials) >= 4 && print(io, " + ", x.partials[4], " ∂₃")
+    length(x.partials) >= 5 && print(io, " + ", x.partials[5], " ∂₁ ∂₃")
+    length(x.partials) >= 6 && print(io, " + ", x.partials[6], " ∂₂ ∂₃")
+    length(x.partials) >= 7 && print(io, " + ", x.partials[7], " ∂₁ ∂₂ ∂₃")
+end
+
+function Base.getindex(a::ExplicitTangentBundle{N}, b::TaylorTangentIndex) where {N}
+    if b.i === N
+        return a.tangent.partials[end]
     end
+    error("$(typeof(a)) is not taylor-like. Taylor indexing is ambiguous")
+end
+
+const TaylorBundle{N, B, P} = TangentBundle{N, B, TaylorTangent{P}}
+
+function TaylorBundle{N, B}(primal::B, coeffs::P) where {N, B, P}
+    check_taylor_invariants(coeffs, primal, N)
+    TangentBundle{N, B, TaylorTangent{P}}(primal, TaylorTangent{P}(coeffs))
 end
 
 function check_taylor_invariants(coeffs, primal, N)
@@ -167,31 +211,23 @@ function TaylorBundle{N}(primal, coeffs) where {N}
     TaylorBundle{N, Core.Typeof(primal)}(primal, coeffs)
 end
 
-Base.getindex(tb::TaylorBundle, tti::TaylorTangentIndex) = tb.coeffs[tti.i]
+Base.getindex(tb::TaylorBundle, tti::TaylorTangentIndex) = tb.tangent.coeffs[tti.i]
 function Base.getindex(tb::TaylorBundle, tti::CanonicalTangentIndex)
-    tb.coeffs[count_ones(tti.i)]
+    tb.tangent.coeffs[count_ones(tti.i)]
 end
 
-"""
-    struct UniformBundle{N, B}
-
-Represents an N-th order tangent bundle with all unform partials. Particularly
-useful for representing singleton values.
-"""
-struct UniformBundle{N, B, U} <: AbstractTangentBundle{N, B}
-    primal::B
-    partial::U
-end
-UniformBundle{N, B, U}(primal::B) where {N,B,U} = UniformBundle{N, B, U}(primal, U.instance)
-UniformBundle{N, B}(primal::B, partial::U) where {N,B,U} = UniformBundle{N, Core.Typeof(primal), U}(primal, partial)
-UniformBundle{N}(primal, partial::U) where {N,U} = UniformBundle{N, Core.Typeof(primal), U}(primal, partial)
-UniformBundle{N, <:Any, U}(primal, partial::U) where {N, U} = UniformBundle{N, Core.Typeof(primal), U}(primal, U.instance)
-UniformBundle{N, <:Any, U}(primal) where {N, U} = UniformBundle{N, Core.Typeof(primal), U}(primal, U.instance)
+const UniformBundle{N, B, U} = TangentBundle{N, B, UniformTangent{U}}
+UniformBundle{N, B, U}(primal::B, partial::U) where {N,B,U} = UniformBundle{N, B, U}(primal, UniformTangent{U}(partial))
+UniformBundle{N, B, U}(primal::B) where {N,B,U} = UniformBundle{N, B, U}(primal, UniformTangent{U}(U.instance))
+UniformBundle{N, B}(primal::B, partial::U) where {N,B,U} = UniformBundle{N, Core.Typeof(primal), U}(primal, UniformTangent{U}(partial))
+UniformBundle{N}(primal, partial::U) where {N,U} = UniformBundle{N, Core.Typeof(primal), U}(primal, UniformTangent{U}(partial))
+UniformBundle{N, <:Any, U}(primal, partial::U) where {N, U} = UniformBundle{N, Core.Typeof(primal), U}(primal, UniformTangent{U}(U.instance))
+UniformBundle{N, <:Any, U}(primal) where {N, U} = UniformBundle{N, Core.Typeof(primal), U}(primal, UniformTangent{U}(U.instance))
 
 const ZeroBundle{N, B} = UniformBundle{N, B, ZeroTangent}
 const DNEBundle{N, B} = UniformBundle{N, B, NoTangent}
 
-Base.getindex(u::UniformBundle, ::TaylorTangentIndex) = u.partial
+Base.getindex(u::UniformBundle, ::TaylorTangentIndex) = u.tangent.val
 
 """
     TupleTangentBundle{N, B <: Tuple}
@@ -226,26 +262,26 @@ end
 expand_singleton_to_array(asize, a::AbstractZero) = fill(a, asize...)
 expand_singleton_to_array(asize, a::AbstractArray) = a
 
-function unbundle(atb::TangentBundle{Order, A}) where {Order, Dim, T, A<:AbstractArray{T, Dim}}
+function unbundle(atb::ExplicitTangentBundle{Order, A}) where {Order, Dim, T, A<:AbstractArray{T, Dim}}
     asize = size(atb.primal)
-    StructArray{TangentBundle{Order, T}}((atb.primal, map(a->expand_singleton_to_array(asize, a), atb.partials)...))
+    StructArray{ExplicitTangentBundle{Order, T}}((atb.primal, map(a->expand_singleton_to_array(asize, a), atb.tangent.partials)...))
 end
 
-function StructArrays.staticschema(::Type{<:TangentBundle{N, B, T}}) where {N, B, T}
+function StructArrays.staticschema(::Type{<:ExplicitTangentBundle{N, B, T}}) where {N, B, T}
     Tuple{B, T.parameters...}
 end
 
-function StructArrays.component(m::TangentBundle{N, B, T}, i::Int) where {N, B, T}
+function StructArrays.component(m::ExplicitTangentBundle{N, B, T}, i::Int) where {N, B, T}
     i == 1 && return m.primal
-    return m.partials[i - 1]
+    return m.tangent.partials[i - 1]
 end
 
-function StructArrays.createinstance(T::Type{<:TangentBundle}, args...)
+function StructArrays.createinstance(T::Type{<:ExplicitTangentBundle}, args...)
     T(first(args), Base.tail(args))
 end
 
 function unbundle(atb::TaylorBundle{Order, A}) where {Order, Dim, T, A<:AbstractArray{T, Dim}}
-    StructArray{TaylorBundle{Order, T}}((atb.primal, atb.coeffs...))
+    StructArray{TaylorBundle{Order, T}}((atb.primal, atb.tangent.coeffs...))
 end
 
 function ChainRulesCore.rrule(::typeof(unbundle), atb::TaylorBundle)
@@ -262,7 +298,7 @@ end
 
 function StructArrays.component(m::TaylorBundle{N, B}, i::Int) where {N, B}
     i == 1 && return m.primal
-    return m.coeffs[i - 1]
+    return m.tangent.coeffs[i - 1]
 end
 
 function StructArrays.createinstance(T::Type{<:TaylorBundle}, args...)
@@ -270,7 +306,7 @@ function StructArrays.createinstance(T::Type{<:TaylorBundle}, args...)
 end
 
 function unbundle(zb::ZeroBundle{N, A}) where {N,T,Dim,A<:AbstractArray{T, Dim}}
-    StructArray{ZeroBundle{N, T}}((zb.primal, fill(zb.partial, size(zb.primal)...)))
+    StructArray{ZeroBundle{N, T}}((zb.primal, fill(zb.tangent.val, size(zb.primal)...)))
 end
 
 function ChainRulesCore.rrule(::typeof(unbundle), atb::ZeroBundle)
@@ -281,11 +317,11 @@ function StructArrays.createinstance(T::Type{<:ZeroBundle}, args...)
     T(args[1], args[2])
 end
 
-function rebundle(A::AbstractArray{<:TangentBundle{N}}) where {N}
-    TangentBundle{N}(
+function rebundle(A::AbstractArray{<:ExplicitTangentBundle{N}}) where {N}
+    ExplicitTangentBundle{N}(
         map(x->x.primal, A),
         ntuple(2^N-1) do i
-            map(x->x.partials[i], A)
+            map(x->x.tangent.partials[i], A)
         end)
 end
 
@@ -293,7 +329,7 @@ function rebundle(A::AbstractArray{<:TaylorBundle{N}}) where {N}
     TaylorBundle{N}(
         map(x->x.primal, A),
         ntuple(N) do i
-            map(x->x.coeffs[i], A)
+            map(x->x.tangent.coeffs[i], A)
         end)
 end
 

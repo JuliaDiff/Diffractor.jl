@@ -13,6 +13,8 @@ const bwd = Diffractor.PrimeDerivativeBack
 
 @testset verbose=true "Diffractor.jl" begin  # overall testset, ensures all tests run
 
+include("stage2_fwd.jl")
+
 # Unit tests
 function tup2(f)
     a, b = ∂⃖{2}()(f, 1)

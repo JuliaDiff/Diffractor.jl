@@ -4,6 +4,8 @@ using StructArrays
 
 export ∂⃖, gradient
 
+const CC = Core.Compiler
+
 include("runtime.jl")
 include("interface.jl")
 include("utils.jl")
@@ -21,7 +23,11 @@ include("stage2/interpreter.jl")
 include("stage2/lattice.jl")
 include("stage2/abstractinterpret.jl")
 include("stage2/tfuncs.jl")
+include("stage2/forward.jl")
 
+include("codegen/forward.jl")
+include("analysis/forward.jl")
+include("codegen/forward_demand.jl")
 include("codegen/reverse.jl")
 
 include("extra_rules.jl")

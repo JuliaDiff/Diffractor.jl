@@ -2,65 +2,74 @@ import Core.Compiler: abstract_call_gf_by_type, abstract_call
 using Core.Compiler: Const, isconstType, argtypes_to_type, tuple_tfunc, Const,
     getfield_tfunc, _methods_by_ftype, VarTable, cache_lookup, nfields_tfunc,
     ArgInfo, singleton_type, CallMeta, MethodMatchInfo, specialize_method,
-    PartialOpaque, UnionSplitApplyCallInfo, typeof_tfunc, apply_type_tfunc, instanceof_tfunc
+    PartialOpaque, UnionSplitApplyCallInfo, typeof_tfunc, apply_type_tfunc, instanceof_tfunc,
+    StmtInfo
 using Core: PartialStruct
 using Base.Meta
 
 function Core.Compiler.abstract_call_gf_by_type(interp::ADInterpreter, @nospecialize(f),
-        arginfo::ArgInfo, @nospecialize(atype), sv::InferenceState, max_methods::Int)
+        arginfo::ArgInfo, si::StmtInfo, @nospecialize(atype), sv::InferenceState, max_methods::Int)
     (;argtypes) = arginfo
-    if f isa ∂⃖recurse
-        inner_argtypes = argtypes[2:end]
-        ft = inner_argtypes[1]
-        f = singleton_type(ft)
-        rinterp = raise_level(interp)
-        call = abstract_call_gf_by_type(rinterp, f, ArgInfo(nothing, inner_argtypes), argtypes_to_type(inner_argtypes), sv, max_methods)
-        if isa(call.info, MethodMatchInfo)
-            if length(call.info.results.matches) == 0
-                @show inner_argtypes
+    if interp.backward
+        if f isa ∂⃖recurse
+            inner_argtypes = argtypes[2:end]
+            ft = inner_argtypes[1]
+            f = singleton_type(ft)
+            rinterp = raise_level(interp)
+            call = abstract_call_gf_by_type(rinterp, f, ArgInfo(nothing, inner_argtypes), argtypes_to_type(inner_argtypes), sv, max_methods)
+            if isa(call.info, MethodMatchInfo)
+                if length(call.info.results.matches) == 0
+                    @show inner_argtypes
+                    error()
+                end
+                mi = specialize_method(call.info.results.matches[1], preexisting=true)
+                ci = get(rinterp.unopt[rinterp.current_level], mi, nothing)
+                clos = AbstractCompClosure(rinterp.current_level, 1, call.info, ci.stmt_info)
+                clos = Core.PartialOpaque(Core.OpaqueClosure{<:Tuple, <:Any}, nothing, sv.linfo, clos)
+            elseif isa(call.info, RRuleInfo)
+                if rinterp.current_level == 1
+                    clos = getfield_tfunc(call.info.rrule_rt, Const(2))
+                else
+                    name = call.info.info.results.matches[1].method.sig.parameters[2].name.mt.name
+                    clos = PrimClosure(name, rinterp.current_level - 1, 1, getfield_tfunc(call.info.rrule_rt, Const(2)), call.info, nothing)
+                end
+            end
+            # TODO: use abstract_new instead, when it exists
+            obtype = instanceof_tfunc(apply_type_tfunc(Const(OpticBundle), typeof_tfunc(call.rt)))[1]
+            if obtype isa DataType
+                rt2 = PartialStruct(obtype, Any[call.rt, clos])
+            else
+                rt2 = obtype
+            end
+            return CallMeta(rt2, call.effects, RecurseInfo(call.info))
+        end
+
+        # Check if there is a rrule for this function
+        if interp.current_level != 0 && f !== ChainRules.rrule
+            rrule_argtypes = Any[Const(ChainRules.rrule); argtypes]
+            rrule_atype = argtypes_to_type(rrule_argtypes)
+            # In general we want the forward type of an rrule'd function to match
+            # what the function itself would have returned, but let's support this
+            # not being the case.
+            if f == accum
                 error()
             end
-            mi = specialize_method(call.info.results.matches[1], preexisting=true)
-            ci = get(rinterp.unopt[rinterp.current_level], mi, nothing)
-            clos = AbstractCompClosure(rinterp.current_level, 1, call.info, ci.stmt_info)
-            clos = Core.PartialOpaque(Core.OpaqueClosure{<:Tuple, <:Any}, nothing, sv.linfo, clos)
-        elseif isa(call.info, RRuleInfo)
-            if rinterp.current_level == 1
-                clos = getfield_tfunc(call.info.rrule_rt, Const(2))
-            else
-                name = call.info.info.results.matches[1].method.sig.parameters[2].name.mt.name
-                clos = PrimClosure(name, rinterp.current_level - 1, 1, getfield_tfunc(call.info.rrule_rt, Const(2)), call.info, nothing)
+            call = abstract_call_gf_by_type(lower_level(interp), ChainRules.rrule, ArgInfo(nothing, rrule_argtypes), rrule_atype, sv, -1)
+            if call.rt != Const(nothing)
+                return CallMeta(getfield_tfunc(call.rt, Const(1)), call.effects, RRuleInfo(call.rt, call.info))
             end
         end
-        # TODO: use abstract_new instead, when it exists
-        obtype = instanceof_tfunc(apply_type_tfunc(Const(OpticBundle), typeof_tfunc(call.rt)))[1]
-        if obtype isa DataType
-            rt2 = PartialStruct(obtype, Any[call.rt, clos])
-        else
-            rt2 = obtype
-        end
-        return CallMeta(rt2, call.effects, RecurseInfo(call.info))
     end
 
-    # Check if there is a rrule for this function
-    if interp.current_level != 0 && f !== ChainRules.rrule
-        rrule_argtypes = Any[Const(ChainRules.rrule); argtypes]
-        rrule_atype = argtypes_to_type(rrule_argtypes)
-        # In general we want the forward type of an rrule'd function to match
-        # what the function itself would have returned, but let's support this
-        # not being the case.
-        if f == accum
-            error()
-        end
-        call = abstract_call_gf_by_type(lower_level(interp), ChainRules.rrule, ArgInfo(nothing, rrule_argtypes), rrule_atype, sv, -1)
-        if call.rt != Const(nothing)
-            return CallMeta(getfield_tfunc(call.rt, Const(1)), call.effects, RRuleInfo(call.rt, call.info))
+    ret = @invoke CC.abstract_call_gf_by_type(interp::AbstractInterpreter, f::Any,
+        arginfo::ArgInfo, si::StmtInfo, atype::Any, sv::InferenceState, max_methods::Int)
+
+    if interp.forward
+        r = fwd_abstract_call_gf_by_type(interp, f, arginfo, si, sv, ret)
+        if r !== nothing
+            return r
         end
     end
-
-    ret = invoke(abstract_call_gf_by_type,
-        Tuple{AbstractInterpreter, Any, ArgInfo, Any, InferenceState, Int},
-        interp, f, arginfo, atype, sv, max_methods)
 
     return ret
 end

@@ -35,6 +35,10 @@ using Core.Compiler: AbstractInterpreter, NativeInterpreter, InferenceState,
     InferenceResult, CodeInstance, WorldRange
 
 struct ADInterpreter <: AbstractInterpreter
+    # Modes settings
+    forward::Bool
+    backward::Bool
+
     # This cache is stratified by AD nesting level. Depending on the
     # nesting level of the derivative, The AD primitives may behave
     # differently.
@@ -53,6 +57,8 @@ end
 change_level(interp::ADInterpreter, new_level::Int) = ADInterpreter(interp.opt, interp.unopt, interp.transformed, interp.native_interpreter, new_level, interp.msgs)
 raise_level(interp::ADInterpreter) = change_level(interp, interp.current_level + 1)
 lower_level(interp::ADInterpreter) = change_level(interp, interp.current_level - 1)
+
+disable_forward(interp::ADInterpreter) = ADInterpreter(false, interp.backward, interp.opt, interp.unopt, interp.transformed, interp.native_interpreter, interp.current_level, interp.msgs)
 
 Cthulhu.get_optimized_codeinst(interp::ADInterpreter, curs::ADCursor) = (curs.transformed ? interp.transformed : interp.opt)[curs.level][curs.mi]
 Cthulhu.AbstractCursor(interp::ADInterpreter, mi::MethodInstance) = ADCursor(0, mi, false)
@@ -213,7 +219,7 @@ function Cthulhu.process_info(interp::ADInterpreter, @nospecialize(info), argtyp
         interp, info, argtypes, rt, optimize)
 end
 
-ADInterpreter() = ADInterpreter(
+ADInterpreter(;forward = false, backward=true) = ADInterpreter(forward, backward,
     OffsetVector([Dict{MethodInstance, CodeInstance}(), Dict{MethodInstance, CodeInstance}()], 0:1),
     OffsetVector([Dict{MethodInstance, Cthulhu.InferredSource}(), Dict{MethodInstance, Cthulhu.InferredSource}()], 0:1),
     OffsetVector([Dict{MethodInstance, CodeInstance}(), Dict{MethodInstance, CodeInstance}()], 0:1),
@@ -231,8 +237,8 @@ Core.Compiler.get_world_counter(ei::ADInterpreter) = get_world_counter(ei.native
 Core.Compiler.get_inference_cache(ei::ADInterpreter) = get_inference_cache(ei.native_interpreter)
 
 # No need to do any locking since we're not putting our results into the runtime cache
-lock_mi_inference(ei::ADInterpreter, mi::MethodInstance) = nothing
-unlock_mi_inference(ei::ADInterpreter, mi::MethodInstance) = nothing
+Core.Compiler.lock_mi_inference(ei::ADInterpreter, mi::MethodInstance) = nothing
+Core.Compiler.unlock_mi_inference(ei::ADInterpreter, mi::MethodInstance) = nothing
 
 struct CodeInfoView
     d::Dict{MethodInstance, Any}
@@ -280,9 +286,8 @@ function Core.Compiler.finish(state::InferenceState, interp::ADInterpreter)
 end
 
 function Core.Compiler.transform_result_for_cache(interp::ADInterpreter,
-    linfo::MethodInstance, valid_worlds::WorldRange, @nospecialize(inferred_result),
-    ipo_effects::Core.Compiler.Effects)
-    return Cthulhu.create_cthulhu_source(inferred_result, ipo_effects)
+    linfo::MethodInstance, valid_worlds::WorldRange, result::InferenceResult)
+    return Cthulhu.create_cthulhu_source(result.src, result.ipo_effects)
 end
 
 #@static if isdefined(Compiler, :is_stmt_inline)

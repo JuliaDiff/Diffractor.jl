@@ -16,10 +16,6 @@ jobs:
       fail-fast: false
       matrix:
         version:
-          - '1.7'  # Lowest claimed support in Project.toml
-          # - '1'    # Latest Release  # Testing on 1.8 gives this message:
-          # ┌ Warning: ir verification broken. Either use 1.9 or 1.7
-          # └ @ Diffractor ~/work/Diffractor.jl/Diffractor.jl/src/stage1/recurse.jl:889
           - 'nightly'
         os:
           - ubuntu-latest

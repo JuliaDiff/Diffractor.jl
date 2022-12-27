@@ -238,13 +238,8 @@ function split_critical_edges!(ir)
 end
 
 function make_opaque_closure(typ, name, meth_nargs, isva, lno, cis, revs...)
-    if VERSION >= v"1.8.0-DEV.1563"
-        Expr(:new_opaque_closure, typ, Union{}, Any,
-            Expr(:opaque_closure_method, name, meth_nargs, isva, lno, cis), revs...)
-    else
-        Expr(:new_opaque_closure, typ, isva, Union{}, Any,
-            Expr(:opaque_closure_method, name, meth_nargs, lno, cis), revs...)
-    end
+    Expr(:new_opaque_closure, typ, Union{}, Any,
+        Expr(:opaque_closure_method, name, meth_nargs, isva, lno, cis), revs...)
 end
 
 Base.iterate(c::IncrementalCompact, args...) = Core.Compiler.iterate(c, args...)
@@ -265,7 +260,7 @@ function transform!(ci, meth, nargs, sparams, N)
     slotflags = UInt8[(0x00 for i = 1:2)..., ci.slotflags...]
     slottypes = UInt8[(0x00 for i = 1:2)..., ci.slotflags...]
 
-    meta = VERSION < v"1.9.0-DEV.472" ? Any[] : Expr[]
+    meta = Expr[]
     ir = IRCode(Core.Compiler.InstructionStream(code, Any[],
         Any[nothing for i = 1:length(code)],
         ci.codelocs, UInt8[0 for i = 1:length(code)]), cfg, Core.LineInfoNode[ci.linetable...],
@@ -273,13 +268,9 @@ function transform!(ci, meth, nargs, sparams, N)
 
     # SSA conversion
     domtree = construct_domtree(ir.cfg.blocks)
-    defuse_insts = scan_slot_def_use(VERSION >= v"1.8.0-DEV.267" ? Int(meth.nargs) : meth.nargs-1, ci, ir.stmts.inst)
+    defuse_insts = scan_slot_def_use(Int(meth.nargs), ci, ir.stmts.inst)
     ci.ssavaluetypes = Any[Any for i = 1:ci.ssavaluetypes]
-    if VERSION >= v"1.8.0-DEV.267"
-        ir = construct_ssa!(ci, ir, domtree, defuse_insts, Any[Any for i = 1:length(slotnames)])
-    else
-        ir = construct_ssa!(ci, ir, domtree, defuse_insts, nargs, Any[Any for i = 1:length(slotnames)])
-    end
+    ir = construct_ssa!(ci, ir, domtree, defuse_insts, Any[Any for i = 1:length(slotnames)], Core.Compiler.OptimizerLattice())
     ir = compact!(ir)
     cfg = ir.cfg
 
@@ -842,7 +833,7 @@ function transform!(ci, meth, nargs, sparams, N)
                 override = false
                 if has_terminator[active_bb]
                     terminator = compact[SSAValue(idx)]
-                    terminator = VERSION < v"1.9.0-DEV.739" ? terminator : terminator.inst
+                    terminator = terminator.inst
                     compact[SSAValue(idx)] = nothing
                     override = true
                 end
@@ -881,13 +872,7 @@ function transform!(ci, meth, nargs, sparams, N)
     ir = complete(compact)
     #@show ir
     ir = compact!(ir)
-    if VERSION < v"1.8"
-        Core.Compiler.verify_ir(ir, true)
-    elseif VERSION >= v"1.9.0-DEV.854"
-        Core.Compiler.verify_ir(ir, true, true)
-    else
-        @warn "ir verification broken. Either use 1.9 or 1.7"
-    end
+    Core.Compiler.verify_ir(ir, true, true)
 
     Core.Compiler.replace_code_newstyle!(ci, ir, nargs+1)
     ci.ssavaluetypes = length(ci.code)

@@ -1,6 +1,9 @@
 # Updated copy of the same code in Base, but with bugs fixed
-using Core.Compiler: count_added_node!, add!, NewSSAValue, add_pending!,
+using Core.Compiler: count_added_node!, NewSSAValue, add_pending!,
     StmtRange, BasicBlock
+
+# Re-named in https://github.com/JuliaLang/julia/pull/47051
+const add! = VERSION < v"1.9-" ? Core.Compiler.add! : Core.Compiler.add_inst!
 
 Base.length(c::Core.Compiler.NewNodeStream) = Core.Compiler.length(c)
 Base.setindex!(i::Instruction, args...) = Core.Compiler.setindex!(i, args...)

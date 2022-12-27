@@ -259,3 +259,6 @@ function ChainRulesCore.rrule(::DiffractorRuleConfig, ::Type{InplaceableThunk}, 
 end
 
 Base.real(z::NoTangent) = z  # TODO should be in CRC, https://github.com/JuliaDiff/ChainRulesCore.jl/pull/581
+
+# Avoid https://github.com/JuliaDiff/ChainRulesCore.jl/pull/495
+ChainRulesCore._backing_error(P::Type{<:Base.Pairs}, G::Type{<:NamedTuple}, E::Type{<:AbstractDict}) = nothing

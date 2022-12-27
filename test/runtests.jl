@@ -93,8 +93,8 @@ let var"'" = Diffractor.PrimeDerivativeBack
     @test @inferred(sin''(1.0)) == -sin(1.0)
     @test sin'''(1.0) == -cos(1.0)
     @test sin''''(1.0) == sin(1.0)
-    @test sin'''''(1.0) == cos(1.0)  # broken = VERSION >= v"1.8"
-    @test sin''''''(1.0) == -sin(1.0)  # broken = VERSION >= v"1.8"
+    @test sin'''''(1.0) == cos(1.0)
+    @test sin''''''(1.0) == -sin(1.0)
 
     f_getfield(x) = getfield((x,), 1)
     @test f_getfield'(1) == 1
@@ -229,7 +229,7 @@ z45, delta45 = frule_via_ad(DiffractorRuleConfig(), (0,1), x -> log(exp(x)), 2)
 
     @test gradient(x -> sum((exp∘log).(x)), [1,2,3]) == ([1,1,1],)  # frule_via_ad
     exp_log(x) = exp(log(x))
-    @test gradient(x -> sum(exp_log.(x)), [1,2,3]) == ([1,1,1],) 
+    @test gradient(x -> sum(exp_log.(x)), [1,2,3]) == ([1,1,1],)
     @test gradient((x,y) -> sum(x ./ y), [1 2; 3 4], [1,2]) == ([1 1; 0.5 0.5], [-3, -1.75])
     @test gradient((x,y) -> sum(x ./ y), [1 2; 3 4], 5) == ([0.2 0.2; 0.2 0.2], -0.4)
     @test gradient(x -> sum((y -> y/x).([1,2,3])), 4) == (-0.375,)  # closure
@@ -260,7 +260,7 @@ z45, delta45 = frule_via_ad(DiffractorRuleConfig(), (0,1), x -> log(exp(x)), 2)
     @test tup_adj[2] ≈ [0.6666666666666666 0.5 0.4]
     @test tup_adj[2] isa Transpose
     @test gradient(x -> sum(atan.(x, (1,2,3))), Diagonal([4,5,6]))[1] isa Diagonal
-    
+
     @test gradient(x -> sum((y -> (x*y)).([1,2,3])), 4.0) == (6.0,)  # closure
 end
 
@@ -272,12 +272,12 @@ end
     @test_broken gradient(x -> sum(gradient(x -> sum(x .^ 2 .+ x'), x)[1]), [1,2,3.0])[1] == [6,6,6]  # BoundsError: attempt to access 18-element Vector{Core.Compiler.BasicBlock} at index [0]
     @test_broken gradient(x -> sum(gradient(x -> sum((x .+ 1) .* x .- x), x)[1]), [1,2,3.0])[1] == [2,2,2]
     @test_broken gradient(x -> sum(gradient(x -> sum(x .* x ./ 2), x)[1]), [1,2,3.0])[1] == [1,1,1]
-  
+
     @test_broken gradient(x -> sum(gradient(x -> sum(exp.(x)), x)[1]), [1,2,3])[1] ≈ exp.(1:3)  # MethodError: no method matching copy(::Nothing)
     @test_broken gradient(x -> sum(gradient(x -> sum(atan.(x, x')), x)[1]), [1,2,3.0])[1] ≈ [0,0,0]
     @test_broken gradient(x -> sum(gradient(x -> sum(transpose(x) .* x), x)[1]), [1,2,3]) == ([6,6,6],) # accum(a::Transpose{Float64, Vector{Float64}}, b::ChainRulesCore.Tangent{Transpose{Int64, Vector{Int64}}, NamedTuple{(:parent,), Tuple{ChainRulesCore.NoTangent}}})
     @test_broken gradient(x -> sum(gradient(x -> sum(transpose(x) ./ x.^2), x)[1]), [1,2,3])[1] ≈ [27.675925925925927, -0.824074074074074, -2.1018518518518516]
-    
+
     @test_broken gradient(z -> gradient(x -> sum((y -> (x^2*y)).([1,2,3])), z)[1], 5.0) == (12.0,)
 end
 

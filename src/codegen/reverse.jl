@@ -13,7 +13,7 @@ function make_opaque_closure(interp, typ, name, meth_nargs, isva, lno, cis, revs
     end
 end
 
-function diffract_ir!(ir, ci, meth, N, interp=nothing, curs=nothing)
+function diffract_ir!(ir, ci, meth, sparams::Core.SimpleVector, nargs::Int, N::Int, interp=nothing, curs=nothing)
     n_closures = 2^N - 1
     cfg = ir.cfg
 
@@ -496,9 +496,11 @@ function diffract_ir!(ir, ci, meth, N, interp=nothing, curs=nothing)
                 NewInstruction(Expr(:call, tuple, ssas...), Any, Int32(0))))
     end
 
-    new_argtypes = Any[Const(∂⃖recurse), tuple_tfunc(ir.argtypes[1:nfixedargs])]
-    empty!(ir.argtypes)
-    append!(ir.argtypes, new_argtypes)
+    if interp !== nothing
+        new_argtypes = Any[Const(∂⃖recurse), tuple_tfunc(Core.Compiler.optimizer_lattice(interp), ir.argtypes[1:nfixedargs])]
+        empty!(ir.argtypes)
+        append!(ir.argtypes, new_argtypes)
+    end
 
     rev = revs[1]
     active_bb = 1

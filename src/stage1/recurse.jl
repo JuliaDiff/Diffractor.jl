@@ -269,7 +269,7 @@ function transform!(ci, meth, nargs, sparams, N)
     nfixedargs = meth.isva ? meth.nargs - 1 : meth.nargs
     meth.isva || @assert nfixedargs == nargs+1
 
-    ir = diffract_ir!(ir, ci, meth, N)
+    ir = diffract_ir!(ir, ci, meth, sparams, nargs, N)
 
     Core.Compiler.replace_code_newstyle!(ci, ir, nargs+1)
     ci.ssavaluetypes = length(ci.code)

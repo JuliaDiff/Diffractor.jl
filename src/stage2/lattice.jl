@@ -1,4 +1,4 @@
-using Core.Compiler: CodeInfo
+using Core.Compiler: CodeInfo, CallInfo, CallMeta
 import Core.Compiler: widenconst
 
 struct CompClosure; opaque; end # TODO: Is this a YAKC?
@@ -61,6 +61,21 @@ end
 struct ReifyInfo
     info
 end
+
+# Forward mode info
+struct FRuleCallInfo <: CallInfo
+    info::CallInfo
+    frule_call::CallMeta
+    FRuleCallInfo(@nospecialize(info::CallInfo), frule_call::CallMeta) = new(info, frule_call)
+end
+CC.nsplit_impl(info::FRuleCallInfo) = CC.nsplit(info.info)
+CC.getsplit_impl(info::FRuleCallInfo, idx::Int) = CC.getsplit(info.info, idx)
+CC.getresult_impl(info::FRuleCallInfo, idx::Int) = CC.getresult(info.info, idx)
+
+function Base.show(io::IO, info::FRuleCallInfo)
+    print(io, "FRuleCallInfo(", typeof(info.info), ", ", typeof(info.frule_call.info), ")")
+end
+
 
 # Helpers
 tuple_type_fields(rt) = isa(rt, PartialStruct) ? rt.fields : widenconst(rt).parameters

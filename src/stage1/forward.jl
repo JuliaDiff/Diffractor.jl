@@ -205,13 +205,15 @@ struct FwdIterate{N, T<:AbstractTangentBundle{N}}
 end
 function (f::FwdIterate)(arg::ATB{N}) where {N}
     r = ∂☆{N}()(f.f, arg)
-    primal(r) === nothing && return nothing
+    # `primal(r) === nothing` would work, but doesn't create `Conditional` in inference
+    isa(r, ATB{N, Nothing}) && return nothing
     (∂☆{N}()(ZeroBundle{N}(getindex), r, ZeroBundle{N}(1)),
      primal(∂☆{N}()(ZeroBundle{N}(getindex), r, ZeroBundle{N}(2))))
 end
-function (f::FwdIterate)(arg::ATB{N}, st) where {N}
+@Base.constprop :aggressive function (f::FwdIterate)(arg::ATB{N}, st) where {N}
     r = ∂☆{N}()(f.f, arg, ZeroBundle{N}(st))
-    primal(r) === nothing && return nothing
+    # `primal(r) === nothing` would work, but doesn't create `Conditional` in inference
+    isa(r, ATB{N, Nothing}) && return nothing
     (∂☆{N}()(ZeroBundle{N}(getindex), r, ZeroBundle{N}(1)),
      primal(∂☆{N}()(ZeroBundle{N}(getindex), r, ZeroBundle{N}(2))))
 end

@@ -28,6 +28,23 @@ for f in (sin, cos, exp)
     end
 end
 
+# TODO: It's a bit embarassing that we need to write these out, but currently the
+# compiler is not strong enough to automatically lift the frule. Let's hope we
+# can delete these in the near future.
+function (∂☆ₙ::∂☆{N})(fb::ZeroBundle{N, typeof(+)}, a::TaylorBundle{N}, b::TaylorBundle{N}) where {N}
+    TaylorBundle{N}(primal(a) + primal(b),
+        map(+, a.tangent.coeffs, b.tangent.coeffs))
+end
+
+function (∂☆ₙ::∂☆{N})(fb::ZeroBundle{N, typeof(+)}, a::TaylorBundle{N}, b::ZeroBundle{N}) where {N}
+    TaylorBundle{N}(primal(a) + primal(b), a.tangent.coeffs)
+end
+
+function (∂☆ₙ::∂☆{N})(fb::ZeroBundle{N, typeof(-)}, a::TaylorBundle{N}, b::TaylorBundle{N}) where {N}
+    TaylorBundle{N}(primal(a) - primal(b),
+        map(-, a.tangent.coeffs, b.tangent.coeffs))
+end
+
 function (::Diffractor.∂☆new{N})(B::ATB{N, Type{T}}, args::ATB{N}...) where {N, T<:SArray}
     error("Should have intercepted the constructor")
 end

@@ -47,8 +47,6 @@ function dontuse_nth_order_forward_stage2(tt::Type, order::Int=1)
     irsv = CC.IRInterpretationState(interp, ir, frame.linfo, CC.get_world_counter(interp), ir.argtypes[1:frame.linfo.def.nargs])
     ir = forward_diff!(ir, interp, frame.linfo, CC.get_world_counter(interp), vals; visit_custom!, transform!)
 
-    display(ir)
-
     ir = compact!(ir)
     return OpaqueClosure(ir)
 end

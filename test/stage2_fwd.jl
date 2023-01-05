@@ -16,7 +16,7 @@ module stage2_fwd
     let self_minus′′ = Diffractor.dontuse_nth_order_forward_stage2(Tuple{typeof(self_minus), Float64}, 2)
         # TODO: The IR for this currently contains Union{Diffractor.TangentBundle{2, Float64, Diffractor.ExplicitTangent{Tuple{Float64, Float64, Float64}}}, Diffractor.TangentBundle{2, Float64, Diffractor.TaylorTangent{Tuple{Float64, Float64}}}}
         # We should have Diffractor be able to prove uniformity
-        @test isa(self_minus′′, Core.OpaqueClosure{Tuple{Float64}, Float64})
-        @test sin′′(1.0) == -sin(1.0)
+        @test_broken isa(self_minus′′, Core.OpaqueClosure{Tuple{Float64}, Float64})
+        @test self_minus′′(1.0) == 0.
     end
 end

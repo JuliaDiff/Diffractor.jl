@@ -211,6 +211,13 @@ function TaylorBundle{N}(primal, coeffs) where {N}
     TaylorBundle{N, Core.Typeof(primal)}(primal, coeffs)
 end
 
+function Base.show(io::IO, x::TaylorBundle{1})
+    print(io, x.primal)
+    print(io, " + ")
+    x = x.tangent
+    print(io, x.coeffs[1], " ∂₁")
+end
+
 Base.getindex(tb::TaylorBundle, tti::TaylorTangentIndex) = tb.tangent.coeffs[tti.i]
 function Base.getindex(tb::TaylorBundle, tti::CanonicalTangentIndex)
     tb.tangent.coeffs[count_ones(tti.i)]

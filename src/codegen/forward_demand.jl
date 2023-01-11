@@ -1,5 +1,5 @@
 using Core.Compiler: IRInterpretationState, construct_postdomtree, PiNode,
-    is_known_call, argextype, postdominates
+    is_known_call, argextype, postdominates, userefs
 
 #=
 function forward_diff!(ir::IRCode, interp, irsv::IRInterpretationState, to_diff::Vector{Pair{SSAValue, Int}}; custom_diff! = (args...)->nothing, diff_cache=Dict{SSAValue, SSAValue}())
@@ -93,12 +93,6 @@ function forward_diff_uncached!(ir::IRCode, interp, irsv::IRInterpretationState,
         return Δtangent
     else # general frule handling
         info = inst[:info]
-        if !isa(info, FRuleCallInfo)
-            @show info
-            @show inst[:inst]
-            display(ir)
-            error()
-        end
         if isexpr(stmt, :invoke)
             args = stmt.args[2:end]
         else
@@ -196,22 +190,50 @@ function forward_diff_no_inf!(ir::IRCode, interp, mi::MethodInstance, world, to_
         forward_visit!(ir, ssa, order, ssa_orders, visit_custom!)
     end
 
+    truncation_map = Dict{Pair{SSAValue, Int}, SSAValue}()
+
     # Step 2: Transform
     function maparg(arg, ssa, order)
-        if isa(arg, Argument)
+        if isa(arg, SSAValue)
+            if arg.id > length(ssa_orders)
+                # This is possible if the custom transform touched another statement.
+                # In that case just pass this through and assume the `transform!` did
+                # it correctly.
+                return arg
+            end
+            (argorder, _) = ssa_orders[arg.id]
+            if argorder != order
+                @assert order < argorder
+                return get!(truncation_map, arg=>order) do
+                    # TODO: Other orders
+                    @assert order == 0
+                    insert_node!(ir, arg, NewInstruction(Expr(:call, primal, arg), Any), #=attach_after=#true)
+                end
+            end
+            return arg
+        elseif order == 0
+            return arg
+        elseif isa(arg, Argument)
             # TODO: Should we remember whether the callbacks wanted the arg?
             return transform!(ir, arg, order)
-        elseif isa(arg, SSAValue)
-            # TODO: Bundle truncation if necessary
-            return arg
+        elseif isa(arg, GlobalRef)
+            return insert_node!(ir, ssa, NewInstruction(Expr(:call, ZeroBundle{order}, arg), Any))
+        elseif isa(arg, QuoteNode)
+            return ZeroBundle{order}(arg.value)
         end
         @assert !isa(arg, Expr)
-        return insert_node!(ir, ssa, NewInstruction(Expr(:call, ZeroBundle{order}, arg), Any))
+        return ZeroBundle{order}(arg)
     end
 
     for (ssa, (order, custom)) in enumerate(ssa_orders)
         if order == 0
-            # TODO: Bundle truncation?
+            inst = ir[SSAValue(ssa)]
+            stmt = inst[:inst]
+            urs = userefs(stmt)
+            for ur in urs
+                ur[] = maparg(ur[], SSAValue(ssa), order)
+            end
+            inst[:inst] = urs[]
             continue
         end
         if custom
@@ -222,12 +244,16 @@ function forward_diff_no_inf!(ir::IRCode, interp, mi::MethodInstance, world, to_
             if isexpr(stmt, :invoke)
                 inst[:inst] = Expr(:call, ∂☆{order}(), map(arg->maparg(arg, SSAValue(ssa), order), stmt.args[2:end])...)
                 inst[:type] = Any
-            elseif !isa(stmt, Expr)
-                inst[:inst] = maparg(stmt, ssa, order)
+            elseif isexpr(stmt, :call)
+                inst[:inst] = Expr(:call, ∂☆{order}(), map(arg->maparg(arg, SSAValue(ssa), order), stmt.args)...)
                 inst[:type] = Any
             else
-                @show stmt
-                error()
+                urs = userefs(stmt)
+                for ur in urs
+                    ur[] = maparg(ur[], SSAValue(ssa), order)
+                end
+                inst[:inst] = urs[]
+                inst[:type] = Any
             end
         end
     end

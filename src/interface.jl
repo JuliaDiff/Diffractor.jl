@@ -177,7 +177,7 @@ raise_pd(f::PrimeDerivativeFwd{N,T}) where {N,T} = PrimeDerivativeFwd{plus1(N),T
 
 function (f::PrimeDerivativeFwd{1})(x)
     z = ∂☆¹(ZeroBundle{1}(getfield(f, :f)), ∂x(x))
-    z.tangent.partials[1]
+    z[TaylorTangentIndex(1)]
 end
 
 function (f::PrimeDerivativeFwd{N})(x) where N

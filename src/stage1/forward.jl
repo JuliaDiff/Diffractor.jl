@@ -106,7 +106,7 @@ end
 struct ∂☆internal{N}; end
 struct ∂☆shuffle{N}; end
 
-shuffle_base(r) = ExplicitTangentBundle{1}(r[1], (r[2],))
+shuffle_base(r) = TaylorBundle{1}(r[1], (r[2],))
 
 function (::∂☆internal{1})(args::AbstractTangentBundle{1}...)
     r = my_frule(args...)

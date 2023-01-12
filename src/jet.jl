@@ -57,7 +57,7 @@ end
 function Base.getindex(j::Jet{T, N}, i::Integer) where {T, N}
     (0 <= i <= N) || throw(BoundsError(j, i))
     i == 0 && return j.f₀
-    @inbounds j.fₙ[i]
+    return j.fₙ[i]
 end
 
 function deriv(j::Jet{T, N}) where {T, N}

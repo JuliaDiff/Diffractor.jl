@@ -145,9 +145,21 @@ end
         map(x->lifted_getfield(x, s), x.tangent.partials))
 end
 
+@Base.constprop :aggressive function (::∂☆{N})(f::ATB{N, typeof(getfield)}, x::TangentBundle{N}, s::ATB{N}, inbounds::ATB{N}) where {N}
+    s = primal(s)
+    ExplicitTangentBundle{N}(getfield(primal(x), s, primal(inbounds)),
+        map(x->lifted_getfield(x, s), x.tangent.partials))
+end
+
 @Base.constprop :aggressive function (::∂☆{N})(f::ATB{N, typeof(getfield)}, x::TaylorBundle{N}, s::AbstractTangentBundle{N}) where {N}
     s = primal(s)
     TaylorBundle{N}(getfield(primal(x), s),
+        map(y->lifted_getfield(y, s), x.tangent.coeffs))
+end
+
+@Base.constprop :aggressive function (::∂☆{N})(f::ATB{N, typeof(getfield)}, x::TaylorBundle{N}, s::AbstractTangentBundle{N}, inbounds::ATB{N}) where {N}
+    s = primal(s)
+    TaylorBundle{N}(getfield(primal(x), s, primal(inbounds)),
         map(y->lifted_getfield(y, s), x.tangent.coeffs))
 end
 
@@ -157,12 +169,6 @@ end
 
 @Base.constprop :aggressive function (::∂☆{N})(::ATB{N, typeof(getfield)}, x::CompositeBundle{N, B}, s::AbstractTangentBundle{N, Symbol}) where {N, B}
     x.tup[Base.fieldindex(B, primal(s))]
-end
-
-@Base.constprop :aggressive function (::∂☆{N})(f::ATB{N, typeof(getfield)}, x::ATB{N}, s::ATB{N}, inbounds::ATB{N}) where {N}
-    s = primal(s)
-    ExplicitTangentBundle{N}(getfield(primal(x), s, primal(inbounds)),
-        map(x->lifted_getfield(x, s), x.tangent.partials))
 end
 
 @Base.constprop :aggressive function (::∂☆{N})(f::ATB{N, typeof(getfield)}, x::UniformBundle{N, <:Any, U}, s::AbstractTangentBundle{N}) where {N, U}

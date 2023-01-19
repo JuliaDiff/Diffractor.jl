@@ -172,7 +172,7 @@ function ChainRules.rrule(::DiffractorRuleConfig, ::Type{SArray{S, T, N, L}}, x:
 end
 
 function ChainRules.frule((_, ∂x), ::Type{SArray{S, T, N, L}}, x::NTuple{L,T}) where {S, T, N, L}
-    SArray{S, T, N, L}(x), SArray{S, T, N, L}(∂x)
+    SArray{S, T, N, L}(x), SArray{S, T, N, L}(∂x.backing)
 end
 
 function ChainRules.frule((_, ∂x), ::Type{SArray{S, T, N, L}}, x::NTuple{L,Any}) where {S, T, N, L}

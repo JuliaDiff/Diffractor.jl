@@ -1,5 +1,5 @@
 using Core.Compiler: IRInterpretationState, construct_postdomtree, PiNode,
-    is_known_call, argextype, postdominates, userefs
+    is_known_call, argextype, postdominates, userefs, PhiCNode, UpsilonNode
 
 #=
 function forward_diff!(ir::IRCode, interp, irsv::IRInterpretationState, to_diff::Vector{Pair{SSAValue, Int}}; custom_diff! = (args...)->nothing, diff_cache=Dict{SSAValue, SSAValue}())
@@ -205,9 +205,11 @@ function forward_diff_no_inf!(ir::IRCode, interp, mi::MethodInstance, world, to_
             if argorder != order
                 @assert order < argorder
                 return get!(truncation_map, arg=>order) do
-                    # TODO: Other orders
-                    @assert order == 0
-                    insert_node!(ir, arg, NewInstruction(Expr(:call, primal, arg), Any), #=attach_after=#true)
+                    if order == 0
+                        insert_node!(ir, arg, NewInstruction(Expr(:call, primal, arg), Any), #=attach_after=#true)
+                    else
+                        insert_node!(ir, arg, NewInstruction(Expr(:call, truncate, arg, Val{order}()), Any), #=attach_after=#true)
+                    end
                 end
             end
             return arg
@@ -247,13 +249,25 @@ function forward_diff_no_inf!(ir::IRCode, interp, mi::MethodInstance, world, to_
             elseif isexpr(stmt, :call)
                 inst[:inst] = Expr(:call, ∂☆{order}(), map(arg->maparg(arg, SSAValue(ssa), order), stmt.args)...)
                 inst[:type] = Any
-            else
+            elseif isa(stmt, PiNode)
+                # TODO: New PiNode that discriminates based on primal?
+                inst[:inst] = maparg(stmt.val, SSAValue(ssa), order)
+                inst[:type] = Any
+            elseif isa(stmt, GlobalRef)
+                inst[:inst] = maparg(stmt, SSAValue(ssa), order)
+                inst[:type] = Any
+            elseif isa(stmt, Expr) || isa(stmt, PhiNode) || isa(stmt, PhiCNode) ||
+                   isa(stmt, UpsilonNode) || isa(stmt, GotoIfNot) || isa(stmt, QuoteNode) || isa(stmt, Argument)
                 urs = userefs(stmt)
                 for ur in urs
                     ur[] = maparg(ur[], SSAValue(ssa), order)
                 end
                 inst[:inst] = urs[]
                 inst[:type] = Any
+            else
+                val = ZeroBundle{order}(inst[:inst])
+                inst[:inst] = val
+                inst[:type] = Const(val)
             end
         end
     end

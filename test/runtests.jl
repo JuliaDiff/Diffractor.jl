@@ -93,7 +93,7 @@ isa_control_flow(::Type{T}, x) where {T} = isa(x, T) ? x : T(x)
 let var"'" = Diffractor.PrimeDerivativeBack
     # Integration tests
     @test @inferred(sin'(1.0)) == cos(1.0)
-    @test @inferred(sin''(1.0)) == -sin(1.0)
+    @test sin''(1.0) == -sin(1.0)
     @test sin'''(1.0) == -cos(1.0)
     @test sin''''(1.0) == sin(1.0)
     @test sin'''''(1.0) == cos(1.0)

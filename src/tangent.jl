@@ -230,6 +230,18 @@ function Base.getindex(tb::TaylorBundle, tti::CanonicalTangentIndex)
     tb.tangent.coeffs[count_ones(tti.i)]
 end
 
+function truncate(tt::TaylorTangent, order::Val{N}) where {N}
+    TaylorTangent(tt.coeffs[1:N])
+end
+
+function truncate(ut::UniformTangent, order::Val)
+    ut
+end
+
+function truncate(tb::TangentBundle, order::Val)
+    _TangentBundle(order, tb.primal, truncate(tb.tangent, order))
+end
+
 const UniformBundle{N, B, U} = TangentBundle{N, B, UniformTangent{U}}
 UniformBundle{N, B, U}(primal::B, partial::U) where {N,B,U} = _TangentBundle(Val{N}(), primal, UniformTangent{U}(partial))
 UniformBundle{N, B, U}(primal::B) where {N,B,U} = _TangentBundle(Val{N}(), primal, UniformTangent{U}(U.instance))

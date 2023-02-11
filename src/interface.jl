@@ -64,7 +64,7 @@ dx(x) = error("Cotangent space not defined for `$(typeof(x))`. Try a real-valued
 For `x` in a one dimensional manifold, map x to the trivial, unital, 1st order
 tangent bundle. It should hold that `∀x ⟨∂x(x), dx(x)⟩ = 1`
 """
-∂x(x::Real) = ExplicitTangentBundle{1}(x, (one(x),))
+∂x(x::Real) = TaylorBundle{1}(x, (one(x),))
 ∂x(x) = error("Tangent space not defined for `$(typeof(x)).")
 
 struct ∂xⁿ{N}; end

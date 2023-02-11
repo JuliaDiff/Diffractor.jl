@@ -36,9 +36,9 @@ end
 
 function shuffle_down(b::TaylorBundle{N, B}) where {N, B}
     TaylorBundle{N-1}(
-        ExplicitTangentBundle{1}(b.primal, (b.tangent.coeffs[1],)),
+        TaylorBundle{1}(b.primal, (b.tangent.coeffs[1],)),
         ntuple(N-1) do i
-            ExplicitTangentBundle{1}(b.tangent.coeffs[i], (b.tangent.coeffs[i+1],))
+            TaylorBundle{1}(b.tangent.coeffs[i], (b.tangent.coeffs[i+1],))
         end)
 end
 
@@ -54,13 +54,8 @@ end
 function shuffle_up(r::CompositeBundle{1})
     z₀ = primal(r.tup[1])
     z₁ = partial(r.tup[1], 1)
-    z₂ = primal(r.tup[2])
     z₁₂ = partial(r.tup[2], 1)
-    if z₁ == z₂
-        return TaylorBundle{2}(z₀, (z₁, z₁₂))
-    else
-        return ExplicitTangentBundle{2}(z₀, (z₁, z₂, z₁₂))
-    end
+    return TaylorBundle{2}(z₀, (z₁, z₁₂))
 end
 
 function taylor_compatible(a::ATB{N}, b::ATB{N}) where {N}
@@ -118,7 +113,7 @@ function (::∂☆internal{1})(args::AbstractTangentBundle{1}...)
 end
 
 function ChainRulesCore.frule_via_ad(::DiffractorRuleConfig, partials, args...)
-    bundles = map((p,a) -> ExplicitTangentBundle{1}(a, (p,)), partials, args)
+    bundles = map((p,a) -> TaylorBundle{1}(a, (p,)), partials, args)
     result = ∂☆internal{1}()(bundles...)
     primal(result), first_partial(result)
 end
@@ -139,13 +134,13 @@ end
 (::∂☆{N})(args::AbstractTangentBundle{N}...) where {N} = ∂☆internal{N}()(args...)
 
 # Special case rules for performance
-@Base.constprop :aggressive function (::∂☆{N})(f::ATB{N, typeof(getfield)}, x::TangentBundle{N}, s::AbstractTangentBundle{N}) where {N}
+@Base.constprop :aggressive function (::∂☆{N})(f::ATB{N, typeof(getfield)}, x::ExplicitTangentBundle{N}, s::AbstractTangentBundle{N}) where {N}
     s = primal(s)
     ExplicitTangentBundle{N}(getfield(primal(x), s),
         map(x->lifted_getfield(x, s), x.tangent.partials))
 end
 
-@Base.constprop :aggressive function (::∂☆{N})(f::ATB{N, typeof(getfield)}, x::TangentBundle{N}, s::ATB{N}, inbounds::ATB{N}) where {N}
+@Base.constprop :aggressive function (::∂☆{N})(f::ATB{N, typeof(getfield)}, x::ExplicitTangentBundle{N}, s::ATB{N}, inbounds::ATB{N}) where {N}
     s = primal(s)
     ExplicitTangentBundle{N}(getfield(primal(x), s, primal(inbounds)),
         map(x->lifted_getfield(x, s), x.tangent.partials))

@@ -90,9 +90,8 @@ struct ExplicitTangent{P <: Tuple} <: AbstractTangentSpace
     partials::P
 end
 
-@eval struct TaylorTangent{C <: Tuple} <: AbstractTangentSpace
+struct TaylorTangent{C <: Tuple} <: AbstractTangentSpace
     coeffs::C
-    TaylorTangent(coeffs) = $(Expr(:new, :(TaylorTangent{typeof(coeffs)}), :coeffs))
 end
 
 """
@@ -140,24 +139,17 @@ struct UniformTangent{U} <: AbstractTangentSpace
     val::U
 end
 
-function _TangentBundle end
-
-@eval struct TangentBundle{N, B, P <: AbstractTangentSpace} <: AbstractTangentBundle{N, B}
-    primal::B
-    tangent::P
-    global _TangentBundle(::Val{N}, primal::B, tangent::P) where {N, B, P} = $(Expr(:new, :(TangentBundle{N, Core.Typeof(primal), typeof(tangent)}), :primal, :tangent))
-end
-
 """
     struct TangentBundle{N, B, P}
 
 Represents a tangent bundle as an explicit primal together
 with some representation of (potentially a product of) the tangent space.
 """
-TangentBundle
-
-TangentBundle{N}(primal::B, tangent::P) where {N, B, P<:AbstractTangentSpace} =
-    _TangentBundle(Val{N}(), primal, tangent)
+struct TangentBundle{N, B, P <: AbstractTangentSpace} <: AbstractTangentBundle{N, B}
+    primal::B
+    tangent::P
+    TangentBundle{N}(B, P) where {N} = new{N, typeof(B), typeof(P)}(B,P)
+end
 
 const ExplicitTangentBundle{N, B, P} = TangentBundle{N, B, ExplicitTangent{P}}
 
@@ -166,17 +158,17 @@ check_tangent_invariant(lp, N) = @assert lp == 2^N - 1
 
 function ExplicitTangentBundle{N}(primal::B, partials::P) where {N, B, P}
     check_tangent_invariant(length(partials), N)
-    _TangentBundle(Val{N}(), primal, ExplicitTangent{P}(partials))
+    TangentBundle{N}(primal, ExplicitTangent{P}(partials))
 end
 
 function ExplicitTangentBundle{N,B}(primal::B, partials::P) where {N, B, P}
     check_tangent_invariant(length(partials), N)
-    _TangentBundle(Val{N}(), primal, ExplicitTangent{P}(partials))
+    TangentBundle{N}(primal, ExplicitTangent{P}(partials))
 end
 
 function ExplicitTangentBundle{N,B,P}(primal::B, partials::P) where {N, B, P}
     check_tangent_invariant(length(partials), N)
-    _TangentBundle(Val{N}(), primal, ExplicitTangent{P}(partials))
+    TangentBundle{N}(primal, ExplicitTangent{P}(partials))
 end
 
 function Base.show(io::IO, x::ExplicitTangentBundle)
@@ -203,7 +195,7 @@ const TaylorBundle{N, B, P} = TangentBundle{N, B, TaylorTangent{P}}
 
 function TaylorBundle{N, B}(primal::B, coeffs) where {N, B}
     check_taylor_invariants(coeffs, primal, N)
-    _TangentBundle(Val{N}(), primal, TaylorTangent(coeffs))
+    TangentBundle{N}(primal, TaylorTangent(coeffs))
 end
 
 function check_taylor_invariants(coeffs, primal, N)
@@ -215,7 +207,7 @@ end
 @ChainRulesCore.non_differentiable check_taylor_invariants(coeffs, primal, N)
 
 function TaylorBundle{N}(primal, coeffs) where {N}
-    _TangentBundle(Val{N}(), primal, TaylorTangent(coeffs))
+    TangentBundle{N}(primal, TaylorTangent(coeffs))
 end
 
 function Base.show(io::IO, x::TaylorBundle{1})
@@ -230,25 +222,13 @@ function Base.getindex(tb::TaylorBundle, tti::CanonicalTangentIndex)
     tb.tangent.coeffs[count_ones(tti.i)]
 end
 
-function truncate(tt::TaylorTangent, order::Val{N}) where {N}
-    TaylorTangent(tt.coeffs[1:N])
-end
-
-function truncate(ut::UniformTangent, order::Val)
-    ut
-end
-
-function truncate(tb::TangentBundle, order::Val)
-    _TangentBundle(order, tb.primal, truncate(tb.tangent, order))
-end
-
 const UniformBundle{N, B, U} = TangentBundle{N, B, UniformTangent{U}}
-UniformBundle{N, B, U}(primal::B, partial::U) where {N,B,U} = _TangentBundle(Val{N}(), primal, UniformTangent{U}(partial))
-UniformBundle{N, B, U}(primal::B) where {N,B,U} = _TangentBundle(Val{N}(), primal, UniformTangent{U}(U.instance))
-UniformBundle{N, B}(primal::B, partial::U) where {N,B,U} = _TangentBundle(Val{N}(),primal, UniformTangent{U}(partial))
-UniformBundle{N}(primal, partial::U) where {N,U} = _TangentBundle(Val{N}(), primal, UniformTangent{U}(partial))
-UniformBundle{N, <:Any, U}(primal, partial::U) where {N, U} = _TangentBundle(Val{N}(), primal, UniformTangent{U}(U.instance))
-UniformBundle{N, <:Any, U}(primal) where {N, U} = _TangentBundle(Val{N}(), primal, UniformTangent{U}(U.instance))
+UniformBundle{N, B, U}(primal::B, partial::U) where {N,B,U} = TangentBundle{N}(primal, UniformTangent{U}(partial))
+UniformBundle{N, B, U}(primal::B) where {N,B,U} = TangentBundle{N}(primal, UniformTangent{U}(U.instance))
+UniformBundle{N, B}(primal::B, partial::U) where {N,B,U} = TangentBundle{N}(primal, UniformTangent{U}(partial))
+UniformBundle{N}(primal, partial::U) where {N,U} = TangentBundle{N}(primal, UniformTangent{U}(partial))
+UniformBundle{N, <:Any, U}(primal, partial::U) where {N, U} = TangentBundle{N}(primal, UniformTangent{U}(U.instance))
+UniformBundle{N, <:Any, U}(primal) where {N, U} = TangentBundle{N}(primal, UniformTangent{U}(U.instance))
 
 const ZeroBundle{N, B} = UniformBundle{N, B, ZeroTangent}
 const DNEBundle{N, B} = UniformBundle{N, B, NoTangent}

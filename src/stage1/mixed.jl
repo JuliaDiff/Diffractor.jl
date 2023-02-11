@@ -95,9 +95,8 @@ function (∂⃖ₙ::∂⃖{N})(∂☆ₘ::∂☆{M}, ::ZeroBundle{M, typeof(map
         ∂f = ∂☆{N+M}()(ZeroBundle{N+M}(primal(f)),
                      TaylorBundle{N+M}(x,
                        (one(x), (zero(x) for i = 1:(N+M-1))...,)))
-        @assert isa(∂f, TaylorBundle) || isa(∂f, ExplicitTangentBundle{1})
-        Jet{typeof(x), N+M}(x, ∂f.primal,
-            isa(∂f, ExplicitTangentBundle) ? ∂f.tangent.partials : ∂f.tangent.coeffs)
+        @assert isa(∂f, TaylorBundle)
+        Jet{typeof(x), N+M}(x, ∂f.primal, ∂f.tangent.coeffs)
     end
     ∂⃖ₙ(mapev_unbundled, ∂☆ₘ, js, a)
 end

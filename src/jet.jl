@@ -187,9 +187,8 @@ function (∂⃖ₙ::∂⃖{N})(::typeof(map), f, a::Array) where {N}
         ∂f = ∂☆{N}()(ZeroBundle{N}(f),
                      TaylorBundle{N}(x,
                        (one(x), (zero(x) for i = 1:(N-1))...,)))
-        @assert isa(∂f, TaylorBundle) || isa(∂f, ExplicitTangentBundle{1})
-        Jet{typeof(x), typeof(x), N}(x, ∂f.primal,
-            isa(∂f, ExplicitTangentBundle) ? ∂f.tangent.partials : ∂f.tangent.coeffs)
+        @assert isa(∂f, TaylorBundle)
+        Jet{typeof(x), typeof(x), N}(x, ∂f.primal, ∂f.tangent.coeffs)
     end
     ∂⃖ₙ(mapev, js, a)
 end
@@ -247,14 +246,4 @@ end
         TaylorBundle{$O}(j[0],
             ($((:(jet_taylor_ev(Val{$i}(), coeffs, j)) for i = 1:O)...),))
     end
-end
-
-function (j::Jet{S, T, 1} where {S,T})(x::ExplicitTangentBundle{1})
-    domain_check(j, x.primal)
-    coeffs = x.tangent.partials
-    ExplicitTangentBundle{1}(j[0], (jet_taylor_ev(Val{1}(), coeffs, j),))
-end
-
-function (j::Jet{S, T, N} where T)(x::ExplicitTangentBundle{N, M}) where {S, N, M}
-    error("TODO")
 end

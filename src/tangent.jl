@@ -80,16 +80,6 @@ end
 
 abstract type AbstractTangentSpace; end
 
-"""
-    struct ExplicitTangent{P}
-
-A fully explicit coordinate representation of the tangent space,
-represented by a vector of `2^(N-1)` partials.
-"""
-struct ExplicitTangent{P <: Tuple} <: AbstractTangentSpace
-    partials::P
-end
-
 struct TaylorTangent{C <: Tuple} <: AbstractTangentSpace
     coeffs::C
 end
@@ -151,45 +141,8 @@ struct TangentBundle{N, B, P <: AbstractTangentSpace} <: AbstractTangentBundle{N
     TangentBundle{N}(B, P) where {N} = new{N, typeof(B), typeof(P)}(B,P)
 end
 
-const ExplicitTangentBundle{N, B, P} = TangentBundle{N, B, ExplicitTangent{P}}
-
 check_tangent_invariant(lp, N) = @assert lp == 2^N - 1
 @ChainRulesCore.non_differentiable check_tangent_invariant(lp, N)
-
-function ExplicitTangentBundle{N}(primal::B, partials::P) where {N, B, P}
-    check_tangent_invariant(length(partials), N)
-    TangentBundle{N}(primal, ExplicitTangent{P}(partials))
-end
-
-function ExplicitTangentBundle{N,B}(primal::B, partials::P) where {N, B, P}
-    check_tangent_invariant(length(partials), N)
-    TangentBundle{N}(primal, ExplicitTangent{P}(partials))
-end
-
-function ExplicitTangentBundle{N,B,P}(primal::B, partials::P) where {N, B, P}
-    check_tangent_invariant(length(partials), N)
-    TangentBundle{N}(primal, ExplicitTangent{P}(partials))
-end
-
-function Base.show(io::IO, x::ExplicitTangentBundle)
-    print(io, x.primal)
-    print(io, " + ")
-    x = x.tangent
-    print(io, x.partials[1], " ∂₁")
-    length(x.partials) >= 2 && print(io, " + ", x.partials[2], " ∂₂")
-    length(x.partials) >= 3 && print(io, " + ", x.partials[3], " ∂₁ ∂₂")
-    length(x.partials) >= 4 && print(io, " + ", x.partials[4], " ∂₃")
-    length(x.partials) >= 5 && print(io, " + ", x.partials[5], " ∂₁ ∂₃")
-    length(x.partials) >= 6 && print(io, " + ", x.partials[6], " ∂₂ ∂₃")
-    length(x.partials) >= 7 && print(io, " + ", x.partials[7], " ∂₁ ∂₂ ∂₃")
-end
-
-function Base.getindex(a::ExplicitTangentBundle{N}, b::TaylorTangentIndex) where {N}
-    if b.i === N
-        return a.tangent.partials[end]
-    end
-    error("$(typeof(a)) is not taylor-like. Taylor indexing is ambiguous")
-end
 
 const TaylorBundle{N, B, P} = TangentBundle{N, B, TaylorTangent{P}}
 
@@ -268,24 +221,6 @@ end
 expand_singleton_to_array(asize, a::AbstractZero) = fill(a, asize...)
 expand_singleton_to_array(asize, a::AbstractArray) = a
 
-function unbundle(atb::ExplicitTangentBundle{Order, A}) where {Order, Dim, T, A<:AbstractArray{T, Dim}}
-    asize = size(atb.primal)
-    StructArray{ExplicitTangentBundle{Order, T}}((atb.primal, map(a->expand_singleton_to_array(asize, a), atb.tangent.partials)...))
-end
-
-function StructArrays.staticschema(::Type{<:ExplicitTangentBundle{N, B, T}}) where {N, B, T}
-    Tuple{B, T.parameters...}
-end
-
-function StructArrays.component(m::ExplicitTangentBundle{N, B, T}, i::Int) where {N, B, T}
-    i == 1 && return m.primal
-    return m.tangent.partials[i - 1]
-end
-
-function StructArrays.createinstance(T::Type{<:ExplicitTangentBundle}, args...)
-    T(first(args), Base.tail(args))
-end
-
 function unbundle(atb::TaylorBundle{Order, A}) where {Order, Dim, T, A<:AbstractArray{T, Dim}}
     StructArray{TaylorBundle{Order, T}}((atb.primal, atb.tangent.coeffs...))
 end
@@ -321,14 +256,6 @@ end
 
 function StructArrays.createinstance(T::Type{<:ZeroBundle}, args...)
     T(args[1], args[2])
-end
-
-function rebundle(A::AbstractArray{<:ExplicitTangentBundle{N}}) where {N}
-    ExplicitTangentBundle{N}(
-        map(x->x.primal, A),
-        ntuple(2^N-1) do i
-            map(x->x.tangent.partials[i], A)
-        end)
 end
 
 function rebundle(A::AbstractArray{<:TaylorBundle{N}}) where {N}

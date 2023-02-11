@@ -1,5 +1,4 @@
 partial(x::TangentBundle, i) = partial(getfield(x, :tangent), i)
-partial(x::ExplicitTangent, i) = getfield(getfield(x, :partials), i)
 partial(x::TaylorTangent, i) = getfield(getfield(x, :coeffs), i)
 partial(x::UniformTangent, i) = getfield(x, :val)
 partial(x::ProductTangent, i) = ProductTangent(map(x->partial(x, i), getfield(x, :factors)))
@@ -25,15 +24,6 @@ my_frule(::ZeroBundle{1, typeof(my_frule)}, args::ATB{1}...) = nothing
 shuffle_down(b::UniformBundle{N, B, U}) where {N, B, U} =
     UniformBundle{N-1, <:Any, U}(UniformBundle{1, B, U}(b.primal, b.tangent.val), b.tangent.val)
 
-function shuffle_down(b::ExplicitTangentBundle{N, B}) where {N, B}
-    # N.B: This depends on the special properties of the canonical tangent index order
-    ExplicitTangentBundle{N-1}(
-        ExplicitTangentBundle{1}(b.primal, (partial(b, 1),)),
-        ntuple(1<<(N-1)-1) do i
-            ExplicitTangentBundle{1}(partial(b, 2*i), (partial(b, 2*i+1),))
-        end)
-end
-
 function shuffle_down(b::TaylorBundle{N, B}) where {N, B}
     TaylorBundle{N-1}(
         TaylorBundle{1}(b.primal, (b.tangent.coeffs[1],)),
@@ -58,31 +48,12 @@ function shuffle_up(r::CompositeBundle{1})
     return TaylorBundle{2}(z₀, (z₁, z₁₂))
 end
 
-function taylor_compatible(a::ATB{N}, b::ATB{N}) where {N}
-    primal(b) === a[TaylorTangentIndex(1)] || return false
-    return all(1:(N-1)) do i
-        b[TaylorTangentIndex(i)] === a[TaylorTangentIndex(i+1)]
-    end
-end
-
-# Check whether the tangent bundle element is taylor-like
-isswifty(::TaylorBundle) = true
-isswifty(::UniformBundle) = true
-isswifty(b::CompositeBundle) = all(isswifty, b.tup)
-isswifty(::Any) = false
-
 function shuffle_up(r::CompositeBundle{N}) where {N}
     a, b = r.tup
-    if isswifty(a) && isswifty(b) && taylor_compatible(a, b)
-        return TaylorBundle{N+1}(primal(a),
-            ntuple(i->i == N+1 ?
-                b[TaylorTangentIndex(i-1)] : a[TaylorTangentIndex(i)],
-            N+1))
-    else
-        return TangentBundle{N+1}(r.tup[1].primal,
-            (r.tup[1].tangent.partials..., primal(b),
-            ntuple(i->partial(b,i), 1<<(N+1)-1)...))
-    end
+    return TaylorBundle{N+1}(primal(a),
+        ntuple(i->i == N+1 ?
+            b[TaylorTangentIndex(i-1)] : a[TaylorTangentIndex(i)],
+        N+1))
 end
 
 function shuffle_up(r::UniformBundle{N, B, U}) where {N, B, U}
@@ -134,18 +105,6 @@ end
 (::∂☆{N})(args::AbstractTangentBundle{N}...) where {N} = ∂☆internal{N}()(args...)
 
 # Special case rules for performance
-@Base.constprop :aggressive function (::∂☆{N})(f::ATB{N, typeof(getfield)}, x::ExplicitTangentBundle{N}, s::AbstractTangentBundle{N}) where {N}
-    s = primal(s)
-    ExplicitTangentBundle{N}(getfield(primal(x), s),
-        map(x->lifted_getfield(x, s), x.tangent.partials))
-end
-
-@Base.constprop :aggressive function (::∂☆{N})(f::ATB{N, typeof(getfield)}, x::ExplicitTangentBundle{N}, s::ATB{N}, inbounds::ATB{N}) where {N}
-    s = primal(s)
-    ExplicitTangentBundle{N}(getfield(primal(x), s, primal(inbounds)),
-        map(x->lifted_getfield(x, s), x.tangent.partials))
-end
-
 @Base.constprop :aggressive function (::∂☆{N})(f::ATB{N, typeof(getfield)}, x::TaylorBundle{N}, s::AbstractTangentBundle{N}) where {N}
     s = primal(s)
     TaylorBundle{N}(getfield(primal(x), s),

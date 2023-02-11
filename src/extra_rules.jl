@@ -79,7 +79,7 @@ function (::∂⃖{N})(f::typeof(*), args...) where {N}
         end
         return z
     else
-        ∂⃖p = ∂⃖{minus1(N)}()
+        ∂⃖p = ∂⃖{N-1}()
         @destruct z, z̄ = ∂⃖p(rrule_times, f, args...)
         if z === nothing
             return ∂⃖recurse{N}()(f, args...)
@@ -130,15 +130,15 @@ end
 struct NonDiffEven{N, O, P}; end
 struct NonDiffOdd{N, O, P}; end
 
-(::NonDiffOdd{N, O, P})(Δ) where {N, O, P} = (ntuple(_->ZeroTangent(), N), NonDiffEven{N, plus1(O), P}())
-(::NonDiffEven{N, O, P})(Δ...) where {N, O, P} = (ZeroTangent(), NonDiffOdd{N, plus1(O), P}())
+(::NonDiffOdd{N, O, P})(Δ) where {N, O, P} = (ntuple(_->ZeroTangent(), N), NonDiffEven{N, O+1, P}())
+(::NonDiffEven{N, O, P})(Δ...) where {N, O, P} = (ZeroTangent(), NonDiffOdd{N, O+1, P}())
 (::NonDiffOdd{N, O, O})(Δ) where {N, O} = ntuple(_->ZeroTangent(), N)
 
 # This should not happen
 (::NonDiffEven{N, O, O})(Δ...) where {N, O} = error()
 
-@Base.pure function ChainRulesCore.rrule(::DiffractorRuleConfig, ::typeof(Core.apply_type), head, args...)
-    Core.apply_type(head, args...), NonDiffOdd{plus1(plus1(length(args))), 1, 1}()
+@Base.assume_effects :total function ChainRulesCore.rrule(::DiffractorRuleConfig, ::typeof(Core.apply_type), head, args...)
+    Core.apply_type(head, args...), NonDiffOdd{length(args)+2, 1, 1}()
 end
 
 function ChainRulesCore.rrule(::DiffractorRuleConfig, ::typeof(Core.tuple), args...)

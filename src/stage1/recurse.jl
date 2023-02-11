@@ -246,6 +246,16 @@ Base.getindex(urs::Core.Compiler.UseRef, args...) = Core.Compiler.getindex(urs, 
 Base.getindex(c::Core.Compiler.IncrementalCompact, args...) = Core.Compiler.getindex(c, args...)
 Base.setindex!(c::Core.Compiler.IncrementalCompact, args...) = Core.Compiler.setindex!(c, args...)
 Base.setindex!(urs::Core.Compiler.UseRef, args...) = Core.Compiler.setindex!(urs, args...)
+
+VERSION > v"1.10.0-DEV.571" && import Core.Compiler: VarState
+function sptypes(sparams)
+    return if VERSION>v"1.10.0-DEV.571"
+        VarState[Core.Compiler.VarState.(sparams, false)...]
+    else
+        Any[sparams...]
+    end
+end
+
 function transform!(ci, meth, nargs, sparams, N)
     code = ci.code
     cfg = compute_basic_blocks(code)
@@ -257,7 +267,7 @@ function transform!(ci, meth, nargs, sparams, N)
     ir = IRCode(Core.Compiler.InstructionStream(code, Any[],
         Any[nothing for i = 1:length(code)],
         ci.codelocs, UInt8[0 for i = 1:length(code)]), cfg, Core.LineInfoNode[ci.linetable...],
-        Any[Any for i = 1:2], meta, Any[sparams...])
+        Any[Any for i = 1:2], meta, sptypes(sparams))
 
     # SSA conversion
     domtree = construct_domtree(ir.cfg.blocks)

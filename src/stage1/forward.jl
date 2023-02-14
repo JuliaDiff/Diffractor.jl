@@ -267,6 +267,8 @@ function (this::∂☆{N})(f::ZeroBundle{N, Core.IntrinsicFunction}, args::ATB{N
     ff = primal(f)
     if ff === Base.not_int
         DNEBundle{N}(ff(map(primal, args)...))
+    elseif ff === Base.lshr_int
+        ZeroBundle{N}(ff(map(primal, args)...))
     else
         error("Missing rule for intrinsic function $ff")
     end

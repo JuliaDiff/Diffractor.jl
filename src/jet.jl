@@ -1,5 +1,5 @@
 """
-    struct Jet{T, N}
+    struct Jet{S, T, N}
 
 Represents the truncated (N-1)-th order Taylor series
 
@@ -15,8 +15,8 @@ For a jet `j`, several operations are supported:
    derivatives. Mathematically this corresponds to an infinitessimal ball
    around `a`.
 """
-struct Jet{T, N}
-    a::T
+struct Jet{S, T, N}
+    a::S
     f₀::T
     fₙ::NTuple{N, T}
 end
@@ -25,13 +25,13 @@ function ChainRulesCore.rrule(::typeof(Base.getproperty), j::Jet, s)
     error("Raw getproperty not allowed in AD code")
 end
 
-function Base.:+(j1::Jet{T, N}, j2::Jet{T, N}) where {T, N}
+function Base.:+(j1::Jet{S, T, N}, j2::Jet{S, T, N}) where {S, T, N}
     @assert j1.a === j2.a
-    Jet{T, N}(j1.a, j1.f₀ + j2.f₀, map(+, j1.fₙ, j2.fₙ))
+    Jet{S, T, N}(j1.a, j1.f₀ + j2.f₀, map(+, j1.fₙ, j2.fₙ))
 end
 
-function Base.:+(j::Jet{T, N}, x::T) where {T, N}
-    Jet{T, N}(j.a, j.f₀+x, j.fₙ)
+function Base.:+(j::Jet{S, T, N}, x::T) where {S, T, N}
+    Jet{S, T, N}(j.a, j.f₀+x, j.fₙ)
 end
 
 struct One; end
@@ -44,9 +44,9 @@ function ChainRulesCore.rrule(::typeof(+), j::Jet, x::One)
     j + x, Δ->(NoTangent(), One(), ZeroTangent())
 end
 
-function Base.zero(j::Jet{T, N}) where {T, N}
+function Base.zero(j::Jet{S, T, N}) where {S, T, N}
     let z = zero(j[0])
-        Jet{T, N}(j.a, z,
+        Jet{S, T, N}(j.a, z,
             ntuple(_->z, N))
     end
 end
@@ -54,18 +54,18 @@ function ChainRulesCore.rrule(::typeof(Base.zero), j::Jet)
     zero(j), Δ->(NoTangent(), ZeroTangent())
 end
 
-function Base.getindex(j::Jet{T, N}, i::Integer) where {T, N}
+function Base.getindex(j::Jet{S, T, N}, i::Integer) where {S, T, N}
     (0 <= i <= N) || throw(BoundsError(j, i))
     i == 0 && return j.f₀
     return j.fₙ[i]
 end
 
-function deriv(j::Jet{T, N}) where {T, N}
-    Jet{T, N-1}(j.a, j.fₙ[1], Base.tail(j.fₙ))
+function deriv(j::Jet{S, T, N}) where {S, T, N}
+    Jet{S, T, N-1}(j.a, j.fₙ[1], Base.tail(j.fₙ))
 end
 
-function integrate(j::Jet{T, N}) where {T, N}
-    Jet{T, N+1}(j.a, zero(j.f₀), tuple(j.f₀, j.fₙ...))
+function integrate(j::Jet{S, T, N}) where {S, T, N}
+    Jet{S, T, N+1}(j.a, zero(j.f₀), tuple(j.f₀, j.fₙ...))
 end
 
 deriv(::NoTangent) = NoTangent()
@@ -187,9 +187,8 @@ function (∂⃖ₙ::∂⃖{N})(::typeof(map), f, a::Array) where {N}
         ∂f = ∂☆{N}()(ZeroBundle{N}(f),
                      TaylorBundle{N}(x,
                        (one(x), (zero(x) for i = 1:(N-1))...,)))
-        @assert isa(∂f, TaylorBundle) || isa(∂f, ExplicitTangentBundle{1})
-        Jet{typeof(x), N}(x, ∂f.primal,
-            isa(∂f, ExplicitTangentBundle) ? ∂f.tangent.partials : ∂f.tangent.coeffs)
+        @assert isa(∂f, TaylorBundle)
+        Jet{typeof(x), typeof(x), N}(x, ∂f.primal, ∂f.tangent.coeffs)
     end
     ∂⃖ₙ(mapev, js, a)
 end
@@ -239,7 +238,7 @@ expressions for the t′ᵢ that are hopefully easier on the compiler.
     end...)
 end
 
-@generated function (j::Jet{T, N} where T)(x::TaylorBundle{M}) where {N, M}
+@generated function (j::Jet{S, T, N} where {S, T})(x::TaylorBundle{M}) where {N, M}
     O = min(M,N)
     quote
         domain_check(j, x.primal)
@@ -247,14 +246,4 @@ end
         TaylorBundle{$O}(j[0],
             ($((:(jet_taylor_ev(Val{$i}(), coeffs, j)) for i = 1:O)...),))
     end
-end
-
-function (j::Jet{T, 1} where T)(x::ExplicitTangentBundle{1})
-    domain_check(j, x.primal)
-    coeffs = x.tangent.partials
-    ExplicitTangentBundle{1}(j[0], (jet_taylor_ev(Val{1}(), coeffs, j),))
-end
-
-function (j::Jet{T, N} where T)(x::ExplicitTangentBundle{N, M}) where {N, M}
-    error("TODO")
 end

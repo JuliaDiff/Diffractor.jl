@@ -12,7 +12,7 @@ struct ∂☆new{N}; end
 (::∂☆new{N})(B::Type, a::AbstractTangentBundle{N}...) where {N} =
     CompositeBundle{N, B}(a)
 
-@generated (::∂☆new{N})(B::Type) where {N} = return :(ZeroBundle{$N}($(Expr(:new, :B))))
+(::∂☆new{N})(B::Type) where {N} = return ZeroBundle{N}(B)
 
 # Sometimes we don't know whether or not we need to the ZeroBundle when doing
 # the transform, so this can happen - allow it for now.

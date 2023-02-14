@@ -101,12 +101,12 @@ struct ∂⃖weaveInnerOdd{N, O}; b̄; end
 end
 @Base.constprop :aggressive function (w::∂⃖weaveInnerOdd{N, O})(Δ) where {N, O}
     @destruct c, c̄ = w.b̄(Δ...)
-    return (c̄, c), ∂⃖weaveInnerEven{plus1(N), O}()
+    return (c̄, c), ∂⃖weaveInnerEven{N+1, O}()
 end
 struct ∂⃖weaveInnerEven{N, O}; end
 @Base.constprop :aggressive function (w::∂⃖weaveInnerEven{N, O})(Δ′, x...) where {N, O}
     @destruct y, ȳ  = Δ′(x...)
-    return y, ∂⃖weaveInnerOdd{plus1(N), O}(ȳ)
+    return y, ∂⃖weaveInnerOdd{N+1, O}(ȳ)
 end
 
 struct ∂⃖weaveOuterOdd{N, O}; end
@@ -115,15 +115,15 @@ struct ∂⃖weaveOuterOdd{N, O}; end
 end
 @Base.constprop :aggressive function (w::∂⃖weaveOuterOdd{N, O})((Δ′′, Δ′′′)) where {N, O}
     @destruct α, ᾱ = Δ′′′(Δ′′)
-    return (NoTangent(), α...), ∂⃖weaveOuterEven{plus1(N), O}(ᾱ)
+    return (NoTangent(), α...), ∂⃖weaveOuterEven{N+1, O}(ᾱ)
 end
 struct ∂⃖weaveOuterEven{N, O}; ᾱ end
 @Base.constprop :aggressive function (w::∂⃖weaveOuterEven{N, O})(Δ⁴...) where {N, O}
-    return w.ᾱ(Base.tail(Δ⁴)...), ∂⃖weaveOuterOdd{plus1(N), O}()
+    return w.ᾱ(Base.tail(Δ⁴)...), ∂⃖weaveOuterOdd{N+1, O}()
 end
 
 function (::∂⃖{N})(::∂⃖{1}, args...) where {N}
-    @destruct (a, ā) = ∂⃖{plus1(N)}()(args...)
+    @destruct (a, ā) = ∂⃖{N+1}()(args...)
     let O = c_order(N)
         (a, Protected{N}(@opaque Δ->begin
                 (b, b̄) = ā(Δ)
@@ -188,10 +188,10 @@ end
 (::∂⃖rruleD{N, N})(Δ...) where {N} = error("Should not be reached")
 
 # ∂⃖rrule
-@Base.pure term_depth(N) = 2^(N-2)
+term_depth(N) = 1<<(N-2)
 function (::∂⃖rrule{N})(z, z̄) where {N}
     @destruct (y, ȳ) = z
-    y, ∂⃖rruleA{term_depth(N), 1}(∂⃖{minus1(N)}(), ȳ, z̄)
+    y, ∂⃖rruleA{term_depth(N), 1}(∂⃖{N-1}(), ȳ, z̄)
 end
 
 function (::∂⃖{N})(f::Core.IntrinsicFunction, args...) where {N}
@@ -217,7 +217,7 @@ function (::∂⃖{N})(f::T, args...) where {T, N}
         end
         return z
     else
-        ∂⃖p = ∂⃖{minus1(N)}()
+        ∂⃖p = ∂⃖{N-1}()
         @destruct z, z̄ = ∂⃖p(rrule, f, args...)
         if z === nothing
             return ∂⃖recurse{N}()(f, args...)
@@ -231,7 +231,7 @@ function ChainRulesCore.rrule_via_ad(::DiffractorRuleConfig, f::T, args...) wher
     Tuple{Any, Any}(∂⃖{1}()(f, args...))
 end
 
-@Base.pure function (::∂⃖{1})(::typeof(Core.apply_type), head, args...)
+@Base.assume_effects :total function (::∂⃖{1})(::typeof(Core.apply_type), head, args...)
     return rrule(Core.apply_type, head, args...)
 end
 
@@ -284,8 +284,8 @@ struct EvenOddEven{O, P, F, G}; f::F; g::G; end
 EvenOddEven{O, P}(f::F, g::G) where {O, P, F, G} = EvenOddEven{O, P, F, G}(f, g)
 struct EvenOddOdd{O, P, F, G}; f::F; g::G; end
 EvenOddOdd{O, P}(f::F, g::G) where {O, P, F, G} = EvenOddOdd{O, P, F, G}(f, g)
-@Base.constprop :aggressive (o::EvenOddOdd{O, P, F, G})(Δ) where {O, P, F, G} = (o.f(Δ), EvenOddEven{plus1(O), P, F, G}(o.f, o.g))
-@Base.constprop :aggressive (e::EvenOddEven{O, P, F, G})(Δ...) where {O, P, F, G} = (e.g(Δ...), EvenOddOdd{plus1(O), P, F, G}(e.f, e.g))
+@Base.constprop :aggressive (o::EvenOddOdd{O, P, F, G})(Δ) where {O, P, F, G} = (o.f(Δ), EvenOddEven{O+1, P, F, G}(o.f, o.g))
+@Base.constprop :aggressive (e::EvenOddEven{O, P, F, G})(Δ...) where {O, P, F, G} = (e.g(Δ...), EvenOddOdd{O+1, P, F, G}(e.f, e.g))
 @Base.constprop :aggressive (o::EvenOddOdd{O, O})(Δ) where {O} = o.f(Δ)
 
 
@@ -363,11 +363,11 @@ struct ApplyOdd{O, P}; u; ∂⃖f; end
 struct ApplyEven{O, P}; u; ∂⃖∂⃖f; end
 @Base.constprop :aggressive function (a::ApplyOdd{O, P})(Δ) where {O, P}
     r, ∂⃖∂⃖f = a.∂⃖f(Δ)
-    (a.u(r), ApplyEven{plus1(O), P}(a.u, ∂⃖∂⃖f))
+    (a.u(r), ApplyEven{O+1, P}(a.u, ∂⃖∂⃖f))
 end
 @Base.constprop :aggressive function (a::ApplyEven{O, P})(_, _, ff, args...) where {O, P}
     r, ∂⃖∂⃖∂⃖f = Core._apply_iterate(iterate, a.∂⃖∂⃖f, (ff,), args...)
-    (r, ApplyOdd{plus1(O), P}(a.u, ∂⃖∂⃖∂⃖f))
+    (r, ApplyOdd{O+1, P}(a.u, ∂⃖∂⃖∂⃖f))
 end
 @Base.constprop :aggressive function (a::ApplyOdd{O, O})(Δ) where {O}
     r = a.∂⃖f(Δ)
@@ -381,10 +381,10 @@ function (this::∂⃖{N})(::typeof(Core._apply_iterate), iterate, f, args::Unio
 end
 
 
-@Base.pure c_order(N::Int) = 2^N - 1
+c_order(N::Int) = 1<<N - 1
 
-@Base.pure function (::∂⃖{N})(::typeof(Core.apply_type), head, args...) where {N}
-    Core.apply_type(head, args...), NonDiffOdd{plus1(plus1(length(args))), 1, c_order(N)}()
+@Base.assume_effects :total function (::∂⃖{N})(::typeof(Core.apply_type), head, args...) where {N}
+    Core.apply_type(head, args...), NonDiffOdd{length(args)+2, 1, c_order(N)}()
 end
 
 @Base.constprop :aggressive lifted_getfield(x, s) = getfield(x, s)

@@ -14,13 +14,13 @@ end
 function (x::∂⃖composeOdd)(Δ)
     b, ∂b = x.b(Δ)
     a, ∂a = x.a(b[end])
-    a, ∂⃖composeEven{N, plus1(N)}(∂a, ∂b)
+    a, ∂⃖composeEven{N, N+1}(∂a, ∂b)
 end
 
 function (x::∂⃖composeEven)(args...)
     a, ∂a = x.a(args...)
     b, ∂b = x.b(a)
-    b, ∂⃖composeOdd{N, plus1(N)}(∂a, ∂b)
+    b, ∂⃖composeOdd{N, N+1}(∂a, ∂b)
 end
 
 function (x::∂⃖composeOdd{N,N})(Δ) where {N}
@@ -95,9 +95,8 @@ function (∂⃖ₙ::∂⃖{N})(∂☆ₘ::∂☆{M}, ::ZeroBundle{M, typeof(map
         ∂f = ∂☆{N+M}()(ZeroBundle{N+M}(primal(f)),
                      TaylorBundle{N+M}(x,
                        (one(x), (zero(x) for i = 1:(N+M-1))...,)))
-        @assert isa(∂f, TaylorBundle) || isa(∂f, ExplicitTangentBundle{1})
-        Jet{typeof(x), N+M}(x, ∂f.primal,
-            isa(∂f, ExplicitTangentBundle) ? ∂f.tangent.partials : ∂f.tangent.coeffs)
+        @assert isa(∂f, TaylorBundle)
+        Jet{typeof(x), N+M}(x, ∂f.primal, ∂f.tangent.coeffs)
     end
     ∂⃖ₙ(mapev_unbundled, ∂☆ₘ, js, a)
 end

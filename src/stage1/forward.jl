@@ -10,36 +10,27 @@ primal(z::ZeroTangent) = ZeroTangent()
 
 first_partial(x) = partial(x, 1)
 
-# TODO: Which version do we want in ChainRules?
-function my_frule(args::ATB{1}...)
-    frule(DiffractorRuleConfig(), map(first_partial, args), map(primal, args)...)
-end
-
-# Fast path for some hot cases
-my_frule(::ZeroBundle{1, typeof(frule)}, args::ATB{1}...) = nothing
-my_frule(::ZeroBundle{1, typeof(my_frule)}, args::ATB{1}...) = nothing
-
-(::∂☆{N})(::ZeroBundle{N, typeof(my_frule)}, ::ZeroBundle{N, ZeroBundle{1, typeof(frule)}}, args::ATB{N}...) where {N} = ZeroBundle{N}(nothing)
-(::∂☆{N})(::ZeroBundle{N, typeof(my_frule)}, ::ZeroBundle{N, ZeroBundle{1, typeof(my_frule)}}, args::ATB{N}...) where {N} = ZeroBundle{N}(nothing)
-
 shuffle_down(b::UniformBundle{N, B, U}) where {N, B, U} =
-    UniformBundle{minus1(N), <:Any, U}(UniformBundle{1, B, U}(b.primal, b.tangent.val), b.tangent.val)
+    UniformBundle{minus1(N), <:Any}(UniformBundle{1, B}(b.primal, b.tangent.val),
+                                    UniformBundle{1, U}(b.tangent.val, b.tangent.val))
 
 function shuffle_down(b::ExplicitTangentBundle{N, B}) where {N, B}
     # N.B: This depends on the special properties of the canonical tangent index order
+    Base.@constprop :aggressive function _sdown(i::Int64)
+        ExplicitTangentBundle{1}(partial(b, 2*i), (partial(b, 2*i+1),))
+    end
     ExplicitTangentBundle{N-1}(
         ExplicitTangentBundle{1}(b.primal, (partial(b, 1),)),
-        ntuple(2^(N-1)-1) do i
-            ExplicitTangentBundle{1}(partial(b, 2*i), (partial(b, 2*i+1),))
-        end)
+        ntuple(_sdown, 2^(N-1)-1))
 end
 
 function shuffle_down(b::TaylorBundle{N, B}) where {N, B}
+    Base.@constprop :aggressive function _sdown(i::Int64)
+        ExplicitTangentBundle{1}(b.tangent.coeffs[i], (b.tangent.coeffs[i+1],))
+    end
     TaylorBundle{N-1}(
         ExplicitTangentBundle{1}(b.primal, (b.tangent.coeffs[1],)),
-        ntuple(N-1) do i
-            ExplicitTangentBundle{1}(b.tangent.coeffs[i], (b.tangent.coeffs[i+1],))
-        end)
+        ntuple(_sdown, N-1))
 end
 
 function shuffle_down(b::CompositeBundle{N, B}) where {N, B}
@@ -106,10 +97,17 @@ end
 struct ∂☆internal{N}; end
 struct ∂☆shuffle{N}; end
 
-shuffle_base(r) = TaylorBundle{1}(r[1], (r[2],))
+function shuffle_base(r)
+    (primal, dual) = r
+    if isa(dual, Union{NoTangent, ZeroTangent})
+        UniformBundle{1}(primal, dual)
+    else
+        TaylorBundle{1}(primal, (dual,))
+    end
+end
 
 function (::∂☆internal{1})(args::AbstractTangentBundle{1}...)
-    r = my_frule(args...)
+    r = frule(#=DiffractorRuleConfig(),=# map(first_partial, args), map(primal, args)...)
     if r === nothing
         return ∂☆recurse{1}()(args...)
     else
@@ -125,7 +123,9 @@ end
 
 function (::∂☆shuffle{N})(args::AbstractTangentBundle{N}...) where {N}
     ∂☆p = ∂☆{minus1(N)}()
-    ∂☆p(ZeroBundle{minus1(N)}(my_frule), map(shuffle_down, args)...)
+    downargs = map(shuffle_down, args)
+    tupargs = ∂vararg{minus1(N)}()(map(first_partial, downargs)...)
+    ∂☆p(ZeroBundle{minus1(N)}(frule), #= ZeroBundle{minus1(N)}(DiffractorRuleConfig()), =# tupargs, map(primal, downargs)...)
 end
 
 function (::∂☆internal{N})(args::AbstractTangentBundle{N}...) where {N}

@@ -261,7 +261,7 @@ function transform!(ci, meth, nargs, sparams, N)
     cfg = compute_basic_blocks(code)
     slotnames = Symbol[Symbol("#self#"), :args, ci.slotnames...]
     slotflags = UInt8[(0x00 for i = 1:2)..., ci.slotflags...]
-    slottypes = UInt8[(0x00 for i = 1:2)..., ci.slotflags...]
+    slottypes = ci.slottypes === nothing ? nothing : UInt8[(Any for i = 1:2)..., ci.slottypes...]
 
     meta = Expr[]
     ir = IRCode(Core.Compiler.InstructionStream(code, Any[],

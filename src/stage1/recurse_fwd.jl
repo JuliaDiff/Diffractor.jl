@@ -54,7 +54,7 @@ function perform_fwd_transform(@nospecialize(ff::Type{∂☆recurse{N}}), @nospe
     ci′.method_for_inference_limit_heuristics = match.method
     slotnames = Symbol[Symbol("#self#"), :args, ci.slotnames...]
     slotflags = UInt8[(0x00 for i = 1:2)..., ci.slotflags...]
-    slottypes = Any[(Any for i = 1:2)..., ci.slotflags...]
+    slottypes = ci.slottypes === nothing ? nothing : Any[(Any for i = 1:2)..., ci.slottypes...]
     ci′.slotnames = slotnames
     ci′.slotflags = slotflags
     ci′.slottypes = slottypes

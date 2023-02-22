@@ -62,6 +62,13 @@ function perform_fwd_transform(@nospecialize(ff::Type{∂☆recurse{N}}), @nospe
     ci′
 end
 
+
+if VERSION >= v"1.10.0-DEV.649"
+@eval function (ff::∂☆recurse)(args...)
+    $(Expr(:meta, :generated_only))
+    $(Expr(:meta, :generated, :perform_fwd_transform))
+end
+else
 @eval function (ff::∂☆recurse)(args...)
     $(Expr(:meta, :generated_only))
     $(Expr(:meta,
@@ -74,4 +81,5 @@ end
                 @__LINE__,
                 QuoteNode(Symbol(@__FILE__)),
                 true)))
+end
 end

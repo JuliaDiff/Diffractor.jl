@@ -403,7 +403,16 @@ ChainRulesCore.backing(::ZeroTangent) = ZeroTangent()
 ChainRulesCore.backing(::NoTangent) = NoTangent()
 
 function reload()
-    Core.eval(Diffractor, quote
+
+    if VERSION >= v"1.10.0-DEV.649"
+        q = quote
+            function (ff::∂⃖recurse)(args...)
+                $(Expr(:meta, :generated_only))
+                $(Expr(:meta, :generated, :perform_optic_transform,))
+            end
+        end
+    else
+        q = quote
         function (ff::∂⃖recurse)(args...)
             $(Expr(:meta, :generated_only))
             $(Expr(:meta,
@@ -417,6 +426,7 @@ function reload()
                         QuoteNode(Symbol(@__FILE__)),
                         true)))
         end
-    end)
+    end
+    Core.eval(Diffractor, q)
 end
 reload()

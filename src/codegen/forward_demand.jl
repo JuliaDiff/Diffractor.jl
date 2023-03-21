@@ -182,7 +182,22 @@ function forward_visit!(ir::IRCode, a::Argument, order::Int, ssa_orders::Vector{
 end
 
 
-function forward_diff_no_inf!(ir::IRCode, interp, mi::MethodInstance, world, to_diff::Vector{Pair{SSAValue, Int}};
+"""
+	forward_diff_no_inf!(ir, to_diff)
+
+Internal method which generates the code for forward mode diffentiation
+
+
+ - `ir` the IR being differnetation
+ - `to_diff`: collection of all SSA values for which the derivative is to be taken, 
+              paired with the order (first deriviative, second derivative etc)
+
+ - `visit_custom!(ir, stmt, order::Int, recurse::Bool)`: 
+		decides if the custom `transform!` should be applied to a `stmt` or not
+		Default: `false` for all statements
+ - `transform!(ir, ssa::SSAValue, order::Int)` mutates `ir` to do a custom tranformation.
+"""
+function forward_diff_no_inf!(ir::IRCode, to_diff::Vector{Pair{SSAValue, Int}};
         visit_custom! = (args...)->false, transform! = (args...)->error())
     # Step 1: For each SSAValue in the IR, keep track of the differentiation order needed
     ssa_orders = [0=>false for i = 1:length(ir.stmts)]
@@ -271,11 +286,12 @@ function forward_diff_no_inf!(ir::IRCode, interp, mi::MethodInstance, world, to_
             end
         end
     end
-
 end
 
+Base.@deprecate forward_diff_no_inf!(ir::IRCode, interp, mi::MethodInstance, world, to_diff::Vector{Pair{SSAValue, Int}}; kwargs...) forward_diff_no_inf!(ir, to_diff; kwargs...)
+
 function forward_diff!(ir::IRCode, interp, mi::MethodInstance, world, to_diff::Vector{Pair{SSAValue, Int}}; kwargs...)
-    forward_diff_no_inf!(ir, interp, mi, world, to_diff; kwargs...)
+    forward_diff_no_inf!(ir, to_diff; kwargs...)
 
     # Step 3: Re-inference
     ir = compact!(ir)

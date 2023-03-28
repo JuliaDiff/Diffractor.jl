@@ -411,11 +411,8 @@ function reload()
                     Expr(:new,
                         Core.GeneratedFunctionStub,
                         :perform_optic_transform,
-                        Any[:ff, :args],
-                        Any[],
-                        @__LINE__,
-                        QuoteNode(Symbol(@__FILE__)),
-                        true)))
+                        Core.svec(:ff, :args),
+                        Core.svec())))
         end
     end)
 end

@@ -129,7 +129,7 @@ function forward_diff_uncached!(ir::IRCode, interp, irsv::IRInterpretationState,
         # Incidence analysis through the rt call
         # TODO: frule_mi is wrong here, should be the mi of the caller
         frule_rt = info.frule_call.rt
-        improve_frule_rt = CC.concrete_eval_invoke(interp, frule_call, frule_mi, irsv)
+        (improve_frule_rt, nothrow) = CC.concrete_eval_invoke(interp, frule_call, frule_mi, irsv)
         if improve_frule_rt !== nothing
             frule_rt = improve_frule_rt
         end

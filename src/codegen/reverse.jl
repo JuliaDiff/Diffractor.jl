@@ -1,6 +1,6 @@
 # Codegen shared by both stage1 and stage2
 
-function make_opaque_closure(interp, typ, name, meth_nargs, isva, lno, cis, revs...)
+function make_opaque_closure(interp, typ, name, meth_nargs::Int, isva, lno, cis, revs...)
     if interp !== nothing
         cis.inferred = true
         ocm = ccall(:jl_new_opaque_closure_from_code_info, Any, (Any, Any, Any, Any, Any, Cint, Any, Cint, Cint, Any),
@@ -111,7 +111,8 @@ function diffract_ir!(ir, ci, meth, sparams::Core.SimpleVector, nargs::Int, N::I
         opaque_ci
     end
 
-    nfixedargs = meth.isva ? meth.nargs - 1 : meth.nargs
+    nfixedargs = Int(meth.nargs)
+    meth.isva && (nfixedargs -= 1)
 
     extra_slotnames = Symbol[]
     extra_slotflags = UInt8[]
@@ -157,7 +158,7 @@ function diffract_ir!(ir, ci, meth, sparams::Core.SimpleVector, nargs::Int, N::I
     # TODO: Can we use the same method for each 2nd order of the transform
     # (except the last and the first one)
     for nc = 1:2:n_closures
-        arg_accums = Union{Nothing, Vector{Any}}[nothing for i = 1:(meth.nargs)]
+        arg_accums = Union{Nothing, Vector{Any}}[nothing for i = 1:Int(meth.nargs)]
         accums = Union{Nothing, Vector{Any}}[nothing for i = 1:length(ir.stmts)]
 
         opaque_ci = opaque_cis[nc]
@@ -375,7 +376,7 @@ function diffract_ir!(ir, ci, meth, sparams::Core.SimpleVector, nargs::Int, N::I
             lno = LineNumberNode(1, :none)
             next_oc = insert_node_rev!(make_opaque_closure(interp, Tuple{(Any for i = 1:nargs+1)...},
                                                            cname(nc+1, N, meth.name),
-                                                           meth.nargs,
+                                                           Int(meth.nargs),
                                                            meth.isva,
                                                            lno,
                                                            opaque_cis[nc+1],

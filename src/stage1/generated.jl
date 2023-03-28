@@ -22,14 +22,11 @@ function perform_optic_transform(@nospecialize(ff::Type{∂⃖recurse{N}}), @nos
     ci′ = copy(ci)
     ci′.edges = MethodInstance[mi]
 
-    r = transform!(ci′, mi.def, length(args) - 1, match.sparams, N)
-    if isa(r, Expr)
-        return r
-    end
+    ci′ = diffract_transform!(ci′, mi.def, length(args) - 1, match.sparams, N)
 
-    ci′.ssavaluetypes = length(ci′.code)
-    ci′.ssaflags = UInt8[0 for i=1:length(ci′.code)]
-    ci′.method_for_inference_limit_heuristics = match.method
+    # ci′.ssavaluetypes = length(ci′.code)
+    # ci′.ssaflags = UInt8[0 for i=1:length(ci′.code)]
+    # ci′.method_for_inference_limit_heuristics = match.method
     ci′
 end
 

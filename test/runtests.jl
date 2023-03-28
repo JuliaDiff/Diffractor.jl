@@ -95,7 +95,7 @@ let var"'" = Diffractor.PrimeDerivativeBack
     @test @inferred(sin'(1.0)) == cos(1.0)
     @test sin''(1.0) == -sin(1.0)
     @test sin'''(1.0) == -cos(1.0)
-    # These currently cause segfaults
+    # These currently cause segfaults cf https://github.com/JuliaLang/julia/pull/48742
     #@test sin''''(1.0) == sin(1.0)
     #@test sin'''''(1.0) == cos(1.0)
     #@test sin''''''(1.0) == -sin(1.0)
@@ -111,7 +111,7 @@ let var"'" = Diffractor.PrimeDerivativeBack
     @test @inferred(complicated_2sin'(1.0)) == 2sin'(1.0)
     @test @inferred(complicated_2sin''(1.0)) == 2sin''(1.0)  broken=true
     @test @inferred(complicated_2sin'''(1.0)) == 2sin'''(1.0)  broken=true
-    # This currently causes a segfault
+    # This currently causes a segfault, cf https://github.com/JuliaLang/julia/pull/48742
     #@test @inferred(complicated_2sin''''(1.0)) == 2sin''''(1.0)  broken=true
 
     # Control flow cases

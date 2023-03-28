@@ -1,17 +1,23 @@
-function transform_fwd!(ci, meth, nargs, sparams, N)
+function fwd_transform(ci, args...)
+    newci = copy(ci)
+    fwd_transform!(newci, args...)
+    return newci
+end
+
+function fwd_transform!(ci, mi, nargs, N)
     new_code = Any[]
     new_codelocs = Any[]
     ssa_mapping = Int[]
     loc_mapping = Int[]
 
-    function emit!(stmt)
+    function emit!(@nospecialize stmt)
         (isexpr(stmt, :call) || isexpr(stmt, :(=)) || isexpr(stmt, :new)) || return stmt
         push!(new_code, stmt)
         push!(new_codelocs, isempty(new_codelocs) ? 0 : new_codelocs[end])
-        SSAValue(length(new_code))
+        return SSAValue(length(new_code))
     end
 
-    function mapstmt!(stmt)
+    function mapstmt!(@nospecialize stmt)
         if isexpr(stmt, :(=))
             return Expr(stmt.head, emit!(mapstmt!(stmt.args[1])), emit!(mapstmt!(stmt.args[2])))
         elseif isexpr(stmt, :call)
@@ -44,7 +50,7 @@ function transform_fwd!(ci, meth, nargs, sparams, N)
         elseif isa(stmt, GotoIfNot)
             return GotoIfNot(emit!(Expr(:call, primal, emit!(mapstmt!(stmt.cond)))), stmt.dest)
         elseif isexpr(stmt, :static_parameter)
-            return ZeroBundle{N}(sparams[stmt.args[1]])
+            return ZeroBundle{N}(mi.sparam_vals[stmt.args[1]::Int])
         elseif isexpr(stmt, :foreigncall)
             return Expr(:call, error, "Attempted to AD a foreigncall. Missing rule?")
         elseif isexpr(stmt, :meta) || isexpr(stmt, :inbounds)
@@ -56,9 +62,11 @@ function transform_fwd!(ci, meth, nargs, sparams, N)
         end
     end
 
-    for i = 1:meth.nargs
-        if meth.isva && i == meth.nargs
-            args = map(i:(nargs+1)) do j
+    meth = mi.def::Method
+    nargs = Int(meth.nargs)
+    for i = 1:nargs
+        if meth.isva && i == nargs
+            args = map(i:(nargs+1)) do j::Int
                 emit!(Expr(:call, getfield, SlotNumber(2), j))
             end
             emit!(Expr(:(=), SlotNumber(2 + i), Expr(:call, ∂vararg{N}(), args...)))
@@ -83,7 +91,15 @@ function transform_fwd!(ci, meth, nargs, sparams, N)
         end
     end
 
+    ci.slotnames = Symbol[Symbol("#self#"), :args, ci.slotnames...]
+    ci.slotflags = UInt8[0x00, 0x00, ci.slotflags...]
+    ci.slottypes = ci.slottypes === nothing ? nothing : Any[Any, Any, ci.slottypes...]
     ci.code = new_code
     ci.codelocs = new_codelocs
-    ci
+    ci.ssavaluetypes = length(new_code)
+    ci.ssaflags = UInt8[0 for i=1:length(new_code)]
+    ci.method_for_inference_limit_heuristics = meth
+    ci.edges = MethodInstance[mi]
+
+    return ci
 end

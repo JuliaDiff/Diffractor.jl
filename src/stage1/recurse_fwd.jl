@@ -47,22 +47,7 @@ function perform_fwd_transform(world::UInt, source::LineNumberNode,
     mi = Core.Compiler.specialize_method(match)
     ci = Core.Compiler.retrieve_code_info(mi, world)
 
-    ci′ = copy(ci)
-    ci′.edges = MethodInstance[mi]
-
-    transform_fwd!(ci′, mi.def, length(args) - 1, match.sparams, N)
-
-    ci′.ssavaluetypes = length(ci′.code)
-    ci′.ssaflags = UInt8[0 for i=1:length(ci′.code)]
-    ci′.method_for_inference_limit_heuristics = match.method
-    slotnames = Symbol[Symbol("#self#"), :args, ci.slotnames...]
-    slotflags = UInt8[(0x00 for i = 1:2)..., ci.slotflags...]
-    slottypes = ci.slottypes === nothing ? nothing : Any[(Any for i = 1:2)..., ci.slottypes...]
-    ci′.slotnames = slotnames
-    ci′.slotflags = slotflags
-    ci′.slottypes = slottypes
-
-    return ci′
+    return fwd_transform(ci, mi, length(args)-1, N)
 end
 
 let ex = :(function (ff::∂☆recurse)(args...)

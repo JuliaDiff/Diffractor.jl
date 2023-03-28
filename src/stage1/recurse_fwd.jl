@@ -50,10 +50,7 @@ function perform_fwd_transform(world::UInt, source::LineNumberNode,
     return fwd_transform(ci, mi, length(args)-1, N)
 end
 
-let ex = :(function (ff::∂☆recurse)(args...)
-               $(Expr(:meta, :generated_only))
-               $(Expr(:meta, :generated, perform_fwd_transform))
-           end)
-    push!(GENERATORS, ex)
-    Core.eval(@__MODULE__, ex)
+@eval function (ff::∂☆recurse)(args...)
+    $(Expr(:meta, :generated_only))
+    $(Expr(:meta, :generated, perform_fwd_transform))
 end

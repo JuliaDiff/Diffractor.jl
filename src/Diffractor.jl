@@ -39,11 +39,4 @@ include("debugutils.jl")
 
 include("stage1/termination.jl")
 
-function reload()
-    @info "reloading Diffractor generators"
-    for generator in GENERATORS
-        Core.eval(@__MODULE__, generator)
-    end
-end
-
 end

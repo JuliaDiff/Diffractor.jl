@@ -6,18 +6,22 @@ struct ∂⃖recurse{N}; end
 
 include("recurse.jl")
 
-function perform_optic_transform(@nospecialize(ff::Type{∂⃖recurse{N}}), @nospecialize(args)) where {N}
+function perform_optic_transform(world::UInt, source::LineNumberNode,
+                                 @nospecialize(ff::Type{∂⃖recurse{N}}), @nospecialize(args)) where {N}
     @assert N >= 1
 
     # Check if we have an rrule for this function
-    mthds = Base._methods_by_ftype(Tuple{args...}, -1, typemax(UInt))
-    if length(mthds) != 1
-        return :(throw(MethodError(ff, args)))
+    sig = Tuple{args...}
+    mthds = Base._methods_by_ftype(sig, -1, world)
+    if mthds === nothing || length(mthds) != 1
+        # Core.println("[perform_optic_transform] ", sig, " => ", mthds)
+        stub = Core.GeneratedFunctionStub(identity, Core.svec(:ff, :args), Core.svec())
+        return stub(world, source, :(throw(MethodError(ff, args))))
     end
-    match = mthds[1]
+    match = only(mthds)::Core.MethodMatch
 
     mi = Core.Compiler.specialize_method(match)
-    ci = Core.Compiler.retrieve_code_info(mi)
+    ci = Core.Compiler.retrieve_code_info(mi, world)
 
     ci′ = copy(ci)
     ci′.edges = MethodInstance[mi]
@@ -396,18 +400,10 @@ end
 ChainRulesCore.backing(::ZeroTangent) = ZeroTangent()
 ChainRulesCore.backing(::NoTangent) = NoTangent()
 
-function reload()
-    Core.eval(Diffractor, quote
-        function (ff::∂⃖recurse)(args...)
-            $(Expr(:meta, :generated_only))
-            $(Expr(:meta,
-                    :generated,
-                    Expr(:new,
-                        Core.GeneratedFunctionStub,
-                        :perform_optic_transform,
-                        Core.svec(:ff, :args),
-                        Core.svec())))
-        end
-    end)
+let ex = :(function (ff::∂⃖recurse)(args...)
+               $(Expr(:meta, :generated_only))
+               $(Expr(:meta, :generated, perform_optic_transform))
+           end)
+    push!(GENERATORS, ex)
+    Core.eval(@__MODULE__, ex)
 end
-reload()

@@ -6,6 +6,8 @@ export ∂⃖, gradient
 
 const CC = Core.Compiler
 
+const GENERATORS = Expr[]
+
 include("runtime.jl")
 include("interface.jl")
 include("utils.jl")
@@ -36,5 +38,12 @@ include("higher_fwd_rules.jl")
 include("debugutils.jl")
 
 include("stage1/termination.jl")
+
+function reload()
+    @info "reloading Diffractor generators"
+    for generator in GENERATORS
+        Core.eval(@__MODULE__, generator)
+    end
+end
 
 end

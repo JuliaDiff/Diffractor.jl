@@ -28,21 +28,24 @@ function ∂☆nomethd(@nospecialize(args))
     throw(MethodError(primal(args[1]), map(primal, Base.tail(args))))
 end
 
-function perform_fwd_transform(@nospecialize(ff::Type{∂☆recurse{N}}), @nospecialize(args)) where {N}
+function perform_fwd_transform(world::UInt, source::LineNumberNode,
+                               @nospecialize(ff::Type{∂☆recurse{N}}), @nospecialize(args)) where {N}
     if all(x->x <: ZeroBundle, args)
         return :(∂☆passthrough(args))
     end
 
     # Check if we have an rrule for this function
     sig = Tuple{map(π, args)...}
-    mthds = Base._methods_by_ftype(sig, -1, typemax(UInt))
-    if length(mthds) != 1
-        return :(∂☆nomethd(args))
+    mthds = Base._methods_by_ftype(sig, -1, world)
+    if mthds === nothing || length(mthds) != 1
+        # Core.println("[perform_fwd_transform] ", sig, " => ", mthds)
+        stub = Core.GeneratedFunctionStub(identity, Core.svec(:ff, :args), Core.svec())
+        return stub(world, source, :(∂☆nomethd(args)))
     end
-    match = mthds[1]
+    match = only(mthds)::Core.MethodMatch
 
     mi = Core.Compiler.specialize_method(match)
-    ci = Core.Compiler.retrieve_code_info(mi)
+    ci = Core.Compiler.retrieve_code_info(mi, world)
 
     ci′ = copy(ci)
     ci′.edges = MethodInstance[mi]
@@ -59,16 +62,13 @@ function perform_fwd_transform(@nospecialize(ff::Type{∂☆recurse{N}}), @nospe
     ci′.slotflags = slotflags
     ci′.slottypes = slottypes
 
-    ci′
+    return ci′
 end
 
-@eval function (ff::∂☆recurse)(args...)
-    $(Expr(:meta, :generated_only))
-    $(Expr(:meta,
-            :generated,
-            Expr(:new,
-                Core.GeneratedFunctionStub,
-                :perform_fwd_transform,
-                Core.svec(:ff, :args),
-                Core.svec())))
+let ex = :(function (ff::∂☆recurse)(args...)
+               $(Expr(:meta, :generated_only))
+               $(Expr(:meta, :generated, perform_fwd_transform))
+           end)
+    push!(GENERATORS, ex)
+    Core.eval(@__MODULE__, ex)
 end

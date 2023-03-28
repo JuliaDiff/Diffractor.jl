@@ -10,7 +10,9 @@ module stage2_fwd
     end
 
     myminus(a, b) = a - b
-    @ChainRulesCore.scalar_rule myminus(x, y) (true, -1)
+    ChainRulesCore.@scalar_rule myminus(x, y) (true, -1)
+
+    Diffractor.reload() # XXX we should remove this
 
     self_minus(a) = myminus(a, a)
     let self_minus′′ = Diffractor.dontuse_nth_order_forward_stage2(Tuple{typeof(self_minus), Float64}, 2)

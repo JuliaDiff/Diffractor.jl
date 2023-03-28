@@ -2,8 +2,10 @@ using Core.Compiler: AbstractInterpreter, CodeInstance, MethodInstance, WorldVie
 using InteractiveUtils
 
 function infer_function(interp, tt)
+    world = Core.Compiler.get_world_counter()
+
     # Find all methods that are applicable to these types
-    mthds = _methods_by_ftype(tt, -1, typemax(UInt))
+    mthds = _methods_by_ftype(tt, -1, world)
     if mthds === false || length(mthds) != 1
         error("Unable to find single applicable method for $tt")
     end
@@ -17,7 +19,6 @@ function infer_function(interp, tt)
     result = Core.Compiler.InferenceResult(mi)
 
     # Create an InferenceState to begin inference, give it a world that is always newest
-    world = Core.Compiler.get_world_counter()
     frame = Core.Compiler.InferenceState(result, #=cached=# true, interp)
 
     # Run type inference on this frame.  Because the interpreter is embedded

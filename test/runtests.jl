@@ -95,9 +95,10 @@ let var"'" = Diffractor.PrimeDerivativeBack
     @test @inferred(sin'(1.0)) == cos(1.0)
     @test sin''(1.0) == -sin(1.0)
     @test sin'''(1.0) == -cos(1.0)
-    @test sin''''(1.0) == sin(1.0)
-    @test sin'''''(1.0) == cos(1.0)
-    @test sin''''''(1.0) == -sin(1.0)
+    # TODO These currently cause segfaults c.f. https://github.com/JuliaLang/julia/pull/48742
+    # @test sin''''(1.0) == sin(1.0)
+    # @test sin'''''(1.0) == cos(1.0)
+    # @test sin''''''(1.0) == -sin(1.0)
 
     f_getfield(x) = getfield((x,), 1)
     @test f_getfield'(1) == 1
@@ -110,7 +111,8 @@ let var"'" = Diffractor.PrimeDerivativeBack
     @test @inferred(complicated_2sin'(1.0)) == 2sin'(1.0)
     @test @inferred(complicated_2sin''(1.0)) == 2sin''(1.0)  broken=true
     @test @inferred(complicated_2sin'''(1.0)) == 2sin'''(1.0)  broken=true
-    @test @inferred(complicated_2sin''''(1.0)) == 2sin''''(1.0)  broken=true
+    # TODO This currently causes a segfault, c.f. https://github.com/JuliaLang/julia/pull/48742
+    # @test @inferred(complicated_2sin''''(1.0)) == 2sin''''(1.0)  broken=true
 
     # Control flow cases
     @test @inferred((x->simple_control_flow(true, x))'(1.0)) == sin'(1.0)

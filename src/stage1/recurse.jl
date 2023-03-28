@@ -256,12 +256,12 @@ function sptypes(sparams)
     end
 end
 
-function transform!(ci, meth, nargs, sparams, N)
+function diffract_transform!(ci, meth, nargs, sparams, N)
     code = ci.code
     cfg = compute_basic_blocks(code)
-    slotnames = Symbol[Symbol("#self#"), :args, ci.slotnames...]
-    slotflags = UInt8[(0x00 for i = 1:2)..., ci.slotflags...]
-    slottypes = ci.slottypes === nothing ? nothing : UInt8[(Any for i = 1:2)..., ci.slottypes...]
+    ci.slotnames = Symbol[Symbol("#self#"), :args, ci.slotnames...]
+    ci.slotflags = UInt8[0x00, 0x00, ci.slotflags...]
+    ci.slottypes = ci.slottypes === nothing ? Any[Any for _ in 1:length(ci.slotflags)] : Any[Any, Any, ci.slottypes...]
 
     meta = Expr[]
     ir = IRCode(Core.Compiler.InstructionStream(code, Any[],
@@ -273,7 +273,7 @@ function transform!(ci, meth, nargs, sparams, N)
     domtree = construct_domtree(ir.cfg.blocks)
     defuse_insts = scan_slot_def_use(Int(meth.nargs), ci, ir.stmts.inst)
     ci.ssavaluetypes = Any[Any for i = 1:ci.ssavaluetypes]
-    ir = construct_ssa!(ci, ir, domtree, defuse_insts, Any[Any for i = 1:length(slotnames)], Core.Compiler.OptimizerLattice())
+    ir = construct_ssa!(ci, ir, domtree, defuse_insts, ci.slottypes, Core.Compiler.OptimizerLattice())
     ir = compact!(ir)
 
     nfixedargs = meth.isva ? meth.nargs - 1 : meth.nargs
@@ -281,11 +281,11 @@ function transform!(ci, meth, nargs, sparams, N)
 
     ir = diffract_ir!(ir, ci, meth, sparams, nargs, N)
 
-    Core.Compiler.replace_code_newstyle!(ci, ir, nargs+1)
-    ci.ssavaluetypes = length(ci.code)
-    ci.slotnames = slotnames
-    ci.slotflags = slotflags
-    ci.slottypes = slottypes
+    Core.Compiler.replace_code_newstyle!(ci, ir)
 
-    ci
+    ci.ssavaluetypes = length(ci.code)
+    ci.ssaflags = UInt8[0x00 for i=1:length(ci.code)]
+    ci.method_for_inference_limit_heuristics = meth
+
+    return ci
 end

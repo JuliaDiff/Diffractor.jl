@@ -256,8 +256,16 @@ function sptypes(sparams)
     end
 end
 
-function diffract_transform!(ci, meth, nargs, sparams, N)
+function optic_transform(ci, args...)
+    newci = copy(ci)
+    optic_transform!(newci, args...)
+    return newci
+end
+
+function optic_transform!(ci, mi, nargs, N)
     code = ci.code
+    sparams = mi.sparam_vals
+
     cfg = compute_basic_blocks(code)
     ci.slotnames = Symbol[Symbol("#self#"), :args, ci.slotnames...]
     ci.slotflags = UInt8[0x00, 0x00, ci.slotflags...]
@@ -270,13 +278,15 @@ function diffract_transform!(ci, meth, nargs, sparams, N)
         Any[Any for i = 1:2], meta, sptypes(sparams))
 
     # SSA conversion
+    meth = mi.def::Method
     domtree = construct_domtree(ir.cfg.blocks)
     defuse_insts = scan_slot_def_use(Int(meth.nargs), ci, ir.stmts.inst)
     ci.ssavaluetypes = Any[Any for i = 1:ci.ssavaluetypes]
     ir = construct_ssa!(ci, ir, domtree, defuse_insts, ci.slottypes, Core.Compiler.OptimizerLattice())
     ir = compact!(ir)
 
-    nfixedargs = meth.isva ? meth.nargs - 1 : meth.nargs
+    nfixedargs = Int(meth.nargs)
+    meth.isva && (nfixedargs -= 1)
     meth.isva || @assert nfixedargs == nargs+1
 
     ir = diffract_ir!(ir, ci, meth, sparams, nargs, N)
@@ -286,6 +296,7 @@ function diffract_transform!(ci, meth, nargs, sparams, N)
     ci.ssavaluetypes = length(ci.code)
     ci.ssaflags = UInt8[0x00 for i=1:length(ci.code)]
     ci.method_for_inference_limit_heuristics = meth
+    ci.edges = MethodInstance[mi]
 
     return ci
 end

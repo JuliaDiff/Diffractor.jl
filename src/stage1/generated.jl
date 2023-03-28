@@ -23,12 +23,7 @@ function perform_optic_transform(world::UInt, source::LineNumberNode,
     mi = Core.Compiler.specialize_method(match)
     ci = Core.Compiler.retrieve_code_info(mi, world)
 
-    ci′ = copy(ci)
-    ci′.edges = MethodInstance[mi]
-
-    ci′ = diffract_transform!(ci′, mi.def, length(args) - 1, match.sparams, N)
-
-    return ci′
+    return optic_transform(ci, mi, length(args)-1, N)
 end
 
 # This relies on PartialStruct to infer well

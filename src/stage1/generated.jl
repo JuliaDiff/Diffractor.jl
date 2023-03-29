@@ -6,6 +6,12 @@ struct ∂⃖recurse{N}; end
 
 include("recurse.jl")
 
+function generate_lambda_ex(world::UInt, source::LineNumberNode,
+                            args::Core.SimpleVector, sparams::Core.SimpleVector, body::Expr)
+    stub = Core.GeneratedFunctionStub(identity, args, sparams)
+    return stub(world, source, body)
+end
+
 function perform_optic_transform(world::UInt, source::LineNumberNode,
                                  @nospecialize(ff::Type{∂⃖recurse{N}}), @nospecialize(args)) where {N}
     @assert N >= 1
@@ -15,8 +21,8 @@ function perform_optic_transform(world::UInt, source::LineNumberNode,
     mthds = Base._methods_by_ftype(sig, -1, world)
     if mthds === nothing || length(mthds) != 1
         # Core.println("[perform_optic_transform] ", sig, " => ", mthds)
-        stub = Core.GeneratedFunctionStub(identity, Core.svec(:ff, :args), Core.svec())
-        return stub(world, source, :(throw(MethodError(ff, args))))
+        return generate_lambda_ex(world, source,
+            Core.svec(:ff, :args), Core.svec(), :(throw(MethodError(ff, args))))
     end
     match = only(mthds)::Core.MethodMatch
 

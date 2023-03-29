@@ -395,10 +395,7 @@ end
 ChainRulesCore.backing(::ZeroTangent) = ZeroTangent()
 ChainRulesCore.backing(::NoTangent) = NoTangent()
 
-let ex = :(function (ff::∂⃖recurse)(args...)
-               $(Expr(:meta, :generated_only))
-               $(Expr(:meta, :generated, perform_optic_transform))
-           end)
-    push!(GENERATORS, ex)
-    Core.eval(@__MODULE__, ex)
+@eval function (ff::∂⃖recurse)(args...)
+    $(Expr(:meta, :generated_only))
+    $(Expr(:meta, :generated, perform_optic_transform))
 end

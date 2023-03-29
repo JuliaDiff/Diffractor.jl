@@ -226,8 +226,7 @@ z45, delta45 = frule_via_ad(DiffractorRuleConfig(), (0,1), x -> log(exp(x)), 2)
     @test gradient(x -> sum(sqrt.(atan.(x, transpose(x)))), [1,2,3])[1] ≈ [0.2338, -0.0177, -0.0661] atol=1e-3
     @test gradient(x -> sum(exp.(log.(x))), [1,2,3]) == ([1,1,1],)
 
-    # XXX the world-age limitation is preventing this test from passing
-    # @test gradient(x -> sum((exp∘log).(x)), [1,2,3]) == ([1,1,1],)  # frule_via_ad
+    @test_broken gradient(x -> sum((exp∘log).(x)), [1,2,3]) == ([1,1,1],)  # frule_via_ad
     exp_log(x) = exp(log(x))
     @test gradient(x -> sum(exp_log.(x)), [1,2,3]) == ([1,1,1],)
     @test gradient((x,y) -> sum(x ./ y), [1 2; 3 4], [1,2]) == ([1 1; 0.5 0.5], [-3, -1.75])

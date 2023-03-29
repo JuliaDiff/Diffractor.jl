@@ -31,7 +31,8 @@ end
 function perform_fwd_transform(world::UInt, source::LineNumberNode,
                                @nospecialize(ff::Type{∂☆recurse{N}}), @nospecialize(args)) where {N}
     if all(x->x <: ZeroBundle, args)
-        return :(∂☆passthrough(args))
+        return generate_lambda_ex(world, source,
+            Core.svec(:ff, :args), Core.svec(), :(∂☆passthrough(args)))
     end
 
     # Check if we have an rrule for this function
@@ -39,8 +40,8 @@ function perform_fwd_transform(world::UInt, source::LineNumberNode,
     mthds = Base._methods_by_ftype(sig, -1, world)
     if mthds === nothing || length(mthds) != 1
         # Core.println("[perform_fwd_transform] ", sig, " => ", mthds)
-        stub = Core.GeneratedFunctionStub(identity, Core.svec(:ff, :args), Core.svec())
-        return stub(world, source, :(∂☆nomethd(args)))
+        return generate_lambda_ex(world, source,
+            Core.svec(:ff, :args), Core.svec(), :(∂☆nomethd(args)))
     end
     match = only(mthds)::Core.MethodMatch
 

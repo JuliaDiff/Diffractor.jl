@@ -183,7 +183,7 @@ end
 
 
 """
-	forward_diff_no_inf!(ir, to_diff)
+	forward_diff_no_inf!(ir, to_diff; visit_custom!, transform)
 
 Internal method which generates the code for forward mode diffentiation
 

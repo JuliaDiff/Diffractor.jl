@@ -288,7 +288,6 @@ function forward_diff_no_inf!(ir::IRCode, to_diff::Vector{Pair{SSAValue, Int}};
     end
 end
 
-Base.@deprecate forward_diff_no_inf!(ir::IRCode, interp, mi::MethodInstance, world, to_diff::Vector{Pair{SSAValue, Int}}; kwargs...) forward_diff_no_inf!(ir, to_diff; kwargs...)
 
 function forward_diff!(ir::IRCode, interp, mi::MethodInstance, world, to_diff::Vector{Pair{SSAValue, Int}}; kwargs...)
     forward_diff_no_inf!(ir, to_diff; kwargs...)

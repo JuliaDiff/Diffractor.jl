@@ -34,6 +34,10 @@ end
 using Core.Compiler: AbstractInterpreter, NativeInterpreter, InferenceState,
     InferenceResult, CodeInstance, WorldRange, ArgInfo, StmtInfo
 
+const OptCache = Dict{MethodInstance, CodeInstance}
+const UnoptCache = Dict{Union{MethodInstance, InferenceResult}, Cthulhu.InferredSource}
+const RemarksCache = Dict{Union{MethodInstance,InferenceResult}, Cthulhu.PC2Remarks}
+
 struct ADInterpreter <: AbstractInterpreter
     # Modes settings
     forward::Bool
@@ -47,21 +51,47 @@ struct ADInterpreter <: AbstractInterpreter
     # Level 1 == Gradients
     # Level 2 == Seconds Derivatives
     # and so on
-    opt::OffsetVector{Dict{MethodInstance, CodeInstance}}
-    unopt::Union{OffsetVector{Dict{Union{MethodInstance, InferenceResult}, Cthulhu.InferredSource}}, Nothing}
-    transformed::OffsetVector{Dict{MethodInstance, CodeInstance}}
+    opt::OffsetVector{OptCache}
+    unopt::Union{OffsetVector{UnoptCache},Nothing}
+    transformed::OffsetVector{OptCache}
 
     native_interpreter::NativeInterpreter
     current_level::Int
-    remarks::OffsetVector{Dict{Union{MethodInstance,InferenceResult}, Cthulhu.PC2Remarks}}
+    remarks::OffsetVector{RemarksCache}
+
+    function _ADInterpreter()
+        return new(
+            #=forward::Bool=#false,
+            #=backward::Bool=#true,
+            #=reinference::Bool=#false,
+            #=opt::OffsetVector{OptCache}=#OffsetVector([OptCache(), OptCache()], 0:1),
+            #=unopt::Union{OffsetVector{UnoptCache},Nothing}=#OffsetVector([UnoptCache(), UnoptCache()], 0:1),
+            #=transformed::OffsetVector{OptCache}=#OffsetVector([OptCache(), OptCache()], 0:1),
+            #=native_interpreter::NativeInterpreter=#NativeInterpreter(),
+            #=current_level::Int=#0,
+            #=remarks::OffsetVector{RemarksCache}=#OffsetVector([RemarksCache()], 0:0))
+    end
+    function ADInterpreter(interp::ADInterpreter = _ADInterpreter();
+                           forward::Bool = interp.forward,
+                           backward::Bool = interp.backward,
+                           reinference::Bool = interp.reinference,
+                           opt::OffsetVector{OptCache} = interp.opt,
+                           unopt::Union{OffsetVector{UnoptCache},Nothing} = interp.unopt,
+                           transformed::OffsetVector{OptCache} = interp.transformed,
+                           native_interpreter::NativeInterpreter = interp.native_interpreter,
+                           current_level::Int = interp.current_level,
+                           remarks::OffsetVector{RemarksCache} = interp.remarks)
+        return new(forward, backward, reinference, opt, unopt, transformed, native_interpreter, current_level, remarks)
+    end
 end
-change_level(interp::ADInterpreter, new_level::Int) = ADInterpreter(interp.opt, interp.unopt, interp.transformed, interp.native_interpreter, new_level, interp.remarks)
+
+change_level(interp::ADInterpreter, new_level::Int) = ADInterpreter(interp; current_level=new_level)
 raise_level(interp::ADInterpreter) = change_level(interp, interp.current_level + 1)
 lower_level(interp::ADInterpreter) = change_level(interp, interp.current_level - 1)
 
-disable_forward(interp::ADInterpreter) = ADInterpreter(false, interp.backward, interp.reinference, interp.opt, interp.unopt, interp.transformed, interp.native_interpreter, interp.current_level, interp.remarks)
-disable_reinference(interp::ADInterpreter) = ADInterpreter(interp.forward, interp.backward, false, interp.opt, interp.unopt, interp.transformed, interp.native_interpreter, interp.current_level, interp.remarks)
-enable_reinference(interp::ADInterpreter) = ADInterpreter(interp.forward, interp.backward, true, interp.opt, interp.unopt, interp.transformed, interp.native_interpreter, interp.current_level, interp.remarks)
+disable_forward(interp::ADInterpreter) = ADInterpreter(interp; forward=false)
+disable_reinference(interp::ADInterpreter) = ADInterpreter(interp; reinference=false)
+enable_reinference(interp::ADInterpreter) = ADInterpreter(interp; reinference=true)
 
 function Cthulhu.get_optimized_codeinst(interp::ADInterpreter, curs::ADCursor)
     @show curs
@@ -225,18 +255,6 @@ function Cthulhu.process_info(interp::ADInterpreter, @nospecialize(info::Core.Co
     return invoke(Cthulhu.process_info, Tuple{AbstractInterpreter, Core.Compiler.CallInfo, Cthulhu.ArgTypes, Any, Bool},
         interp, info, argtypes, rt, optimize)
 end
-
-ADInterpreter(;forward = false, backward=true, reinference=false) = ADInterpreter(forward, backward, reinference,
-    OffsetVector([Dict{MethodInstance, CodeInstance}(), Dict{MethodInstance, CodeInstance}()], 0:1),
-    OffsetVector([Dict{MethodInstance, Cthulhu.InferredSource}(), Dict{MethodInstance, Cthulhu.InferredSource}()], 0:1),
-    OffsetVector([Dict{MethodInstance, CodeInstance}(), Dict{MethodInstance, CodeInstance}()], 0:1),
-    NativeInterpreter(),
-    0,
-    OffsetVector([Dict{Union{MethodInstance,InferenceResult}, Cthulhu.PC2Remarks}()], 0:0)
-)
-
-ADInterpreter(fg::ADGraph, level) =
-    ADInterpreter(fg.code, NativeInterpreter(), level, fg.msgs)
 
 Core.Compiler.InferenceParams(ei::ADInterpreter) = InferenceParams(ei.native_interpreter)
 Core.Compiler.OptimizationParams(ei::ADInterpreter) = OptimizationParams(ei.native_interpreter)

@@ -6,8 +6,10 @@ function dontuse_nth_order_forward_stage2(tt::Type, order::Int=1)
     interp = ADInterpreter(; forward=true, backward=false)
     match = Base._which(tt)
     frame = Core.Compiler.typeinf_frame(interp, match.method, match.spec_types, match.sparams, #=run_optimizer=#true)
+    mi = frame.linfo
 
-    ir = copy((interp.opt[0][frame.linfo].inferred).ir::IRCode)
+    src = CC.copy(interp.unopt[0][mi].src)
+    ir = CC.copy((@atomic :monotonic interp.opt[0][mi].inferred).ir::IRCode)
 
     # Find all Return Nodes
     vals = Pair{SSAValue, Int}[]
@@ -43,10 +45,7 @@ function dontuse_nth_order_forward_stage2(tt::Type, order::Int=1)
         return insert_node!(ir, SSAValue(1), NewInstruction(Expr(:call, ∂xⁿ{order}(), arg), typeof(∂xⁿ{order}()(1.0))))
     end
 
+    ir = forward_diff!(interp, ir, src, mi, vals; visit_custom!, transform!)
 
-    irsv = CC.IRInterpretationState(interp, ir, frame.linfo, CC.get_world_counter(interp), ir.argtypes[1:frame.linfo.def.nargs])
-    ir = forward_diff!(ir, interp, frame.linfo, CC.get_world_counter(interp), vals; visit_custom!, transform!)
-
-    ir = compact!(ir)
     return OpaqueClosure(ir)
 end

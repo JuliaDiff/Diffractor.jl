@@ -189,10 +189,10 @@ Internal method which generates the code for forward mode diffentiation
 
 
  - `ir` the IR being differnetation
- - `to_diff`: collection of all SSA values for which the derivative is to be taken, 
+ - `to_diff`: collection of all SSA values for which the derivative is to be taken,
               paired with the order (first deriviative, second derivative etc)
 
- - `visit_custom!(ir, stmt, order::Int, recurse::Bool)`: 
+ - `visit_custom!(ir, stmt, order::Int, recurse::Bool)`:
 		decides if the custom `transform!` should be applied to a `stmt` or not
 		Default: `false` for all statements
  - `transform!(ir, ssa::SSAValue, order::Int)` mutates `ir` to do a custom tranformation.
@@ -289,10 +289,12 @@ function forward_diff_no_inf!(ir::IRCode, to_diff::Vector{Pair{SSAValue, Int}};
 end
 
 
-function forward_diff!(ir::IRCode, interp, mi::MethodInstance, world, to_diff::Vector{Pair{SSAValue, Int}}; kwargs...)
+function forward_diff!(interp::ADInterpreter, ir::IRCode, src::CodeInfo, mi::MethodInstance,
+                       to_diff::Vector{Pair{SSAValue, Int}}; kwargs...)
     forward_diff_no_inf!(ir, to_diff; kwargs...)
 
     # Step 3: Re-inference
+
     ir = compact!(ir)
 
     extra_reprocess = CC.BitSet()
@@ -302,9 +304,13 @@ function forward_diff!(ir::IRCode, interp, mi::MethodInstance, world, to_diff::V
         end
     end
 
-    interp′ = enable_reinference(interp)
-    irsv = IRInterpretationState(interp′, ir, mi, world, ir.argtypes[1:mi.def.nargs])
-    rt = CC._ir_abstract_constant_propagation(interp′, irsv; extra_reprocess)
+    method_info = CC.MethodInfo(src)
+    argtypes = ir.argtypes[1:mi.def.nargs]
+    world = CC.get_world_counter(interp)
+    irsv = IRInterpretationState(interp, method_info, ir, mi, argtypes, world, src.min_world, src.max_world)
+    rt = CC._ir_abstract_constant_propagation(enable_reinference(interp), irsv; extra_reprocess)
+
+    ir = compact!(ir)
 
     return ir
 end

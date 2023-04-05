@@ -17,4 +17,15 @@ module stage2_fwd
         @test isa(self_minus′′, Core.OpaqueClosure{Tuple{Float64}, Float64})
         @test self_minus′′(1.0) == 0.
     end
+
+
+    @testset "structs" begin
+        struct Foo
+            x
+            y
+        end
+        foo_dub(x) = Foo(x, 2x)
+        dz = Diffractor.∂☆{1}()(Diffractor.ZeroBundle{1}(foo_dub), Diffractor.TaylorBundle{1}(10.0, (π,)))
+        @test Diffractor.first_partial(dz) == Tangent{Foo}(;x=π, y=2π)
+    end
 end

@@ -4,7 +4,16 @@ partial(x::TaylorTangent, i) = getfield(getfield(x, :coeffs), i)
 partial(x::UniformTangent, i) = getfield(x, :val)
 partial(x::ProductTangent, i) = ProductTangent(map(x->partial(x, i), getfield(x, :factors)))
 partial(x::AbstractZero, i) = x
-partial(x::CompositeBundle{N, B}, i) where {N, B} = Tangent{B}(map(x->partial(x, i), getfield(x, :tup))...)
+partial(x::CompositeBundle{N, B}, i) where {N, B<:Tuple} = Tangent{B}(map(x->partial(x, i), getfield(x, :tup))...)
+function partial(x::CompositeBundle{N, B}, i) where {N, B}
+    # This is tangent for a struct, but fields partials are each stored in a plain tuple
+    # so we add the names back using the primal `B`
+    # TODO: If required this can be done as a `@generated` function so it is type-stable
+    backing = NamedTuple{fieldnames(B)}(map(x->partial(x, i), getfield(x, :tup)))
+    return Tangent{B, typeof(backing)}(backing)
+end
+
+
 primal(x::AbstractTangentBundle) = x.primal
 primal(z::ZeroTangent) = ZeroTangent()
 

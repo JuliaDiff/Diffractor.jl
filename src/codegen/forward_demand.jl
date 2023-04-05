@@ -308,7 +308,7 @@ function forward_diff!(interp::ADInterpreter, ir::IRCode, src::CodeInfo, mi::Met
     argtypes = ir.argtypes[1:mi.def.nargs]
     world = CC.get_world_counter(interp)
     irsv = IRInterpretationState(interp, method_info, ir, mi, argtypes, world, src.min_world, src.max_world)
-    rt = CC._ir_abstract_constant_propagation(enable_reinference(interp), irsv; extra_reprocess)
+    rt = CC._ir_abstract_constant_propagation(interp, irsv; extra_reprocess)
 
     ir = compact!(ir)
 

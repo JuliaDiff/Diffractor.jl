@@ -43,7 +43,6 @@ struct ADInterpreter <: AbstractInterpreter
     # Modes settings
     forward::Bool
     backward::Bool
-    reinference::Bool
 
     # This cache is stratified by AD nesting level. Depending on the
     # nesting level of the derivative, The AD primitives may behave
@@ -64,7 +63,6 @@ struct ADInterpreter <: AbstractInterpreter
         return new(
             #=forward::Bool=#false,
             #=backward::Bool=#true,
-            #=reinference::Bool=#false,
             #=opt::OffsetVector{OptCache}=#OffsetVector([OptCache(), OptCache()], 0:1),
             #=unopt::Union{OffsetVector{UnoptCache},Nothing}=#OffsetVector([UnoptCache(), UnoptCache()], 0:1),
             #=transformed::OffsetVector{OptCache}=#OffsetVector([OptCache(), OptCache()], 0:1),
@@ -75,14 +73,13 @@ struct ADInterpreter <: AbstractInterpreter
     function ADInterpreter(interp::ADInterpreter = _ADInterpreter();
                            forward::Bool = interp.forward,
                            backward::Bool = interp.backward,
-                           reinference::Bool = interp.reinference,
                            opt::OffsetVector{OptCache} = interp.opt,
                            unopt::Union{OffsetVector{UnoptCache},Nothing} = interp.unopt,
                            transformed::OffsetVector{OptCache} = interp.transformed,
                            native_interpreter::NativeInterpreter = interp.native_interpreter,
                            current_level::Int = interp.current_level,
                            remarks::OffsetVector{RemarksCache} = interp.remarks)
-        return new(forward, backward, reinference, opt, unopt, transformed, native_interpreter, current_level, remarks)
+        return new(forward, backward, opt, unopt, transformed, native_interpreter, current_level, remarks)
     end
 end
 
@@ -91,8 +88,6 @@ raise_level(interp::ADInterpreter) = change_level(interp, interp.current_level +
 lower_level(interp::ADInterpreter) = change_level(interp, interp.current_level - 1)
 
 disable_forward(interp::ADInterpreter) = ADInterpreter(interp; forward=false)
-disable_reinference(interp::ADInterpreter) = ADInterpreter(interp; reinference=false)
-enable_reinference(interp::ADInterpreter) = ADInterpreter(interp; reinference=true)
 
 function Cthulhu.get_optimized_codeinst(interp::ADInterpreter, curs::ADCursor)
     @show curs
@@ -340,25 +335,12 @@ function CC.inlining_policy(interp::ADInterpreter,
         nothing, info::CC.CallInfo, stmt_flag::UInt8, mi::MethodInstance, argtypes::Vector{Any})
 end
 
-function dummy() end
-const dummym = first(methods(dummy))
-
 function CC.abstract_call_gf_by_type(interp::ADInterpreter, @nospecialize(f),
     arginfo::ArgInfo, si::StmtInfo, @nospecialize(atype),
     sv::IRInterpretationState, max_methods::Int)
-
-    if interp.reinference
-        # Create a dummy inference state to serve as the root
-        # TODO: This is terrible - how can we refactor this to do better?
-        mi = CC.specialize_method(dummym, Tuple{typeof(dummy)}, Core.svec())
-        result = InferenceResult(mi)
-        interp′ = disable_forward(disable_reinference(interp))
-        sv′ = InferenceState(result, :no, interp′)
-        r = abstract_call_gf_by_type(interp′, f, arginfo, si, atype, sv′, -1)
-        return r
-    end
-
-    return CallMeta(Any, Effects(), CC.NoCallInfo())
+    return @invoke CC.abstract_call_gf_by_type(interp::AbstractInterpreter, f::Any,
+        arginfo::ArgInfo, si::StmtInfo, atype::Any,
+        sv::CC.AbsIntState, max_methods::Int)
 end
 
 #=

@@ -335,6 +335,7 @@ function CC.inlining_policy(interp::ADInterpreter,
         nothing, info::CC.CallInfo, stmt_flag::UInt8, mi::MethodInstance, argtypes::Vector{Any})
 end
 
+# TODO remove this overload once https://github.com/JuliaLang/julia/pull/49191 gets merged
 function CC.abstract_call_gf_by_type(interp::ADInterpreter, @nospecialize(f),
     arginfo::ArgInfo, si::StmtInfo, @nospecialize(atype),
     sv::IRInterpretationState, max_methods::Int)

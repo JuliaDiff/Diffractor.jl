@@ -256,9 +256,9 @@ const DNEBundle{N, B} = UniformBundle{N, B, NoTangent}
 Base.getindex(u::UniformBundle, ::TaylorTangentIndex) = u.tangent.val
 
 """
-    TupleTangentBundle{N, B <: Tuple}
+    CompositeBundle{N, B <: Tuple}
 
-Represents the tagent bundle where the base space is some tuple type.
+Represents the tagent bundle where the base space is some tuple or struct type.
 Mathematically, this tangent bundle is the product bundle of the individual
 element bundles.
 """

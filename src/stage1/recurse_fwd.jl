@@ -35,7 +35,7 @@ function perform_fwd_transform(world::UInt, source::LineNumberNode,
             Core.svec(:ff, :args), Core.svec(), :(∂☆passthrough(args)))
     end
 
-    # Check if we have an rrule for this function
+    # Check if we have an frule for this function
     sig = Tuple{map(π, args)...}
     mthds = Base._methods_by_ftype(sig, -1, world)
     if mthds === nothing || length(mthds) != 1

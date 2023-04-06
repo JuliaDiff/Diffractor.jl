@@ -5,6 +5,7 @@ function fwd_transform(ci, args...)
 end
 
 function fwd_transform!(ci, mi, nargs, N)
+    Core.println("ci ", ci)
     new_code = Any[]
     new_codelocs = Any[]
     ssa_mapping = Int[]
@@ -63,16 +64,13 @@ function fwd_transform!(ci, mi, nargs, N)
     end
 
     meth = mi.def::Method
-    nargs = Int(meth.nargs)
-    for i = 1:nargs
-        if meth.isva && i == nargs
-            args = map(i:(nargs+1)) do j::Int
-                emit!(Expr(:call, getfield, SlotNumber(2), j))
-            end
-            emit!(Expr(:(=), SlotNumber(2 + i), Expr(:call, ∂vararg{N}(), args...)))
-        else
-            emit!(Expr(:(=), SlotNumber(2 + i), Expr(:call, getfield, SlotNumber(2), i)))
-        end
+    nfixedargs = Int(meth.nargs) - meth.isva
+    for i in 1:nfixedargs
+        emit!(Expr(:(=), SlotNumber(2 + i), Expr(:call, getfield, SlotNumber(2), i)))
+    end
+    if meth.isva  # handle the varadic argument
+        vararg = emit!(Expr(:call, getfield, SlotNumber(2), nfixedargs+1))
+        emit!(Expr(:(=), SlotNumber(2 + i), Expr(:call, Core._apply_iterate, Base.iterate, ∂vararg{N}(), vararg)))
     end
 
     for (stmt, codeloc) in zip(ci.code, ci.codelocs)
@@ -100,6 +98,7 @@ function fwd_transform!(ci, mi, nargs, N)
     ci.ssaflags = UInt8[0 for i=1:length(new_code)]
     ci.method_for_inference_limit_heuristics = meth
     ci.edges = MethodInstance[mi]
-
+    Core.println("new_code: ", new_code)
+    
     return ci
 end

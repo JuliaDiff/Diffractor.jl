@@ -259,6 +259,18 @@ wrapper_name(::Type{<:ZeroBundle}) = "ZeroBundle"
 wrapper_name(::Type{<:DNEBundle}) = "DNEBundle"
 wrapper_name(::Type{<:AbstractZeroBundle}) = "AbstractZeroBundle"
 
+function Base.show(io::IO, T::Type{<:AbstractZeroBundle{N, B}}) where {N,B}
+    print(io, wrapper_name(T))
+    print(io, "{$N, ")
+    show(io, B)
+    print(io, "}")
+end
+
+function Base.show(io::IO, T::Type{<:AbstractZeroBundle{N}}) where {N}
+    print(io, wrapper_name(T))
+    print(io, "{$N}")
+end
+
 function Base.show(io::IO, t::AbstractZeroBundle{N}) where N
     print(io, wrapper_name(typeof(t)))
     print(io, "{$N}(")

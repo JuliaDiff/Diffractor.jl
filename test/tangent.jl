@@ -14,6 +14,11 @@ using Test
     @testset "Display" begin
         @test repr(ZeroBundle{1}(2.0)) == "ZeroBundle{1}(2.0)"
         @test repr(DNEBundle{1}(getfield)) == "DNEBundle{1}(getfield)"
+
+        @test repr(ZeroBundle{1}) == "ZeroBundle{1}"
+        @test repr(ZeroBundle{1, Float64}) == "ZeroBundle{1, Float64}"
+
+        @test repr(typeof(DNEBundle{1}(getfield))) == DNEBundle{1, typeof(getfield)}
     end
 end
 

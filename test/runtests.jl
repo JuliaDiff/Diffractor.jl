@@ -13,7 +13,9 @@ const bwd = Diffractor.PrimeDerivativeBack
 
 @testset verbose=true "Diffractor.jl" begin  # overall testset, ensures all tests run
 
-include("stage2_fwd.jl")
+@testset "$file" for file in ("stage2_fwd.jl", "tangent.jl")
+    include(file)
+end
 
 # Unit tests
 function tup2(f)

@@ -31,8 +31,9 @@ function Compiler3.get_codeinstance(graph::ADGraph, cursor::ADCursor)
 end
 =#
 
-using Core.Compiler: AbstractInterpreter, NativeInterpreter, InferenceState,
-    InferenceResult, CodeInstance, WorldRange, ArgInfo, StmtInfo
+using Core: MethodInstance, CodeInstance
+using .CC: AbstractInterpreter, ArgInfo, Effects, InferenceResult, InferenceState,
+    IRInterpretationState, NativeInterpreter, OptimizationState, StmtInfo, WorldRange
 
 const OptCache = Dict{MethodInstance, CodeInstance}
 const UnoptCache = Dict{Union{MethodInstance, InferenceResult}, Cthulhu.InferredSource}
@@ -42,7 +43,6 @@ struct ADInterpreter <: AbstractInterpreter
     # Modes settings
     forward::Bool
     backward::Bool
-    reinference::Bool
 
     # This cache is stratified by AD nesting level. Depending on the
     # nesting level of the derivative, The AD primitives may behave
@@ -63,7 +63,6 @@ struct ADInterpreter <: AbstractInterpreter
         return new(
             #=forward::Bool=#false,
             #=backward::Bool=#true,
-            #=reinference::Bool=#false,
             #=opt::OffsetVector{OptCache}=#OffsetVector([OptCache(), OptCache()], 0:1),
             #=unopt::Union{OffsetVector{UnoptCache},Nothing}=#OffsetVector([UnoptCache(), UnoptCache()], 0:1),
             #=transformed::OffsetVector{OptCache}=#OffsetVector([OptCache(), OptCache()], 0:1),
@@ -74,14 +73,13 @@ struct ADInterpreter <: AbstractInterpreter
     function ADInterpreter(interp::ADInterpreter = _ADInterpreter();
                            forward::Bool = interp.forward,
                            backward::Bool = interp.backward,
-                           reinference::Bool = interp.reinference,
                            opt::OffsetVector{OptCache} = interp.opt,
                            unopt::Union{OffsetVector{UnoptCache},Nothing} = interp.unopt,
                            transformed::OffsetVector{OptCache} = interp.transformed,
                            native_interpreter::NativeInterpreter = interp.native_interpreter,
                            current_level::Int = interp.current_level,
                            remarks::OffsetVector{RemarksCache} = interp.remarks)
-        return new(forward, backward, reinference, opt, unopt, transformed, native_interpreter, current_level, remarks)
+        return new(forward, backward, opt, unopt, transformed, native_interpreter, current_level, remarks)
     end
 end
 
@@ -90,8 +88,6 @@ raise_level(interp::ADInterpreter) = change_level(interp, interp.current_level +
 lower_level(interp::ADInterpreter) = change_level(interp, interp.current_level - 1)
 
 disable_forward(interp::ADInterpreter) = ADInterpreter(interp; forward=false)
-disable_reinference(interp::ADInterpreter) = ADInterpreter(interp; reinference=false)
-enable_reinference(interp::ADInterpreter) = ADInterpreter(interp; reinference=true)
 
 function Cthulhu.get_optimized_codeinst(interp::ADInterpreter, curs::ADCursor)
     @show curs
@@ -120,7 +116,7 @@ function Cthulhu.lookup(interp::ADInterpreter, curs::ADCursor, optimize::Bool; a
         opt = codeinst.inferred
         if opt !== nothing
             opt = opt::Cthulhu.OptimizedSource
-            src = Core.Compiler.copy(opt.ir)
+            src = CC.copy(opt.ir)
             codeinf = opt.src
             infos = src.stmts.info
             slottypes = src.argtypes
@@ -162,7 +158,6 @@ function Cthulhu.custom_toggles(interp::ADInterpreter)
 end
 
 # TODO: Something is going very wrong here
-using Core.Compiler: Effects, OptimizationState
 function Cthulhu.get_effects(interp::ADInterpreter, mi::MethodInstance, opt::Bool)
     if haskey(interp.unopt[0], mi)
         return interp.unopt[0][mi].effects
@@ -171,7 +166,7 @@ function Cthulhu.get_effects(interp::ADInterpreter, mi::MethodInstance, opt::Boo
     end
 end
 
-function Core.Compiler.is_same_frame(interp::ADInterpreter, linfo::MethodInstance, frame::InferenceState)
+function CC.is_same_frame(interp::ADInterpreter, linfo::MethodInstance, frame::InferenceState)
     linfo === frame.linfo || return false
     return interp.current_level === frame.interp.current_level
 end
@@ -224,7 +219,7 @@ function Cthulhu.navigate(curs::ADCursor, callsite::Cthulhu.Callsite)
     return ADCursor(curs.level, Cthulhu.get_mi(callsite))
 end
 
-function Cthulhu.process_info(interp::ADInterpreter, @nospecialize(info::Core.Compiler.CallInfo), argtypes::Cthulhu.ArgTypes, @nospecialize(rt), optimize::Bool)
+function Cthulhu.process_info(interp::ADInterpreter, @nospecialize(info::CC.CallInfo), argtypes::Cthulhu.ArgTypes, @nospecialize(rt), optimize::Bool)
     if isa(info, RecurseInfo)
         newargtypes = argtypes[2:end]
         callinfos = Cthulhu.process_info(interp, info.info, newargtypes, Cthulhu.unwrapType(widenconst(rt)), optimize)
@@ -252,33 +247,33 @@ function Cthulhu.process_info(interp::ADInterpreter, @nospecialize(info::Core.Co
     elseif isa(info, CompClosInfo)
         return Any[CompClosCallInfo(rt)]
     end
-    return invoke(Cthulhu.process_info, Tuple{AbstractInterpreter, Core.Compiler.CallInfo, Cthulhu.ArgTypes, Any, Bool},
+    return invoke(Cthulhu.process_info, Tuple{AbstractInterpreter, CC.CallInfo, Cthulhu.ArgTypes, Any, Bool},
         interp, info, argtypes, rt, optimize)
 end
 
-Core.Compiler.InferenceParams(ei::ADInterpreter) = InferenceParams(ei.native_interpreter)
-Core.Compiler.OptimizationParams(ei::ADInterpreter) = OptimizationParams(ei.native_interpreter)
-Core.Compiler.get_world_counter(ei::ADInterpreter) = get_world_counter(ei.native_interpreter)
-Core.Compiler.get_inference_cache(ei::ADInterpreter) = get_inference_cache(ei.native_interpreter)
+CC.InferenceParams(ei::ADInterpreter) = InferenceParams(ei.native_interpreter)
+CC.OptimizationParams(ei::ADInterpreter) = OptimizationParams(ei.native_interpreter)
+CC.get_world_counter(ei::ADInterpreter) = get_world_counter(ei.native_interpreter)
+CC.get_inference_cache(ei::ADInterpreter) = get_inference_cache(ei.native_interpreter)
 
 # No need to do any locking since we're not putting our results into the runtime cache
-Core.Compiler.lock_mi_inference(ei::ADInterpreter, mi::MethodInstance) = nothing
-Core.Compiler.unlock_mi_inference(ei::ADInterpreter, mi::MethodInstance) = nothing
+CC.lock_mi_inference(ei::ADInterpreter, mi::MethodInstance) = nothing
+CC.unlock_mi_inference(ei::ADInterpreter, mi::MethodInstance) = nothing
 
 struct CodeInfoView
     d::Dict{MethodInstance, Any}
 end
 
-function Core.Compiler.code_cache(ei::ADInterpreter)
+function CC.code_cache(ei::ADInterpreter)
     while ei.current_level > lastindex(ei.opt)
         push!(ei.opt, Dict{MethodInstance, Any}())
     end
     ei.opt[ei.current_level]
 end
-Core.Compiler.may_optimize(ei::ADInterpreter) = true
-Core.Compiler.may_compress(ei::ADInterpreter) = false
-Core.Compiler.may_discard_trees(ei::ADInterpreter) = false
-function Core.Compiler.get(view::CodeInfoView, mi::MethodInstance, default)
+CC.may_optimize(ei::ADInterpreter) = true
+CC.may_compress(ei::ADInterpreter) = false
+CC.may_discard_trees(ei::ADInterpreter) = false
+function CC.get(view::CodeInfoView, mi::MethodInstance, default)
     r = get(view.d, mi, nothing)
     if r === nothing
         return default
@@ -298,23 +293,23 @@ end
 Cthulhu.get_remarks(interp::ADInterpreter, key::Union{MethodInstance,InferenceResult}) = get(interp.remarks[interp.current_level], key, nothing)
 
 #=
-function Core.Compiler.const_prop_heuristic(interp::AbstractInterpreter, method::Method, mi::MethodInstance)
+function CC.const_prop_heuristic(interp::AbstractInterpreter, method::Method, mi::MethodInstance)
     return true
 end
 =#
 
-function Core.Compiler.finish(state::InferenceState, interp::ADInterpreter)
-    res = @invoke Core.Compiler.finish(state::InferenceState, interp::AbstractInterpreter)
-    key = Core.Compiler.any(state.result.overridden_by_const) ? state.result : state.linfo
+function CC.finish(state::InferenceState, interp::ADInterpreter)
+    res = @invoke CC.finish(state::InferenceState, interp::AbstractInterpreter)
+    key = CC.any(state.result.overridden_by_const) ? state.result : state.linfo
     interp.unopt[interp.current_level][key] = Cthulhu.InferredSource(
         copy(state.src),
         copy(state.stmt_info),
-        isdefined(Core.Compiler, :Effects) ? state.ipo_effects : nothing,
+        state.ipo_effects,
         state.result.result)
     return res
 end
 
-function Core.Compiler.transform_result_for_cache(interp::ADInterpreter,
+function CC.transform_result_for_cache(interp::ADInterpreter,
     linfo::MethodInstance, valid_worlds::WorldRange, result::InferenceResult)
     return Cthulhu.create_cthulhu_source(result.src, result.ipo_effects)
 end
@@ -325,7 +320,7 @@ function CC.inlining_policy(interp::ADInterpreter,
     if isa(info, FRuleCallInfo)
         return nothing
     end
-    if isdefined(CC, :SemiConcreteResult) && isa(src, CC.SemiConcreteResult)
+    if isa(src, CC.SemiConcreteResult)
         return src
     end
     @assert isa(src, Cthulhu.OptimizedSource) || isnothing(src)
@@ -333,37 +328,24 @@ function CC.inlining_policy(interp::ADInterpreter,
         if CC.is_stmt_inline(stmt_flag) || src.isinlineable
             return src.ir
         end
-    else
-        # the default inlining policy may try additional effor to find the source in a local cache
-        return @invoke CC.inlining_policy(interp::AbstractInterpreter,
-            nothing, info::CC.CallInfo, stmt_flag::UInt8, mi::MethodInstance, argtypes::Vector{Any})
+        return nothing
     end
-    return nothing
+    # the default inlining policy may try additional effor to find the source in a local cache
+    return @invoke CC.inlining_policy(interp::AbstractInterpreter,
+        nothing, info::CC.CallInfo, stmt_flag::UInt8, mi::MethodInstance, argtypes::Vector{Any})
 end
 
-function dummy() end
-const dummym = first(methods(dummy))
-
+# TODO remove this overload once https://github.com/JuliaLang/julia/pull/49191 gets merged
 function CC.abstract_call_gf_by_type(interp::ADInterpreter, @nospecialize(f),
     arginfo::ArgInfo, si::StmtInfo, @nospecialize(atype),
-    sv::IRCode, max_methods::Int)
-
-    if interp.reinference
-        # Create a dummy inference state to serve as the root
-        # TODO: This is terrible - how can we refactor this to do better?
-        mi = CC.specialize_method(dummym, Tuple{typeof(dummy)}, Core.svec())
-        result = InferenceResult(mi)
-        interp′ = disable_forward(disable_reinference(interp))
-        sv′ = InferenceState(result, :no, interp′)
-        r = abstract_call_gf_by_type(interp′, f, arginfo, si, atype, sv′, -1)
-        return r
-    end
-
-    return CallMeta(Any, CC.Effects(), CC.NoCallInfo())
+    sv::IRInterpretationState, max_methods::Int)
+    return @invoke CC.abstract_call_gf_by_type(interp::AbstractInterpreter, f::Any,
+        arginfo::ArgInfo, si::StmtInfo, atype::Any,
+        sv::CC.AbsIntState, max_methods::Int)
 end
 
 #=
-function Core.Compiler.optimize(interp::ADInterpreter, opt::OptimizationState,
+function CC.optimize(interp::ADInterpreter, opt::OptimizationState,
     params::OptimizationParams, caller::InferenceResult)
 
     # TODO: Enable some amount of inlining
@@ -371,29 +353,29 @@ function Core.Compiler.optimize(interp::ADInterpreter, opt::OptimizationState,
 
     sv = opt
     ci = opt.src
-    ir = Core.Compiler.convert_to_ircode(ci, sv)
-    ir = Core.Compiler.slot2reg(ir, ci, sv)
+    ir = CC.convert_to_ircode(ci, sv)
+    ir = CC.slot2reg(ir, ci, sv)
     # TODO: Domsorting can produce an updated domtree - no need to recompute here
-    ir = Core.Compiler.compact!(ir)
-    return Core.Compiler.finish(interp, opt, params, ir, caller)
+    ir = CC.compact!(ir)
+    return CC.finish(interp, opt, params, ir, caller)
 end
 =#
 
-function Core.Compiler.finish!(interp::ADInterpreter, caller::InferenceResult)
+function CC.finish!(interp::ADInterpreter, caller::InferenceResult)
     effects = caller.ipo_effects
     caller.src = Cthulhu.create_cthulhu_source(caller.src, effects)
 end
 
 function ir2codeinst(ir::IRCode, inst::CodeInstance, ci::CodeInfo)
     CodeInstance(inst.def, inst.rettype, isdefined(inst, :rettype_const) ? inst.rettype_const : nothing,
-                 Cthulhu.OptimizedSource(Core.Compiler.copy(ir), ci, inst.inferred.isinlineable, Core.Compiler.decode_effects(inst.purity_bits)),
+                 Cthulhu.OptimizedSource(CC.copy(ir), ci, inst.inferred.isinlineable, CC.decode_effects(inst.purity_bits)),
                  Int32(0), inst.min_world, inst.max_world, inst.ipo_purity_bits, inst.purity_bits,
                  inst.argescapes, inst.relocatability)
 end
 
 using Core: OpaqueClosure
 function codegen(interp::ADInterpreter, curs::ADCursor, cache=Dict{ADCursor, OpaqueClosure}())
-    ir = Core.Compiler.copy(Cthulhu.get_optimized_codeinst(interp, curs).inferred.ir)
+    ir = CC.copy(Cthulhu.get_optimized_codeinst(interp, curs).inferred.ir)
     codeinst = interp.opt[curs.level][curs.mi]
     ci = codeinst.inferred.src
     if curs.level >= 1

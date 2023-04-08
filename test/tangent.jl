@@ -18,7 +18,7 @@ using Test
         @test repr(ZeroBundle{1}) == "ZeroBundle{1}"
         @test repr(ZeroBundle{1, Float64}) == "ZeroBundle{1, Float64}"
 
-        @test repr(typeof(DNEBundle{1}(getfield))) == DNEBundle{1, typeof(getfield)}
+        @test repr(typeof(DNEBundle{1}(getfield))) == "DNEBundle{1, typeof(getfield)}"
     end
 end
 

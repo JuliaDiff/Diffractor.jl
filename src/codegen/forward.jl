@@ -63,9 +63,8 @@ function fwd_transform!(ci, mi, nargs, N)
     end
 
     meth = mi.def::Method
-    nargs = Int(meth.nargs)
-    for i = 1:nargs
-        if meth.isva && i == nargs
+    for i = 1:meth.nargs
+        if meth.isva && i == meth.nargs
             args = map(i:(nargs+1)) do j::Int
                 emit!(Expr(:call, getfield, SlotNumber(2), j))
             end

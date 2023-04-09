@@ -268,11 +268,11 @@ function forward_diff_no_inf!(ir::IRCode, to_diff::Vector{Pair{SSAValue, Int}};
                 # TODO: New PiNode that discriminates based on primal?
                 inst[:inst] = maparg(stmt.val, SSAValue(ssa), order)
                 inst[:type] = Any
-            elseif isa(stmt, GlobalRef) || isa(stmt, SSAValue)
+            elseif isa(stmt, GlobalRef) || isa(stmt, SSAValue) || isa(stmt, QuoteNode)
                 inst[:inst] = maparg(stmt, SSAValue(ssa), order)
                 inst[:type] = Any
             elseif isa(stmt, Expr) || isa(stmt, PhiNode) || isa(stmt, PhiCNode) ||
-                   isa(stmt, UpsilonNode) || isa(stmt, GotoIfNot) || isa(stmt, QuoteNode) || isa(stmt, Argument)
+                   isa(stmt, UpsilonNode) || isa(stmt, GotoIfNot) || isa(stmt, Argument)
                 urs = userefs(stmt)
                 for ur in urs
                     ur[] = maparg(ur[], SSAValue(ssa), order)

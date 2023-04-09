@@ -31,10 +31,10 @@ module stage2_fwd
 
     @testset "mix of vararg and positional args" begin
         cc(a, x::Vararg) = nothing
-        Diffractor.∂☆{1}()(Diffractor.ZeroBundle{1}(cc), Diffractor.TaylorBundle{1}(10f0, (10.0,)), TaylorBundle{1}(10f0, (10.0,)))
+        Diffractor.∂☆{1}()(Diffractor.ZeroBundle{1}(cc), Diffractor.TaylorBundle{1}(10f0, (10.0,)), Diffractor.TaylorBundle{1}(10f0, (10.0,)))
 
         gg(a, xs...) = nothing
-        Diffractor.∂☆{1}()(Diffractor.ZeroBundle{1}(gg), Diffractor.TaylorBundle{1}(10f0, (1.2,)), TaylorBundle{1}(20f0, (1.1,)))
+        Diffractor.∂☆{1}()(Diffractor.ZeroBundle{1}(gg), Diffractor.TaylorBundle{1}(10f0, (1.2,)), Diffractor.TaylorBundle{1}(20f0, (1.1,)))
     end
 
 

@@ -215,6 +215,10 @@ function (::∂☆{N})(f::ZeroBundle{N, typeof(ifelse)}, arg::ATB{N, Bool}, args
     ifelse(arg.primal, args...)
 end
 
+function (::∂☆{N})(f::ZeroBundle{N, typeof(Core.ifelse)}, arg::ATB{N, Bool}, args::ATB{N}...) where {N}
+    Core.ifelse(arg.primal, args...)
+end
+
 struct FwdIterate{N, T<:AbstractTangentBundle{N}}
     f::T
 end

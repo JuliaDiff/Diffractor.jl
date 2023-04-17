@@ -33,6 +33,7 @@ ChainRules.rrule(::typeof(my_tuple), args...) = args, Δ->Core.tuple(NoTangent()
 
 # Check characteristic of exp rule
 @variables ω α β γ δ ϵ ζ η
+# this seems to be broken
 (x1, c1) = ∂⃖{3}()(exp, ω)
 @test isequal(simplify(x1), simplify(exp(ω)))
 ((_, x2), c2) = c1(α)

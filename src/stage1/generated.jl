@@ -22,7 +22,7 @@ function perform_optic_transform(world::UInt, source::LineNumberNode,
     if mthds === nothing || length(mthds) != 1
         # Core.println("[perform_optic_transform] ", sig, " => ", mthds)
         return generate_lambda_ex(world, source,
-            Core.svec(:ff, :args), Core.svec(), :(throw(MethodError(ff, args))))
+            Core.svec(:ff, :args), Core.svec(), :(throw(MethodError(args[1], args[2:end], $world))))
     end
     match = only(mthds)::Core.MethodMatch
 

@@ -27,6 +27,10 @@ struct ∂☆new{N}; end
 function ∂☆nomethd(@nospecialize(args))
     throw(MethodError(primal(args[1]), map(primal, Base.tail(args))))
 end
+function ∂☆builtin((f_bundle, args...))
+    f = primal(f_bundle)
+    throw(DomainError(f, "No `ChainRulesCore.frule` found for the built-in function `$f`"))
+end
 
 function perform_fwd_transform(world::UInt, source::LineNumberNode,
                                @nospecialize(ff::Type{∂☆recurse{N}}), @nospecialize(args)) where {N}
@@ -36,6 +40,11 @@ function perform_fwd_transform(world::UInt, source::LineNumberNode,
     end
 
     sig = Tuple{map(π, args)...}
+    if sig.parameters[1] <: Core.Builtin
+        return generate_lambda_ex(world, source,
+            Core.svec(:ff, :args), Core.svec(), :(∂☆builtin(args)))
+    end
+    
     mthds = Base._methods_by_ftype(sig, -1, world)
     if mthds === nothing || length(mthds) != 1
         # Core.println("[perform_fwd_transform] ", sig, " => ", mthds)

@@ -29,7 +29,10 @@ function ∂☆nomethd(@nospecialize(args))
 end
 function ∂☆builtin((f_bundle, args...))
     f = primal(f_bundle)
-    throw(DomainError(f, "No `ChainRulesCore.frule` found for the built-in function `$f`"))
+    argtypes = Any[Core.Typeof(primal(arg)) for arg in args]
+    tt = Base.signature_type(f, argtypes)
+    sig = Base.sprint(Base.show_tuple_as_call, Symbol(""), tt)
+    throw(DomainError(f, "No `ChainRulesCore.frule` found for the built-in function `$sig`"))
 end
 
 function perform_fwd_transform(world::UInt, source::LineNumberNode,

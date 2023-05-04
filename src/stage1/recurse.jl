@@ -1,17 +1,15 @@
-using Core.Compiler: MethodInstance, IncrementalCompact, insert_node_here!,
-    userefs, SlotNumber, IRCode, compute_basic_blocks, _methods_by_ftype,
-    retrieve_code_info, CodeInfo, SSAValue, finish, complete, non_dce_finish!,
-    GotoNode, GotoIfNot, block_for_inst, ReturnNode, Argument, compact!,
-    OldSSAValue, NewvarNode, quoted
+using Core.Compiler:
+    Argument, BasicBlock, CFG, CodeInfo, GotoIfNot, GotoNode, IRCode, IncrementalCompact,
+    Instruction, MethodInstance, NewInstruction, NewvarNode, OldSSAValue, PhiNode,
+    ReturnNode, SSAValue, SlotNumber, StmtRange,
+    bbidxiter, cfg_delete_edge!, cfg_insert_edge!, compute_basic_blocks, complete,
+    construct_domtree, construct_ssa!, domsort_ssa!, effect_free, finish, insert_node!,
+    insert_node_here!, non_dce_finish!, non_effect_free, quoted, retrieve_code_info,
+    scan_slot_def_use, userefs
 
 using Base.Meta
 
 cname(nc, N, name) = Symbol(string("∂⃖", superscript(N), subscript(nc), name))
-
-using Core.Compiler: construct_domtree, scan_slot_def_use, construct_ssa!,
-    NewInstruction, effect_free, CFG, BasicBlock, bbidxiter, PhiNode,
-    Instruction, StmtRange, cfg_insert_edge!, insert_node!,
-    non_effect_free, cfg_delete_edge!, domsort_ssa!
 
 struct ∂ϕNode; end
 

@@ -21,7 +21,11 @@ function forward_diff!(ir::IRCode, interp, irsv::IRInterpretationState, to_diff:
 end
 =#
 
-function forward_diff!(ir::IRCode, interp, irsv::IRInterpretationState, ssa::SSAValue, order::Int; custom_diff!, diff_cache)
+# TODO interp::AbstractADInterpreter instead interp::AbstractInterpreter?
+
+function forward_diff!(ir::IRCode, interp::AbstractInterpreter, irsv::IRInterpretationState,
+                       ssa::SSAValue, order::Int;
+                       custom_diff!, diff_cache)
     if haskey(diff_cache, ssa)
         return diff_cache[ssa]
     end
@@ -34,9 +38,19 @@ function forward_diff!(ir::IRCode, interp, irsv::IRInterpretationState, ssa::SSA
     end
     return Δssa
 end
-forward_diff!(ir::IRCode, interp, irsv::IRInterpretationState, val::Union{Integer, AbstractFloat}, order::Int; custom_diff!, diff_cache) = zero(val)
-forward_diff!(ir::IRCode, interp, irsv::IRInterpretationState, @nospecialize(arg), order::Int; custom_diff!, diff_cache) = ChainRulesCore.NoTangent()
-function forward_diff!(ir::IRCode, interp, irsv::IRInterpretationState, arg::Argument, order::Int; custom_diff!, diff_cache)
+function forward_diff!(ir::IRCode, interp::AbstractInterpreter, irsv::IRInterpretationState,
+                       val::Union{Integer, AbstractFloat}, order::Int;
+                       custom_diff!, diff_cache)
+    return zero(val)
+end
+function forward_diff!(ir::IRCode, interp::AbstractInterpreter, irsv::IRInterpretationState,
+                       @nospecialize(arg), order::Int;
+                       custom_diff!, diff_cache)
+    return ChainRulesCore.NoTangent()
+end
+function forward_diff!(ir::IRCode, interp::AbstractInterpreter, irsv::IRInterpretationState,
+                       arg::Argument, order::Int;
+                       custom_diff!, diff_cache)
     recurse(x) = forward_diff!(ir, interp, irsv, x; custom_diff!, diff_cache)
     val = custom_diff!(ir, SSAValue(0), arg, recurse)
     if val !== nothing
@@ -45,7 +59,9 @@ function forward_diff!(ir::IRCode, interp, irsv::IRInterpretationState, arg::Arg
     return ChainRulesCore.NoTangent()
 end
 
-function forward_diff_uncached!(ir::IRCode, interp, irsv::IRInterpretationState, ssa::SSAValue, inst::Core.Compiler.Instruction, order::Int; custom_diff!, diff_cache)
+function forward_diff_uncached!(ir::IRCode, interp::AbstractInterpreter, irsv::IRInterpretationState,
+                                ssa::SSAValue, inst::Core.Compiler.Instruction, order::Int;
+                                custom_diff!, diff_cache)
     stmt = inst[:inst]
     recurse(x) = forward_diff!(ir, interp, irsv, x, order; custom_diff!, diff_cache)
     if (val = custom_diff!(ir, ssa, stmt, recurse)) !== nothing
@@ -105,8 +121,7 @@ function forward_diff_uncached!(ir::IRCode, interp, irsv::IRInterpretationState,
         argtypes = Any[argextype(arg, ir) for arg in Δtpl.args[2:end]]
         tup_T = CC.tuple_tfunc(CC.typeinf_lattice(interp), argtypes)
 
-        Δ = insert_node!(ir, ssa, NewInstruction(
-            Δtpl, tup_T))
+        Δ = insert_node!(ir, ssa, NewInstruction(Δtpl, tup_T))
 
         # Now that we know the arguments, do a proper typeinf for this particular callsite
         new_spec_types = Tuple{typeof(ChainRulesCore.frule), widenconst(tup_T), (widenconst(argextype(arg, ir)) for arg in args)...}
@@ -175,7 +190,7 @@ function forward_visit!(ir::IRCode, ssa::SSAValue, order::Int, ssa_orders::Vecto
         error()
     end
 end
-forward_visit!(ir::IRCode, _, order::Int, ssa_orders::Vector{Pair{Int, Bool}}, visit_custom!) = nothing
+forward_visit!(::IRCode, @nospecialize(x), ::Int, ::Vector{Pair{Int, Bool}}, _) = nothing
 function forward_visit!(ir::IRCode, a::Argument, order::Int, ssa_orders::Vector{Pair{Int, Bool}}, visit_custom!)
     recurse(@nospecialize(val)) = forward_visit!(ir, val, order, ssa_orders, visit_custom!)
     return visit_custom!(ir, a, order, recurse)
@@ -183,7 +198,7 @@ end
 
 
 """
-	forward_diff_no_inf!(ir, to_diff; visit_custom!, transform)
+	forward_diff_no_inf!(ir::IRCode, to_diff::Vector{Pair{SSAValue,Int}}; visit_custom!, transform!)
 
 Internal method which generates the code for forward mode diffentiation
 
@@ -192,13 +207,14 @@ Internal method which generates the code for forward mode diffentiation
  - `to_diff`: collection of all SSA values for which the derivative is to be taken,
               paired with the order (first deriviative, second derivative etc)
 
- - `visit_custom!(ir, stmt, order::Int, recurse::Bool)`:
+ - `visit_custom!(ir::IRCode, stmt, order::Int, recurse::Bool) -> Bool`:
 		decides if the custom `transform!` should be applied to a `stmt` or not
 		Default: `false` for all statements
- - `transform!(ir, ssa::SSAValue, order::Int)` mutates `ir` to do a custom tranformation.
+ - `transform!(ir::IRCode, ssa::SSAValue, order::Int)` mutates `ir` to do a custom tranformation.
 """
-function forward_diff_no_inf!(ir::IRCode, to_diff::Vector{Pair{SSAValue, Int}};
-        visit_custom! = (args...)->false, transform! = (args...)->error())
+function forward_diff_no_inf!(ir::IRCode, to_diff::Vector{Pair{SSAValue,Int}};
+                              visit_custom! = (@nospecialize args...)->false,
+                              transform! = (@nospecialize args...)->error())
     # Step 1: For each SSAValue in the IR, keep track of the differentiation order needed
     ssa_orders = [0=>false for i = 1:length(ir.stmts)]
     for (ssa, order) in to_diff
@@ -208,7 +224,7 @@ function forward_diff_no_inf!(ir::IRCode, to_diff::Vector{Pair{SSAValue, Int}};
     truncation_map = Dict{Pair{SSAValue, Int}, SSAValue}()
 
     # Step 2: Transform
-    function maparg(arg, ssa, order)
+    function maparg(@nospecialize(arg), ssa::SSAValue, order::Int)
         if isa(arg, SSAValue)
             if arg.id > length(ssa_orders)
                 # This is possible if the custom transform touched another statement.
@@ -259,10 +275,16 @@ function forward_diff_no_inf!(ir::IRCode, to_diff::Vector{Pair{SSAValue, Int}};
             inst = ir[SSAValue(ssa)]
             stmt = inst[:inst]
             if isexpr(stmt, :invoke)
-                inst[:inst] = Expr(:call, ∂☆{order}(), map(arg->maparg(arg, SSAValue(ssa), order), stmt.args[2:end])...)
+                newargs = map(stmt.args[2:end]) do @nospecialize arg
+                    maparg(arg, SSAValue(ssa), order)
+                end
+                inst[:inst] = Expr(:call, ∂☆{order}(), newargs...)
                 inst[:type] = Any
             elseif isexpr(stmt, :call)
-                inst[:inst] = Expr(:call, ∂☆{order}(), map(arg->maparg(arg, SSAValue(ssa), order), stmt.args)...)
+                newargs = map(stmt.args) do @nospecialize arg
+                    maparg(arg, SSAValue(ssa), order)
+                end
+                inst[:inst] = Expr(:call, ∂☆{order}(), newargs...)
                 inst[:type] = Any
             elseif isa(stmt, PiNode)
                 # TODO: New PiNode that discriminates based on primal?
@@ -287,7 +309,6 @@ function forward_diff_no_inf!(ir::IRCode, to_diff::Vector{Pair{SSAValue, Int}};
         end
     end
 end
-
 
 function forward_diff!(interp::ADInterpreter, ir::IRCode, src::CodeInfo, mi::MethodInstance,
                        to_diff::Vector{Pair{SSAValue, Int}}; kwargs...)

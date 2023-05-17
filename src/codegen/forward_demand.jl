@@ -183,6 +183,8 @@ function forward_visit!(ir::IRCode, ssa::SSAValue, order::Int, ssa_orders::Vecto
         foreach(recurse, stmt.args)
     elseif isa(stmt, SSAValue)
         recurse(stmt)
+    elseif isexpr(stmt, :code_coverage_effect)
+        return
     elseif !isa(stmt, Expr)
         return
     else
@@ -280,11 +282,12 @@ function forward_diff_no_inf!(ir::IRCode, to_diff::Vector{Pair{SSAValue,Int}};
                 end
                 inst[:inst] = Expr(:call, ∂☆{order}(), newargs...)
                 inst[:type] = Any
-            elseif isexpr(stmt, :call)
+            elseif isexpr(stmt, :call) || isexpr(stmt, :new)
                 newargs = map(stmt.args) do @nospecialize arg
                     maparg(arg, SSAValue(ssa), order)
                 end
-                inst[:inst] = Expr(:call, ∂☆{order}(), newargs...)
+                f = isexpr(stmt, :call) ? ∂☆{order}() : ∂☆new{order}()
+                inst[:inst] = Expr(:call, f, newargs...)
                 inst[:type] = Any
             elseif isa(stmt, PiNode)
                 # TODO: New PiNode that discriminates based on primal?

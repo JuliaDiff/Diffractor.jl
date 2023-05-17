@@ -280,11 +280,12 @@ function forward_diff_no_inf!(ir::IRCode, to_diff::Vector{Pair{SSAValue,Int}};
                 end
                 inst[:inst] = Expr(:call, ∂☆{order}(), newargs...)
                 inst[:type] = Any
-            elseif isexpr(stmt, :call)
+            elseif isexpr(stmt, :call) || isexpr(stmt, :new)
                 newargs = map(stmt.args) do @nospecialize arg
                     maparg(arg, SSAValue(ssa), order)
                 end
-                inst[:inst] = Expr(:call, ∂☆{order}(), newargs...)
+                f = isexpr(stmt, :call) ? ∂☆{order}() : ∂☆new{order}()
+                inst[:inst] = Expr(:call, f, newargs...)
                 inst[:type] = Any
             elseif isa(stmt, PiNode)
                 # TODO: New PiNode that discriminates based on primal?

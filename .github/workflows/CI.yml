@@ -60,7 +60,7 @@ jobs:
             cd docs/terminology
             latexmk -pdf -shell-escape terminology.tex
       - name: Upload Artifact
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: terminology
           path: docs/terminology/terminology.pdf

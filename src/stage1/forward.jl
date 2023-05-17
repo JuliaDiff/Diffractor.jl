@@ -20,7 +20,7 @@ primal(z::ZeroTangent) = ZeroTangent()
 first_partial(x) = partial(x, 1)
 
 shuffle_down(b::UniformBundle{N, B, U}) where {N, B, U} =
-    UniformBundle{minus1(N), <:Any}(UniformBundle{1, B}(b.primal, b.tangent.val),
+    UniformBundle{N-1, <:Any}(UniformBundle{1, B}(b.primal, b.tangent.val),
                                     UniformBundle{1, U}(b.tangent.val, b.tangent.val))
 
 function shuffle_down(b::ExplicitTangentBundle{N, B}) where {N, B}
@@ -30,7 +30,7 @@ function shuffle_down(b::ExplicitTangentBundle{N, B}) where {N, B}
     end
     ExplicitTangentBundle{N-1}(
         ExplicitTangentBundle{1}(b.primal, (partial(b, 1),)),
-        ntuple(_sdown, 2^(N-1)-1))
+        ntuple(_sdown, 1<<(N-1)-1))
 end
 
 function shuffle_down(b::TaylorBundle{N, B}) where {N, B}
@@ -86,7 +86,7 @@ function shuffle_up(r::CompositeBundle{N}) where {N}
     else
         return TangentBundle{N+1}(r.tup[1].primal,
             (r.tup[1].tangent.partials..., primal(b),
-            ntuple(i->partial(b,i), 2^(N+1)-1)...))
+            ntuple(i->partial(b,i), 1<<(N+1)-1)...))
     end
 end
 
@@ -131,10 +131,10 @@ function ChainRulesCore.frule_via_ad(::DiffractorRuleConfig, partials, args...)
 end
 
 function (::∂☆shuffle{N})(args::AbstractTangentBundle{N}...) where {N}
-    ∂☆p = ∂☆{minus1(N)}()
+    ∂☆p = ∂☆{N-1}()
     downargs = map(shuffle_down, args)
-    tupargs = ∂vararg{minus1(N)}()(map(first_partial, downargs)...)
-    ∂☆p(ZeroBundle{minus1(N)}(frule), #= ZeroBundle{minus1(N)}(DiffractorRuleConfig()), =# tupargs, map(primal, downargs)...)
+    tupargs = ∂vararg{N-1}()(map(first_partial, downargs)...)
+    ∂☆p(ZeroBundle{N-1}(frule), #= ZeroBundle{N-1}(DiffractorRuleConfig()), =# tupargs, map(primal, downargs)...)
 end
 
 function (::∂☆internal{N})(args::AbstractTangentBundle{N}...) where {N}

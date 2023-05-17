@@ -14,13 +14,13 @@ end
 function (x::∂⃖composeOdd)(Δ)
     b, ∂b = x.b(Δ)
     a, ∂a = x.a(b[end])
-    a, ∂⃖composeEven{N, plus1(N)}(∂a, ∂b)
+    a, ∂⃖composeEven{N, N+1}(∂a, ∂b)
 end
 
 function (x::∂⃖composeEven)(args...)
     a, ∂a = x.a(args...)
     b, ∂b = x.b(a)
-    b, ∂⃖composeOdd{N, plus1(N)}(∂a, ∂b)
+    b, ∂⃖composeOdd{N, N+1}(∂a, ∂b)
 end
 
 function (x::∂⃖composeOdd{N,N})(Δ) where {N}

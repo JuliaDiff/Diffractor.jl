@@ -52,7 +52,7 @@ for (;method) in Base._methods_by_ftype(Tuple{Diffractor.∂☆recurse{N}, Varar
         if parent_order > child_order
             return true
         end
-        Core.Compiler.@show (parent_sig, new_sig)
+        #Core.Compiler.@show (parent_sig, new_sig)
         return false
     end
 end

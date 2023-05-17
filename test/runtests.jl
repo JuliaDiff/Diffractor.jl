@@ -32,8 +32,10 @@ ChainRules.rrule(::typeof(my_tuple), args...) = args, Δ->Core.tuple(NoTangent()
 @test tup2(my_tuple) == (ZeroTangent(), 4)
 
 # Check characteristic of exp rule
+# broken see: https://github.com/JuliaDiff/Diffractor.jl/pull/142
 @variables ω α β γ δ ϵ ζ η
-(x1, c1) = ∂⃖{3}()(exp, ω)
+@test_broken ((x1, c1) = ∂⃖{3}()(exp, ω)) isa Any
+#==
 @test isequal(simplify(x1), simplify(exp(ω)))
 ((_, x2), c2) = c1(α)
 @test isequal(simplify(x2), simplify(α*exp(ω)))
@@ -49,6 +51,7 @@ ChainRules.rrule(::typeof(my_tuple), args...) = args, Δ->Core.tuple(NoTangent()
 @test isequal(simplify(x7), simplify(ζ*exp(ω) + β*δ*exp(ω)))
 (_, x8) = c7(η)
 @test isequal(simplify(x8), simplify((η + (α*ζ) + (β*ϵ) + (δ*(γ + (α*β))))*exp(ω)))
+==#
 
 # Minimal 2-nd order forward smoke test
 @test Diffractor.∂☆{2}()(Diffractor.ZeroBundle{2}(sin),

@@ -43,4 +43,23 @@ module stage2_fwd
         g(x) = Diffractor.∂☆{1}()(Diffractor.ZeroBundle{1}(f), Diffractor.TaylorBundle{1}(x, (1.0,)))
         Diffractor.∂☆{1}()(Diffractor.ZeroBundle{1}(g), Diffractor.TaylorBundle{1}(10f0, (1.0,)))
     end
+
+    @testset "Constructors in forward_diff_no_inf!" begin
+        struct Bar148
+            v
+        end
+        foo_148(x) = Bar148(x)
+
+        # this is needed as transform! is *always* called on Arguments regardless of what visit_custom says
+        identity_transform!(ir, ssa::Core.SSAValue, order) = ir[ssa]
+        function identity_transform!(ir, arg::Core.Argument, order)
+            return Core.Compiler.insert_node!(ir, Core.SSAValue(1), Core.Compiler.NewInstruction(Expr(:call, Diffractor.ZeroBundle{1}, arg), Any))
+        end
+
+        ir = first(only(Base.code_ircode(foo_148, Tuple{Float64})))
+        Diffractor.forward_diff_no_inf!(ir, [Core.SSAValue(1) => 1]; transform! = identity_transform!)
+        ir2 = Core.Compiler.compact!(ir)
+        f = Core.OpaqueClosure(ir2; do_compile=false)
+        @test f(1.0) == Bar148(1.0)  # This would error if we were not handling constructors (%new) right
+    end
 end

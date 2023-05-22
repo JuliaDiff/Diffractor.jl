@@ -262,7 +262,7 @@ wrapper_name(::Type{<:AbstractZeroBundle}) = "AbstractZeroBundle"
 function Base.show(io::IO, T::Type{<:AbstractZeroBundle{N, B}}) where {N,B}
     print(io, wrapper_name(T))
     print(io, @isdefined(N) ? "{$N, " : "{N, ")
-    show(io, B)
+    @isdefined(B) ? show(io, B) : print(io, "B")
     print(io, "}")
 end
 

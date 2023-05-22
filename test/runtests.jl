@@ -148,6 +148,7 @@ let var"'" = Diffractor.PrimeDerivativeFwd
     @test sin''''''(1.0) == -sin(1.0)
     @test cos''''''(1.0) == -cos(1.0)
     @test exp''''''(1.0) == exp(1.0)
+    @test (x->prod([x, 4]))'(3) == 4
 end
 
 # Some Basic Mixed Mode tests

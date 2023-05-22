@@ -53,11 +53,12 @@ function fwd_transform!(ci, mi, nargs, N)
             return ZeroBundle{N}(mi.sparam_vals[stmt.args[1]::Int])
         elseif isexpr(stmt, :foreigncall)
             return Expr(:call, error, "Attempted to AD a foreigncall. Missing rule?")
-        elseif isexpr(stmt, :meta) || isexpr(stmt, :inbounds)
+        elseif isexpr(stmt, :meta) || isexpr(stmt, :inbounds)  || isexpr(stmt, :loopinfo)
             # Can't trust that meta annotations are still valid in the AD'd
             # version.
             return nothing
         else
+            #TODO put guard here. We really don't want invalid IR
             return Expr(:call, ZeroBundle{N}, stmt)
         end
     end

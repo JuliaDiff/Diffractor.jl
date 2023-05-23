@@ -296,11 +296,8 @@ CompositeBundle{N, B}(tup::T) where {N, B, T} = CompositeBundle{N, B, T}(tup)
 
 function Base.getindex(tb::CompositeBundle{N, B} where N, tti::TaylorTangentIndex) where {B}
     B <: SArray && error()
-    Tangent{B}(map(tb.tup) do el
-        el[tti]
-    end...)
+    return partial(tb, tti.i)
 end
-
 
 primal(b::CompositeBundle{N, <:Tuple} where N) = map(primal, b.tup)
 function primal(b::CompositeBundle{N, T} where N) where T<:CompositeBundle

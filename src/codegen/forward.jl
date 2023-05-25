@@ -58,7 +58,8 @@ function fwd_transform!(ci, mi, nargs, N)
             # version.
             return nothing
         else
-            #TODO put guard here. We really don't want invalid IR
+            #TODO put guard here. We really don't want to generate invalid IR
+            # by wrapping something that isn't more or less a literal in a ZeroBundle
             return Expr(:call, ZeroBundle{N}, stmt)
         end
     end

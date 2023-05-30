@@ -1,5 +1,5 @@
 using Diffractor
-using Diffractor: var"'", ∂⃖, DiffractorRuleConfig
+using Diffractor: ∂⃖, derivative, DiffractorRuleConfig
 using ChainRules
 using ChainRulesCore
 using ChainRulesCore: ZeroTangent, NoTangent, frule_via_ad, rrule_via_ad
@@ -13,7 +13,7 @@ const bwd = Diffractor.PrimeDerivativeBack
 
 @testset verbose=true "Diffractor.jl" begin  # overall testset, ensures all tests run
 
-@testset "$file" for file in ("stage2_fwd.jl", "tangent.jl")
+@testset "$file" for file in ("stage2_fwd.jl", "tangent.jl")#, "forwarddiff_tests.jl", )
     include(file)
 end
 
@@ -55,7 +55,7 @@ ChainRules.rrule(::typeof(my_tuple), args...) = args, Δ->Core.tuple(NoTangent()
 
 # Minimal 2-nd order forward smoke test
 @test Diffractor.∂☆{2}()(Diffractor.ZeroBundle{2}(sin),
-    Diffractor.ExplicitTangentBundle{2}(1.0, (1.0, 1.0, 0.0)))[Diffractor.CanonicalTangentIndex(1)] == sin'(1.0)
+    Diffractor.ExplicitTangentBundle{2}(1.0, (1.0, 1.0, 0.0)))[Diffractor.CanonicalTangentIndex(1)] == derivative(sin, 1.0)
 
 function simple_control_flow(b, x)
     if b

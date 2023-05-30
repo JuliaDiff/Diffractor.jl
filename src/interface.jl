@@ -59,17 +59,14 @@ dx(x::Complex) = error("Tried to take the gradient of a complex-valued function.
 dx(x) = error("Cotangent space not defined for `$(typeof(x))`. Try a real-valued function.")
 
 """
-    ∂x(x)
+    ∂xⁿ{N}(x)
 
-For `x` in a one dimensional manifold, map x to the trivial, unital, 1st order
-tangent bundle. It should hold that `∀x ⟨∂x(x), dx(x)⟩ = 1`
+For `x` in a one dimensional manifold, map x to the trivial, unital, Nth order
+tangent bundle. It should hold that `∀x ⟨∂ⁿ{1}x(x), dx(x)⟩ = 1`
 """
-∂x(x::Real) = ExplicitTangentBundle{1}(x, (one(x),))
-∂x(x) = error("Tangent space not defined for `$(typeof(x)).")
-
 struct ∂xⁿ{N}; end
 
-(::∂xⁿ{N})(x::Real) where {N} = TaylorBundle{N}(x, (one(x), (zero(x) for i = 1:(N-1))...,))
+(::∂xⁿ{N})(x::Real) where {N} = TaylorBundle{N}(x, ntuple(i->i==1 ? one(x) : zero(x), N))
 (::∂xⁿ)(x) = error("Tangent space not defined for `$(typeof(x)).")
 
 function ChainRules.rrule(∂::∂xⁿ, x)
@@ -130,8 +127,6 @@ function (::Type{∇})(f, x1, args...)
     unthunk.(∇(f)(x1, args...))
 end
 
-const gradient = ∇
-
 # Star Trek has their prime directive. We have the...
 abstract type AbstractPrimeDerivative{N, T}; end
 
@@ -172,66 +167,18 @@ lower_pd(f::PrimeDerivativeFwd{N,T}) where {N,T} = (error(); PrimeDerivativeFwd{
 raise_pd(f::PrimeDerivativeFwd{N,T}) where {N,T} = PrimeDerivativeFwd{N+1,T}(getfield(f, :f))
 
 (f::PrimeDerivativeFwd{0})(x) = getfield(f, :f)(x)
-
-function (f::PrimeDerivativeFwd{1})(x)
-    z = ∂☆¹(ZeroBundle{1}(getfield(f, :f)), ∂x(x))
-    z[TaylorTangentIndex(1)]
-end
-
 function (f::PrimeDerivativeFwd{N})(x) where N
     z = ∂☆{N}()(ZeroBundle{N}(getfield(f, :f)), ∂xⁿ{N}()(x))
     z[TaylorTangentIndex(N)]
 end
 
-# Polyalgorithm prime derivative
-struct PrimeDerivative{N, T}
-    f::T
+derivative(f, x) = Diffractor.PrimeDerivativeFwd(f)(x)
+function gradient(f, x::AbstractVector)
+    map(eachindex(x)) do i
+        derivative(ξ -> f(vcat(x[begin:i-1], ξ, x[i+1:end])), x[i])
+    end
 end
-
-function (f::PrimeDerivative{N, T})(x) where {N, T}
-    # For now, this is backwards mode, since that's more fully implemented
-    return PrimeDerivativeBack{N, T}(f.f)(x)
-end
-
-"""
-    f'
-
-This is a convenience syntax for taking the derivative of a function f: ℝ -> ℝ.
-In particular, for such a function f'(x) will be the first derivative of `f`
-at `x` (and similar for `f''(x)` and second derivatives and so on.)
-
-Note that the syntax conflicts with the Base definition for the adjoint of a
-matrix and thus is not enabled by default. To use it, add the following to the
-top of your module:
-
-```julia
-using Diffractor: var"'"
-```
-
-It is also available using the @∂ macro:
-```julia
-@∂ f'(x)
-```
-"""
-var"'"(f) = PrimeDerivativeBack(f)
-
-"""
-    @∂
-
-Convenice macro for writing partial derivatives. E.g. The expression:
-
-```julia
-@∂ f(∂x, ∂y)
-```
-
-Will compute the partial derivative ∂^2 f/∂x∂y at `(x, y)``. And similarly
-
-```julia
-@∂ f(∂²x, ∂y)
-```
-
-will compute the derivative `∂^3 f/∂x^2 ∂y` at `(x,y)`.
-"""
-macro ∂(expr)
-    error("Write me")
-end
+gradient(f, x::AbstractArray) = reshape(gradient(v -> f(reshape(v, size(x))), vec(x)), size(x))
+gradient(f, xs...) = unthunk.(∇(f)(xs...))
+jacobian(f, x::AbstractArray) = reduce(hcat, vec.(gradient(f, x)))
+hessian(f, x::AbstractArray) = jacobian(y -> gradient(f, y), float(x))

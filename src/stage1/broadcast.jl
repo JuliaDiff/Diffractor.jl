@@ -17,10 +17,11 @@ function (∂ₙ::∂☆{N})(zc::ZeroBundle{N, typeof(copy)},
       FwdMap(n_getfield(∂ₙ, bc, :f)),
       ntuple(length(primal(args))) do i
         val = n_getfield(∂ₙ, args, i)
-        if ndims(primal(val)) == 0
-          return Ref(∂ₙ(ZeroBundle{N}(getindex), val))
-        else
+        p = primal(val)
+        if p isa AbstractArray && ndims(p) != 0
           return unbundle(val)
+        else
+          return Ref(∂ₙ(ZeroBundle{N}(getindex), val))
         end
       end))
   if isa(r, AbstractArray)

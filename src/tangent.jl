@@ -334,10 +334,6 @@ function unbundle(atb::TaylorBundle{Order, A}) where {Order, Dim, T, A<:Abstract
     StructArray{TaylorBundle{Order, T}}((atb.primal, atb.tangent.coeffs...))
 end
 
-function ChainRulesCore.rrule(::typeof(unbundle), atb::TaylorBundle)
-    unbundle(atb), Δ->throw(Δ)
-end
-
 function StructArrays.staticschema(::Type{<:TaylorBundle{N, B, T}}) where {N, B, T}
     Tuple{B, T.parameters...}
 end
@@ -355,11 +351,11 @@ function StructArrays.createinstance(T::Type{<:TaylorBundle}, args...)
     T(first(args), Base.tail(args))
 end
 
-function unbundle(zb::ZeroBundle{N, A}) where {N,T,Dim,A<:AbstractArray{T, Dim}}
-    StructArray{ZeroBundle{N, T}}((zb.primal, fill(zb.tangent.val, size(zb.primal)...)))
+function unbundle(u::UniformBundle{N, A}) where {N,T,Dim,A<:AbstractArray{T, Dim}}
+    StructArray{UniformBundle{N, T}}((u.primal, fill(u.tangent.val, size(u.primal)...)))
 end
 
-function ChainRulesCore.rrule(::typeof(unbundle), atb::ZeroBundle)
+function ChainRulesCore.rrule(::typeof(unbundle), atb::AbstractTangentBundle)
     unbundle(atb), Δ->throw(Δ)
 end
 
@@ -381,6 +377,11 @@ function rebundle(A::AbstractArray{<:TaylorBundle{N}}) where {N}
         ntuple(N) do i
             map(x->x.tangent.coeffs[i], A)
         end)
+end
+
+function rebundle(A::AbstractArray{<:UniformBundle{N}}) where {N}
+    @assert all(x->getfield(x, :tangent)==(first(A).tangent), A)
+    UniformBundle{N}(map(x->x.primal, A), first(A).tangent.val)
 end
 
 function ChainRulesCore.rrule(::typeof(rebundle), atb)

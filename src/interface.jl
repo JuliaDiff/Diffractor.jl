@@ -59,17 +59,14 @@ dx(x::Complex) = error("Tried to take the gradient of a complex-valued function.
 dx(x) = error("Cotangent space not defined for `$(typeof(x))`. Try a real-valued function.")
 
 """
-    ∂x(x)
+    ∂xⁿ{N}(x)
 
-For `x` in a one dimensional manifold, map x to the trivial, unital, 1st order
-tangent bundle. It should hold that `∀x ⟨∂x(x), dx(x)⟩ = 1`
+For `x` in a one dimensional manifold, map x to the trivial, unital, Nth order
+tangent bundle. It should hold that `∀x ⟨∂ⁿ{1}x(x), dx(x)⟩ = 1`
 """
-∂x(x::Real) = ExplicitTangentBundle{1}(x, (one(x),))
-∂x(x) = error("Tangent space not defined for `$(typeof(x)).")
-
 struct ∂xⁿ{N}; end
 
-(::∂xⁿ{N})(x::Real) where {N} = TaylorBundle{N}(x, (one(x), (zero(x) for i = 1:(N-1))...,))
+(::∂xⁿ{N})(x::Real) where {N} = TaylorBundle{N}(x, ntuple(i->i==1 ? one(x) : zero(x), N))
 (::∂xⁿ)(x) = error("Tangent space not defined for `$(typeof(x)).")
 
 function ChainRules.rrule(∂::∂xⁿ, x)
@@ -172,11 +169,6 @@ lower_pd(f::PrimeDerivativeFwd{N,T}) where {N,T} = (error(); PrimeDerivativeFwd{
 raise_pd(f::PrimeDerivativeFwd{N,T}) where {N,T} = PrimeDerivativeFwd{N+1,T}(getfield(f, :f))
 
 (f::PrimeDerivativeFwd{0})(x) = getfield(f, :f)(x)
-
-function (f::PrimeDerivativeFwd{1})(x)
-    z = ∂☆¹(ZeroBundle{1}(getfield(f, :f)), ∂x(x))
-    z[TaylorTangentIndex(1)]
-end
 
 function (f::PrimeDerivativeFwd{N})(x) where N
     z = ∂☆{N}()(ZeroBundle{N}(getfield(f, :f)), ∂xⁿ{N}()(x))

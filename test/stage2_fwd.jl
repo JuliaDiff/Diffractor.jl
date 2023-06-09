@@ -78,6 +78,6 @@ module stage2_fwd
         ir2 = Core.Compiler.compact!(ir)
         Core.Compiler.verify_ir(ir2)  # This would error if we were not handling nonconst globals correctly
         f = Core.OpaqueClosure(ir2; do_compile=false)
-        @test f(3.2) == 28.0
+        @test f(3.5) == 28.0
     end
 end

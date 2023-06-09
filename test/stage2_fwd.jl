@@ -62,4 +62,22 @@ module stage2_fwd
         f = Core.OpaqueClosure(ir2; do_compile=false)
         @test f(1.0) == Bar148(1.0)  # This would error if we were not handling constructors (%new) right
     end
+
+    @testset "nonconst globals in forward_diff_no_inf!" begin
+        @eval global _coeff::Float64=24.5
+        plus_a_global(x) = x + _coeff
+
+        # this is needed as transform! is *always* called on Arguments regardless of what visit_custom says
+        identity_transform!(ir, ssa::Core.SSAValue, order) = ir[ssa]
+        function identity_transform!(ir, arg::Core.Argument, order)
+            return Core.Compiler.insert_node!(ir, Core.SSAValue(1), Core.Compiler.NewInstruction(Expr(:call, Diffractor.ZeroBundle{1}, arg), Any))
+        end
+
+        ir = first(only(Base.code_ircode(plus_a_global, Tuple{Float64})))
+        Diffractor.forward_diff_no_inf!(ir, [Core.SSAValue(1) => 1]; transform! = identity_transform!)
+        ir2 = Core.Compiler.compact!(ir)
+        Core.Compiler.verify_ir(ir2)  # This would error if we were not handling nonconst globals correctly
+        f = Core.OpaqueClosure(ir2; do_compile=false)
+        @test f(3.2) == 28.0
+    end
 end

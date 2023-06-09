@@ -254,6 +254,11 @@ function forward_diff_no_inf!(ir::IRCode, to_diff::Vector{Pair{SSAValue,Int}};
             # TODO: Should we remember whether the callbacks wanted the arg?
             return transform!(ir, arg, order)
         elseif isa(arg, GlobalRef)
+            if !isconst(arg)
+                # Non-const GlabalRefs need to need to be accessed as seperate statements
+                arg = insert_node!(ir, ssa, NewInstruction(arg, Any))
+            end
+
             return insert_node!(ir, ssa, NewInstruction(Expr(:call, ZeroBundle{order}, arg), Any))
         elseif isa(arg, QuoteNode)
             return ZeroBundle{order}(arg.value)

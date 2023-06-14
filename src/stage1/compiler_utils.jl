@@ -83,7 +83,7 @@ function find_end_of_phi_block(ir, start_search_idx::Int)
     # TODO: this is not so efficient. maybe preconstruct CFG then use block_for_inst?
     bb=CC.block_for_inst(ir.cfg, start_search_idx)
     end_search_idx=ir.cfg.blocks[bb].stmts[end]
-    for idx in (start_search_idx+1):(end_search_idx-1)
+    for idx in (start_search_idx):(end_search_idx-1)
         stmt = ir.stmts[idx+1][:inst]
         # next statment is no longer in a phi block, so safe to insert
         stmt !== nothing && !isa(stmt, PhiNode) && return idx

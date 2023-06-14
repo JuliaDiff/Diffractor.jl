@@ -240,10 +240,12 @@ function forward_diff_no_inf!(ir::IRCode, to_diff::Vector{Pair{SSAValue,Int}};
             if argorder != order
                 @assert order < argorder
                 return get!(truncation_map, arg=>order) do
+                    # identify where to insert. Must be after phi blocks
+                    pos = SSAValue(find_end_of_phi_block(ir, arg.id))
                     if order == 0
-                        insert_node!(ir, arg, NewInstruction(Expr(:call, primal, arg), Any), #=attach_after=#true)
+                        insert_node!(ir, pos, NewInstruction(Expr(:call, primal, arg), Any), #=attach_after=#true)
                     else
-                        insert_node!(ir, arg, NewInstruction(Expr(:call, truncate, arg, Val{order}()), Any), #=attach_after=#true)
+                        insert_node!(ir, pos, NewInstruction(Expr(:call, truncate, arg, Val{order}()), Any), #=attach_after=#true)
                     end
                 end
             end

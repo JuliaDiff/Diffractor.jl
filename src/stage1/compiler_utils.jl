@@ -74,31 +74,19 @@ A phi-block is a run on PhiNodes or nothings that must be the first statements w
 
 If `start_search_idx` is not within a phi block to begin with, then just returns `start_search_idx`
 """
-function find_end_of_phi_block(ir, start_search_idx)
+function find_end_of_phi_block(ir, start_search_idx::Int)
     # Short-cut for early exit:
     stmt = ir.stmts[start_search_idx][:inst]
     stmt !== nothing && !isa(stmt, PhiNode) && return start_search_idx
 
     # Actually going to have to go digging throught the IR to out if were are in a phi block
     # TODO: this is not so efficient. maybe preconstruct CFG then use block_for_inst?
-    start_bb=0
-    found_arg = false
-    end_idx = start_search_idx + 1  # This goes one over, but we will substract one at the end
-    for (bb, idx) in bbidxiter(ir)
-        if !found_arg
-            if idx==start_search_idx
-                start_bb = bb
-                found_arg = true
-            end
-        else # found it
-            end_idx = idx  # This goes one over, but we will substract one at the end
-            # hit end of block, so saft to insert
-            bb !== start_bb && break
-            stmt = ir.stmts[idx][:inst]
-            # No longer in a phi block, so safe to insert
-            stmt !== nothing && !isa(stmt, PhiNode) && break
-        end
+    bb=CC.block_for_inst(ir.cfg, start_search_idx)
+    end_search_idx=ir.cfg.blocks[bb].stmts[end]
+    for idx in (start_search_idx+1):(end_search_idx-1)
+        stmt = ir.stmts[idx+1][:inst]
+        # next statment is no longer in a phi block, so safe to insert
+        stmt !== nothing && !isa(stmt, PhiNode) && return idx
     end
-    end_idx-=1
-    return end_idx
+    return end_search_idx
 end

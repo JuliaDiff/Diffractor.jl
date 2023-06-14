@@ -83,11 +83,13 @@ module forward_diff_no_inf  # todo: move this to a seperate file
         function phi_run(x::Float64)
             a = 2.0
             b = 2.0
+            c = 0.0
             if (@noinline rand()) < 0  # this branch will never actually be taken
-                a = -1.0
-                b = 2.0
+                a = -100.0
+                b = 200.0
+                c = 300.0
             end
-            return x - a + b
+            return x - a + b + c
         end
     
         input_ir = first(only(Base.code_ircode(phi_run, Tuple{Float64})))
@@ -97,10 +99,9 @@ module forward_diff_no_inf  # todo: move this to a seperate file
         for idx in 1:length(ir.stmts)
             if ir.stmts[idx][:inst] isa Core.PhiNode
                 push!(diff_ssa, Core.SSAValue(idx))
+                break
             end
         end
-        @assert length(diff_ssa) == 2
-        @assert diff_ssa[2].id - diff_ssa[1].id == 1
     
         Diffractor.forward_diff_no_inf!(ir, diff_ssa .=> 1; transform! = identity_transform!)
         ir2 = Core.Compiler.compact!(ir)

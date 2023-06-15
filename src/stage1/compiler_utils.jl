@@ -13,7 +13,7 @@ Base.getindex(ir::IRCode, ssa::SSAValue) =
 Base.copy(ir::IRCode) = Core.Compiler.copy(ir)
 
 function Core.Compiler.NewInstruction(node)
-    Core.Compiler.NewInstruction(node, Any)
+    Core.Compiler.NewInstruction(node, Any, CC.NoCallInfo(), nothing, CC.IR_FLAG_REFINED)
 end
 
 function Base.setproperty!(x::Core.Compiler.Instruction, f::Symbol, v)

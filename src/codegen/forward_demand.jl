@@ -328,10 +328,11 @@ function forward_diff!(interp::ADInterpreter, ir::IRCode, src::CodeInfo, mi::Met
 
     ir = compact!(ir)
 
-    extra_reprocess = CC.BitSet()
     for i = 1:length(ir.stmts)
         if ir[SSAValue(i)][:type] == Any
-            CC.push!(extra_reprocess, i)
+            # TODO: this flag should actually be being set at the insert site
+            # and we should be filtering on if it is present rather than [:type]=Any
+            ir[SSAValue(i)][:flag] |= CC.IR_FLAG_REFINED
         end
     end
 
@@ -339,7 +340,7 @@ function forward_diff!(interp::ADInterpreter, ir::IRCode, src::CodeInfo, mi::Met
     argtypes = ir.argtypes[1:mi.def.nargs]
     world = CC.get_world_counter(interp)
     irsv = IRInterpretationState(interp, method_info, ir, mi, argtypes, world, src.min_world, src.max_world)
-    rt = CC._ir_abstract_constant_propagation(interp, irsv; extra_reprocess)
+    rt = CC._ir_abstract_constant_propagation(interp, irsv)
 
     ir = compact!(ir)
 

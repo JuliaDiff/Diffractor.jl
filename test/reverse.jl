@@ -1,4 +1,4 @@
-module reverse
+module reverse_tests
 using Diffractor
 using Diffractor: var"'", ∂⃖, DiffractorRuleConfig
 using ChainRules

@@ -1,4 +1,4 @@
-module forward
+module regression_tests
 using Diffractor
 using Diffractor: var"'", ∂⃖, DiffractorRuleConfig
 using ChainRules

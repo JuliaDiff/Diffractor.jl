@@ -310,6 +310,7 @@ function forward_diff_no_inf!(ir::IRCode, to_diff::Vector{Pair{SSAValue,Int}};
             elseif isa(stmt, SSAValue) || isa(stmt, QuoteNode)
                 inst[:inst] = maparg(stmt, SSAValue(ssa), order)
                 inst[:type] = Any
+                inst[:flag] |= CC.IR_FLAG_REFINED
             elseif isa(stmt, Expr) || isa(stmt, PhiNode) || isa(stmt, PhiCNode) ||
                    isa(stmt, UpsilonNode) || isa(stmt, GotoIfNot) || isa(stmt, Argument)
                 urs = userefs(stmt)
@@ -318,6 +319,7 @@ function forward_diff_no_inf!(ir::IRCode, to_diff::Vector{Pair{SSAValue,Int}};
                 end
                 inst[:inst] = urs[]
                 inst[:type] = Any
+                inst[:flag] |= CC.IR_FLAG_REFINED
             else
                 val = ZeroBundle{order}(inst[:inst])
                 inst[:inst] = val
@@ -337,8 +339,7 @@ function forward_diff!(interp::ADInterpreter, ir::IRCode, src::CodeInfo, mi::Met
 
     for i = 1:length(ir.stmts)
         if ir[SSAValue(i)][:type] == Any
-            # TODO: this flag should actually be being set at the insert site
-            # and we should be filtering on if it is present rather than [:type]=Any
+            @warn "IR_FLAG_REFINED Flag missed on statement" i ir[SSAValue(i)][:inst]
             ir[SSAValue(i)][:flag] |= CC.IR_FLAG_REFINED
         end
     end

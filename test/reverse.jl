@@ -12,19 +12,6 @@ using Test
 const fwd = Diffractor.PrimeDerivativeFwd
 const bwd = Diffractor.PrimeDerivativeBack
 
-# Unit tests
-function tup2(f)
-    a, b = ∂⃖{2}()(f, 1)
-    c, d = b((2,))
-    e, f = d(ZeroTangent(), 3)
-    f((4,))
-end
-
-@test tup2(tuple) == (NoTangent(), 4)
-
-my_tuple(args...) = args
-ChainRules.rrule(::typeof(my_tuple), args...) = args, Δ->Core.tuple(NoTangent(), Δ...)
-@test tup2(my_tuple) == (ZeroTangent(), 4)
 
 # Check characteristic of exp rule
 # broken see: https://github.com/JuliaDiff/Diffractor.jl/pull/142

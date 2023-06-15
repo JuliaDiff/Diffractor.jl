@@ -20,13 +20,30 @@ const bwd = Diffractor.PrimeDerivativeBack
     "forward.jl",
     "reverse.jl",
     "regression.jl",
+    #"pinn.jl",  # Higher order control flow not yet supported (https://github.com/JuliaDiff/Diffractor.jl/issues/24)
 )
     include(file)
 end
 
+# 👻 The following code belongs in "test/reverse.jl" but if moved there it does not work anymore 👻
+# Unit tests
+function tup2(f)
+    a, b = ∂⃖{2}()(f, 1)
+    c, d = b((2,))
+    e, f = d(ZeroTangent(), 3)
+    f((4,))
+end
+
+@test tup2(tuple) == (NoTangent(), 4)
+
+my_tuple(args...) = args
+ChainRules.rrule(::typeof(my_tuple), args...) = args, Δ->Core.tuple(NoTangent(), Δ...)
+
+@test tup2(my_tuple) == (ZeroTangent(), 4)
 
 
-# Higher order control flow not yet supported (https://github.com/JuliaDiff/Diffractor.jl/issues/24)
-#include("pinn.jl")
+
+
+
 
 end  # overall testset

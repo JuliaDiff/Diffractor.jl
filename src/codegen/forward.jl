@@ -59,7 +59,7 @@ function fwd_transform!(ci, mi, nargs, N)
             return nothing
         else
             # Fallback case, for literals.
-            # Literals are not Exprs so error for them.
+            # If it is an Expr, then it is not a literal
             if isa(stmt, Expr)
                 error("Unexprected statement encountered. This is a bug in Diffractor. stmt=$stmt")
             end

@@ -166,7 +166,7 @@ function forward_visit!(ir::IRCode, ssa::SSAValue, order::Int, ssa_orders::Vecto
     inst = ir[ssa]
     stmt = inst[:inst]
     recurse(@nospecialize(val)) = forward_visit!(ir, val, order, ssa_orders, visit_custom!)
-    if visit_custom!(ir, stmt, order, recurse)
+    if visit_custom!(ir, ssa, order, recurse)
         ssa_orders[ssa.id] = order => true
         return
     elseif isa(stmt, PiNode)
@@ -211,7 +211,7 @@ Internal method which generates the code for forward mode diffentiation
  - `to_diff`: collection of all SSA values for which the derivative is to be taken,
               paired with the order (first deriviative, second derivative etc)
 
- - `visit_custom!(ir::IRCode, stmt, order::Int, recurse::Bool) -> Bool`:
+ - `visit_custom!(ir::IRCode, ssa, order::Int, recurse::Bool) -> Bool`:
 		decides if the custom `transform!` should be applied to a `stmt` or not
 		Default: `false` for all statements
  - `transform!(ir::IRCode, ssa::SSAValue, order::Int)` mutates `ir` to do a custom tranformation.

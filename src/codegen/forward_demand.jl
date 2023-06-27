@@ -256,11 +256,7 @@ function forward_diff_no_inf!(ir::IRCode, to_diff::Vector{Pair{SSAValue,Int}};
             # TODO: Should we remember whether the callbacks wanted the arg?
             return transform!(ir, arg, order)
         elseif isa(arg, GlobalRef)
-            if !isconst(arg)
-                # Non-const GlabalRefs need to need to be accessed as seperate statements
-                arg = insert_node!(ir, ssa, NewInstruction(arg, Any))
-            end
-
+            @assert isconst(arg)
             return insert_node!(ir, ssa, NewInstruction(Expr(:call, ZeroBundle{order}, arg), Any))
         elseif isa(arg, QuoteNode)
             return ZeroBundle{order}(arg.value)
@@ -302,7 +298,15 @@ function forward_diff_no_inf!(ir::IRCode, to_diff::Vector{Pair{SSAValue,Int}};
                 # TODO: New PiNode that discriminates based on primal?
                 inst[:inst] = maparg(stmt.val, SSAValue(ssa), order)
                 inst[:type] = Any
-            elseif isa(stmt, GlobalRef) || isa(stmt, SSAValue) || isa(stmt, QuoteNode)
+            elseif isa(stmt, GlobalRef)
+                if !isconst(stmt)
+                    # Non-const GlobalRefs need to need to be accessed as seperate statements
+                    stmt = insert_node!(ir, ssa, NewInstruction(inst))
+                end
+
+                inst[:inst] = Expr(:call, ZeroBundle{order}, stmt)
+                inst[:type] = Any
+            elseif isa(stmt, SSAValue) || isa(stmt, QuoteNode)
                 inst[:inst] = maparg(stmt, SSAValue(ssa), order)
                 inst[:type] = Any
             elseif isa(stmt, Expr) || isa(stmt, PhiNode) || isa(stmt, PhiCNode) ||

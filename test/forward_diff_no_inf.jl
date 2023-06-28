@@ -28,6 +28,11 @@ module forward_diff_no_inf
         Diffractor.forward_diff_no_inf!(ir, [Core.SSAValue(1) => 1]; transform! = identity_transform!)
         ir2 = Core.Compiler.compact!(ir)
         Core.Compiler.verify_ir(ir2)  # This would error if we were not handling nonconst globals correctly
+        # Assert that the reference to `Main._coeff` is properly typed
+        stmt_idx = findfirst(stmt -> isa(stmt[:inst], GlobalRef), collect(ir2.stmts))
+        stmt = ir2.stmts[stmt_idx]
+        @test stmt[:inst].name == :_coeff
+        @test stmt[:type] == Float64
         f = Core.OpaqueClosure(ir2; do_compile=false)
         @test f(3.5) == 28.0
     end

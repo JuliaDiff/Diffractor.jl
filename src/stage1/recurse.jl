@@ -279,7 +279,7 @@ function optic_transform!(ci, mi, nargs, N)
     domtree = construct_domtree(ir.cfg.blocks)
     defuse_insts = scan_slot_def_use(Int(meth.nargs), ci, ir.stmts.inst)
     ci.ssavaluetypes = Any[Any for i = 1:ci.ssavaluetypes]
-    ir = construct_ssa!(ci, ir, domtree, defuse_insts, ci.slottypes, Core.Compiler.OptimizerLattice())
+    ir = construct_ssa!(ci, ir, domtree, defuse_insts, ci.slottypes, SimpleInferenceLattice.instance)
     ir = compact!(ir)
 
     nfixedargs = Int(meth.nargs)

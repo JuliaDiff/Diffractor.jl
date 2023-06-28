@@ -137,6 +137,18 @@ function (::∂☆shuffle{N})(args::AbstractTangentBundle{N}...) where {N}
     ∂☆p(ZeroBundle{N-1}(frule), #= ZeroBundle{N-1}(DiffractorRuleConfig()), =# tupargs, map(primal, downargs)...)
 end
 
+# Special shortcut case if there is no derivative information at all:
+function (::∂☆internal{N})(f::AbstractZeroBundle{N}, args::AbstractZeroBundle{N}...) where {N}
+    f_v = primal(f)
+    args_v = map(primal, args)
+    return ZeroBundle{N}(f_v(args_v...))
+end
+function (::∂☆internal{1})(f::AbstractZeroBundle{1}, args::AbstractZeroBundle{1}...)
+    f_v = primal(f)
+    args_v = map(primal, args)
+    return ZeroBundle{1}(f_v(args_v...))
+end
+
 function (::∂☆internal{N})(args::AbstractTangentBundle{N}...) where {N}
     r = ∂☆shuffle{N}()(args...)
     if primal(r) === nothing
@@ -146,6 +158,7 @@ function (::∂☆internal{N})(args::AbstractTangentBundle{N}...) where {N}
     end
 end
 (::∂☆{N})(args::AbstractTangentBundle{N}...) where {N} = ∂☆internal{N}()(args...)
+
 
 # Special case rules for performance
 @Base.constprop :aggressive function (::∂☆{N})(f::ATB{N, typeof(getfield)}, x::TangentBundle{N}, s::AbstractTangentBundle{N}) where {N}

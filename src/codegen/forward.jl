@@ -58,8 +58,11 @@ function fwd_transform!(ci, mi, nargs, N)
             # version.
             return nothing
         else
-            #TODO put guard here. We really don't want to generate invalid IR
-            # by wrapping something that isn't more or less a literal in a ZeroBundle
+            # Fallback case, for literals.
+            # If it is an Expr, then it is not a literal
+            if isa(stmt, Expr)
+                error("Unexprected statement encountered. This is a bug in Diffractor. stmt=$stmt")
+            end
             return Expr(:call, ZeroBundle{N}, stmt)
         end
     end

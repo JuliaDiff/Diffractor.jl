@@ -4,7 +4,7 @@ using Core.Compiler:
     ReturnNode, SSAValue, SlotNumber, StmtRange,
     bbidxiter, cfg_delete_edge!, cfg_insert_edge!, compute_basic_blocks, complete,
     construct_domtree, construct_ssa!, domsort_ssa!, finish, insert_node!,
-    insert_node_here!, effect_free_and_nothrow, non_dce_finish!, quoted, retrieve_code_info,
+    insert_node_here!, non_dce_finish!, quoted, retrieve_code_info,
     scan_slot_def_use, userefs
 
 using Base.Meta

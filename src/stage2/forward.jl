@@ -19,11 +19,14 @@ function dontuse_nth_order_forward_stage2(tt::Type, order::Int=1)
         end
     end
 
-    function visit_custom!(ir::IRCode, @nospecialize(stmt), order, recurse)
+    function visit_custom!(ir::IRCode, ssa::Union{SSAValue,Argument}, order, recurse)
+        if isa(ssa, Argument)
+            return true
+        end
+
+        stmt = ir[ssa][:inst]
         if isa(stmt, ReturnNode)
             recurse(stmt.val)
-            return true
-        elseif isa(stmt, Argument)
             return true
         else
             return false

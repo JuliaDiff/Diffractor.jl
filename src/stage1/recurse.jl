@@ -3,8 +3,8 @@ using Core.Compiler:
     Instruction, MethodInstance, NewInstruction, NewvarNode, OldSSAValue, PhiNode,
     ReturnNode, SSAValue, SlotNumber, StmtRange,
     bbidxiter, cfg_delete_edge!, cfg_insert_edge!, compute_basic_blocks, complete,
-    construct_domtree, construct_ssa!, domsort_ssa!, effect_free, finish, insert_node!,
-    insert_node_here!, non_dce_finish!, non_effect_free, quoted, retrieve_code_info,
+    construct_domtree, construct_ssa!, domsort_ssa!, finish, insert_node!,
+    insert_node_here!, effect_free_and_nothrow, non_dce_finish!, quoted, retrieve_code_info,
     scan_slot_def_use, userefs
 
 using Base.Meta
@@ -163,8 +163,7 @@ function split_critical_edges!(ir)
     end
 
     for bb in blocks_to_split
-        insert_node!(ir, cfg.blocks[bb].stmts.start,
-            non_effect_free(NewInstruction(Expr(:new_bb_marker, bb))))
+        insert_node!(ir, cfg.blocks[bb].stmts.start, NewInstruction(Expr(:new_bb_marker, bb)))
     end
 
     ir = compact!(ir)

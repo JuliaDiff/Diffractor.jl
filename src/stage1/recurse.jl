@@ -5,7 +5,7 @@ using Core.Compiler:
     bbidxiter, cfg_delete_edge!, cfg_insert_edge!, compute_basic_blocks, complete,
     construct_domtree, construct_ssa!, domsort_ssa!, finish, insert_node!,
     insert_node_here!, non_dce_finish!, quoted, retrieve_code_info,
-    scan_slot_def_use, userefs
+    scan_slot_def_use, userefs, SimpleInferenceLattice
 
 using Base.Meta
 

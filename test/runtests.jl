@@ -39,11 +39,6 @@ end
 my_tuple(args...) = args
 ChainRules.rrule(::typeof(my_tuple), args...) = args, Δ->Core.tuple(NoTangent(), Δ...)
 
-@test tup2(my_tuple) == (ZeroTangent(), 4) broken=true  # https://github.com/JuliaDiff/Diffractor.jl/issues/170
-
-
-
-
-
+@test tup2(my_tuple) == (ZeroTangent(), 4)
 
 end  # overall testset

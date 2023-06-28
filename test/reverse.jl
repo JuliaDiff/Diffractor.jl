@@ -77,7 +77,7 @@ isa_control_flow(::Type{T}, x) where {T} = isa(x, T) ? x : T(x)
 let var"'" = Diffractor.PrimeDerivativeBack
     # Integration tests
     @test @inferred(sin'(1.0)) == cos(1.0)
-    @test sin''(1.0) == -sin(1.0) broken=true  # https://github.com/JuliaDiff/Diffractor.jl/issues/170
+    @test sin''(1.0) == -sin(1.0)
     @test_broken sin'''(1.0) == -cos(1.0)
     # TODO These currently cause segfaults c.f. https://github.com/JuliaLang/julia/pull/48742
     # @test sin''''(1.0) == sin(1.0)
@@ -85,16 +85,16 @@ let var"'" = Diffractor.PrimeDerivativeBack
     # @test sin''''''(1.0) == -sin(1.0)
 
     f_getfield(x) = getfield((x,), 1)
-    @test f_getfield'(1) == 1 broken=true  # https://github.com/JuliaDiff/Diffractor.jl/issues/170
-    @test_broken f_getfield''(1) == 0
+    @test f_getfield'(1) == 1
+    @test f_getfield''(1) == 0
     @test_broken f_getfield'''(1) == 0
 
     # Higher order mixed mode tests
 
     complicated_2sin(x) = (x = map(sin, Diffractor.xfill(x, 2)); x[1] + x[2])
-    @test_broken @inferred(complicated_2sin'(1.0)) == 2sin'(1.0)
-    @test_broken @inferred(complicated_2sin''(1.0)) == 2sin''(1.0)  broken=true
-    @test_broken @inferred(complicated_2sin'''(1.0)) == 2sin'''(1.0)  broken=true
+    @test @inferred(complicated_2sin'(1.0)) == 2sin'(1.0)
+    @test @inferred(complicated_2sin''(1.0)) == 2sin''(1.0)  broken=true
+    @test @inferred(complicated_2sin'''(1.0)) == 2sin'''(1.0)  broken=true
     # TODO This currently causes a segfault, c.f. https://github.com/JuliaLang/julia/pull/48742
     # @test @inferred(complicated_2sin''''(1.0)) == 2sin''''(1.0)  broken=true
 

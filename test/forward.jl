@@ -1,6 +1,6 @@
 module forward_tests
 using Diffractor
-using Diffractor: var"'", ∂⃖, DiffractorRuleConfig
+using Diffractor: var"'", ∂⃖, DiffractorRuleConfig, ZeroBundle
 using ChainRules
 using ChainRulesCore
 using ChainRulesCore: ZeroTangent, NoTangent, frule_via_ad, rrule_via_ad
@@ -50,5 +50,23 @@ let var"'" = Diffractor.PrimeDerivativeFwd
 end
 
 
+@testset "No partials" begin
+    primal_calls = Ref(0)
+    function foo(x, y)
+        primal_calls[]+=1
+        return x+y
+    end
+    
+    frule_calls = Ref(0)
+    function ChainRulesCore.frule((_, ẋ, ẏ), ::typeof(foo), x, y)
+        frule_calls[]+=1
+        return x+y, ẋ+ẏ
+    end
+
+    # Special case if there is no derivative information at all:
+    @test (Diffractor.∂☆{1}())(ZeroBundle{1}(foo), ZeroBundle{1}(2.0), ZeroBundle{1}(3.0)) == ZeroBundle{1}(5.0)
+    @test frule_calls[] == 0
+    @test primal_calls[] == 1
+end
 
 end

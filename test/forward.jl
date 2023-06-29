@@ -69,4 +69,25 @@ end
     @test primal_calls[] == 1
 end
 
+@testset "indexing" begin
+    # Test to make sure that `:boundscheck` and such are properly handled
+    function foo(x)
+        t = (x, x)
+        return t[1] + 1
+    end
+
+    let var"'" = Diffractor.PrimeDerivativeFwd
+        @test foo'(1.0) == 1.0
+    end
+
+    # Test that `@inbounds` is ignored by Diffractor
+    function foo_errors(x)
+        t = (x, x)
+        @inbounds return t[3] + 1
+    end
+    let var"'" = Diffractor.PrimeDerivativeFwd
+        @test_throws BoundsError foo_errors'(1.0) == 1.0
+    end
+end
+
 end

@@ -67,9 +67,9 @@ x43 = rand(10, 10)
 @test Diffractor.gradient(x->loss(svd(x), x[:,1], x[:,2]), x43) isa Tuple{Matrix{Float64}}
 
 # PR # 45 - Calling back into AD from ChainRules
-@test_broken y45, back45 = rrule_via_ad(DiffractorRuleConfig(), x -> log(exp(x)), 2)  # https://github.com/JuliaDiff/Diffractor.jl/issues/170
-@test_broken y45 ≈ 2.0
-@test_broken back45(1) == (ZeroTangent(), 1.0)
+y45, back45 = rrule_via_ad(DiffractorRuleConfig(), x -> log(exp(x)), 2)
+@test y45 ≈ 2.0
+@test back45(1) == (ZeroTangent(), 1.0)
 
 z45, delta45 = frule_via_ad(DiffractorRuleConfig(), (0,1), x -> log(exp(x)), 2)
 @test z45 ≈ 2.0
@@ -80,25 +80,25 @@ z45, delta45 = frule_via_ad(DiffractorRuleConfig(), (0,1), x -> log(exp(x)), 2)
 
 @testset "broadcast" begin
     # derivatives_given_output
-    @test gradient(x -> sum(x ./ x), [1,2,3]) == ([0,0,0],) 
-    @test gradient(x -> sum(sqrt.(atan.(x, transpose(x)))), [1,2,3])[1] ≈ [0.2338, -0.0177, -0.0661] atol=1e-3  
-    @test gradient(x -> sum(exp.(log.(x))), [1,2,3]) == ([1,1,1],)   
+    @test gradient(x -> sum(x ./ x), [1,2,3]) == ([0,0,0],)
+    @test gradient(x -> sum(sqrt.(atan.(x, transpose(x)))), [1,2,3])[1] ≈ [0.2338, -0.0177, -0.0661] atol=1e-3
+    @test gradient(x -> sum(exp.(log.(x))), [1,2,3]) == ([1,1,1],)
 
     # frule_via_ad
     @test gradient(x -> sum((exp∘log).(x)), [1,2,3]) == ([1,1,1],)
     exp_log(x) = exp(log(x))
-    @test gradient(x -> sum(exp_log.(x)), [1,2,3]) == ([1,1,1],) 
-    @test gradient((x,y) -> sum(x ./ y), [1 2; 3 4], [1,2]) == ([1 1; 0.5 0.5], [-3, -1.75]) 
-    @test gradient((x,y) -> sum(x ./ y), [1 2; 3 4], 5) == ([0.2 0.2; 0.2 0.2], -0.4) 
+    @test gradient(x -> sum(exp_log.(x)), [1,2,3]) == ([1,1,1],)
+    @test gradient((x,y) -> sum(x ./ y), [1 2; 3 4], [1,2]) == ([1 1; 0.5 0.5], [-3, -1.75])
+    @test gradient((x,y) -> sum(x ./ y), [1 2; 3 4], 5) == ([0.2 0.2; 0.2 0.2], -0.4)
     # closure:
     @test gradient(x -> sum((y -> y/x).([1,2,3])), 4) == (-0.375,)
 
     # array of arrays
-    @test gradient(x -> sum(sum, (x,) ./ x), [1,2,3])[1] ≈ [-4.1666, 0.3333, 1.1666] atol=1e-3 
-    @test gradient(x -> sum(sum, Ref(x) ./ x), [1,2,3])[1] ≈ [-4.1666, 0.3333, 1.1666] atol=1e-3 
-    @test gradient(x -> sum(sum, (x,) ./ x), [1,2,3])[1] ≈ [-4.1666, 0.3333, 1.1666] atol=1e-3 
+    @test gradient(x -> sum(sum, (x,) ./ x), [1,2,3])[1] ≈ [-4.1666, 0.3333, 1.1666] atol=1e-3
+    @test gradient(x -> sum(sum, Ref(x) ./ x), [1,2,3])[1] ≈ [-4.1666, 0.3333, 1.1666] atol=1e-3
+    @test gradient(x -> sum(sum, (x,) ./ x), [1,2,3])[1] ≈ [-4.1666, 0.3333, 1.1666] atol=1e-3
     # must not take fast path
-    @test gradient(x -> sum(sum, (x,) .* transpose(x)), [1,2,3])[1] ≈ [12, 12, 12] 
+    @test gradient(x -> sum(sum, (x,) .* transpose(x)), [1,2,3])[1] ≈ [12, 12, 12]
 
     @test gradient(x -> sum(x ./ 4), [1,2,3]) == ([0.25, 0.25, 0.25],)
     # x/y rule
@@ -121,7 +121,7 @@ z45, delta45 = frule_via_ad(DiffractorRuleConfig(), (0,1), x -> log(exp(x)), 2)
     @test gradient(x -> sum(x ./ [1,2,3]), [true false]) |> only |> iszero
     @test gradient(x -> sum(x .* transpose([1,2,3])), (true, false)) |> only |> iszero
 
-    @test_broken tup_adj = gradient((x,y) -> sum(2 .* x .+ log.(y)), (1,2), transpose([3,4,5]))  # https://github.com/JuliaDiff/Diffractor.jl/issues/170
+    tup_adj = gradient((x,y) -> sum(2 .* x .+ log.(y)), (1,2), transpose([3,4,5]))
     @test tup_adj[1] == Tangent{Tuple{Int64, Int64}}(6.0, 6.0)
     @test tup_adj[2] ≈ [0.6666666666666666 0.5 0.4]
     @test tup_adj[2] isa Transpose

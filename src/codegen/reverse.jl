@@ -321,6 +321,8 @@ function diffract_ir!(ir, ci, meth, sparams::Core.SimpleVector, nargs::Int, N::I
                 # We drop gradients for globals and static parameters
             elseif isexpr(stmt, :inbounds)
                 # Nothing to do
+            elseif isexpr(stmt, :boundscheck)
+                # TODO: do something here
             elseif isa(stmt, PhiNode)
                 Δ = do_accum(SSAValue(i))
                 @assert length(ir.cfg.blocks[bb].preds) >= 1

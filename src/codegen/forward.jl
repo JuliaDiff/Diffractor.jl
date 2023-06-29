@@ -54,10 +54,15 @@ function fwd_transform!(ci, mi, nargs, N)
         elseif isexpr(stmt, :foreigncall)
             return Expr(:call, error, "Attempted to AD a foreigncall. Missing rule?")
         elseif isexpr(stmt, :meta) || isexpr(stmt, :inbounds)  || isexpr(stmt, :loopinfo) ||
-               isexpr(stmt, :boundscheck) || isexpr(stmt, :code_coverage_effect)
+               isexpr(stmt, :code_coverage_effect)
             # Can't trust that meta annotations are still valid in the AD'd
             # version.
             return nothing
+        
+        # Always disable `@inbounds`, as we don't actually know if the AD'd
+        # code is truly `@inbounds` or not.
+        elseif isexpr(stmt, :boundscheck)
+            return ZeroBundle{N}(true)
         else
             # Fallback case, for literals.
             # If it is an Expr, then it is not a literal

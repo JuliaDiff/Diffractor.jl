@@ -37,7 +37,7 @@ function diffract_ir!(ir, ci, meth, sparams::Core.SimpleVector, nargs::Int, N::I
                 push!(ϕ.edges, bb)
                 if !isa(stmt.val, SSAValue)
                     push!(ϕ.values, insert_node!(ir, i,
-                        non_effect_free(NewInstruction(stmt.val))))
+                        NewInstruction(stmt.val)))
                 else
                     push!(ϕ.values, stmt.val)
                 end
@@ -78,7 +78,7 @@ function diffract_ir!(ir, ci, meth, sparams::Core.SimpleVector, nargs::Int, N::I
         for block in cfg.blocks
             if length(block.preds) != 0
                 insert_node!(ir, block.stmts.start,
-                    non_effect_free(NewInstruction(Expr(:phi_placeholder, copy(block.preds)))))
+                    NewInstruction(Expr(:phi_placeholder, copy(block.preds))))
             end
         end
 
@@ -614,14 +614,14 @@ function diffract_ir!(ir, ci, meth, sparams::Core.SimpleVector, nargs::Int, N::I
                     end
                 end
                 tup = terminator_insert_node!(
-                    effect_free(NewInstruction(Expr(:call, tuple, rev[orig_bb_ranges[active_bb]]...), Any, Int32(0))))
+                    effect_free_and_nothrow(NewInstruction(Expr(:call, tuple, rev[orig_bb_ranges[active_bb]]...), Any, Int32(0))))
                 for succ in succs
                     preds = cfg.blocks[succ].preds
                     if length(preds) == 1
                         val = tup
                     else
                         selector = findfirst(==(active_bb), preds)
-                        val = insert_node_here!(compact, effect_free(NewInstruction(Expr(:call, tuple, selector, tup), Any, Int32(0))), true)
+                        val = insert_node_here!(compact, effect_free_and_nothrow(NewInstruction(Expr(:call, tuple, selector, tup), Any, Int32(0))), true)
                     end
                     pn = phi_nodes[succ]
                     push!(pn.edges, active_bb)

@@ -77,35 +77,35 @@ isa_control_flow(::Type{T}, x) where {T} = isa(x, T) ? x : T(x)
 let var"'" = Diffractor.PrimeDerivativeBack
     # Integration tests
     @test @inferred(sin'(1.0)) == cos(1.0)
-    @test sin''(1.0) == -sin(1.0) broken=true  # https://github.com/JuliaDiff/Diffractor.jl/issues/170
-    @test_broken sin'''(1.0) == -cos(1.0)
+    @test sin''(1.0) == -sin(1.0)
+    @test sin'''(1.0) == -cos(1.0)
     # TODO These currently cause segfaults c.f. https://github.com/JuliaLang/julia/pull/48742
     # @test sin''''(1.0) == sin(1.0)
     # @test sin'''''(1.0) == cos(1.0)
     # @test sin''''''(1.0) == -sin(1.0)
 
     f_getfield(x) = getfield((x,), 1)
-    @test f_getfield'(1) == 1 broken=true  # https://github.com/JuliaDiff/Diffractor.jl/issues/170
-    @test_broken f_getfield''(1) == 0
-    @test_broken f_getfield'''(1) == 0
+    @test f_getfield'(1) == 1
+    @test f_getfield''(1) == 0
+    @test f_getfield'''(1) == 0
 
     # Higher order mixed mode tests
 
     complicated_2sin(x) = (x = map(sin, Diffractor.xfill(x, 2)); x[1] + x[2])
-    @test_broken @inferred(complicated_2sin'(1.0)) == 2sin'(1.0)
-    @test_broken @inferred(complicated_2sin''(1.0)) == 2sin''(1.0)  broken=true
-    @test_broken @inferred(complicated_2sin'''(1.0)) == 2sin'''(1.0)  broken=true
+    @test @inferred(complicated_2sin'(1.0)) == 2sin'(1.0)
+    @test @inferred(complicated_2sin''(1.0)) == 2sin''(1.0)  broken=true
+    @test @inferred(complicated_2sin'''(1.0)) == 2sin'''(1.0)  broken=true
     # TODO This currently causes a segfault, c.f. https://github.com/JuliaLang/julia/pull/48742
     # @test @inferred(complicated_2sin''''(1.0)) == 2sin''''(1.0)  broken=true
 
     # Control flow cases
-    @test_broken @inferred((x->simple_control_flow(true, x))'(1.0)) == sin'(1.0)
-    @test_broken @inferred((x->simple_control_flow(false, x))'(1.0)) == cos'(1.0)
-    @test_broken (x->sum(isa_control_flow(Matrix{Float64}, x)))'(Float32[1 2;]) == [1.0 1.0;]
-    @test_broken times_three_while'(1.0) == 3.0
+    @test @inferred((x->simple_control_flow(true, x))'(1.0)) == sin'(1.0)
+    @test @inferred((x->simple_control_flow(false, x))'(1.0)) == cos'(1.0)
+    @test (x->sum(isa_control_flow(Matrix{Float64}, x)))'(Float32[1 2;]) == [1.0 1.0;]
+    @test times_three_while'(1.0) == 3.0
 
     pow5p(x) = (x->mypow(x, 5))'(x)
-    @test_broken pow5p(1.0) == 5.0
+    @test pow5p(1.0) == 5.0
 end
 
 

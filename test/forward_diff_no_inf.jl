@@ -2,11 +2,11 @@
 module forward_diff_no_inf
     using Diffractor, Test
     # this is needed as transform! is *always* called on Arguments regardless of what visit_custom says
-    identity_transform!(ir, ssa::Core.SSAValue, order) = ir[ssa]
-    function identity_transform!(ir, arg::Core.Argument, order)
+    identity_transform!(ir, ssa::Core.SSAValue, order, _) = ir[ssa]
+    function identity_transform!(ir, arg::Core.Argument, order, _)
         return Core.Compiler.insert_node!(ir, Core.SSAValue(1), Core.Compiler.NewInstruction(Expr(:call, Diffractor.ZeroBundle{1}, arg), Any))
     end
-    
+
     @testset "Constructors in forward_diff_no_inf!" begin
         struct Bar148
             v
@@ -47,7 +47,7 @@ module forward_diff_no_inf
             end
             return x - a + b
         end
-    
+
         input_ir = first(only(Base.code_ircode(phi_run, Tuple{Float64})))
         ir = copy(input_ir)
         #Workout where to diff to trigger error
@@ -57,11 +57,11 @@ module forward_diff_no_inf
                 push!(diff_ssa, Core.SSAValue(idx))
             end
         end
-    
+
         Diffractor.forward_diff_no_inf!(ir, diff_ssa .=> 1; transform! = identity_transform!)
         ir2 = Core.Compiler.compact!(ir)
         Core.Compiler.verify_ir(ir2)  # This would error if we were not handling nonconst phi nodes correctly (after https://github.com/JuliaLang/julia/pull/50158)
         f = Core.OpaqueClosure(ir2; do_compile=false)
         @test f(3.5) == 3.5  # this will segfault if we are not handling phi nodes correctly
-    end    
+    end
 end

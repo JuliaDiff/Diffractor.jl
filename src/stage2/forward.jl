@@ -33,7 +33,7 @@ function dontuse_nth_order_forward_stage2(tt::Type, order::Int=1)
         end
     end
 
-    function transform!(ir::IRCode, ssa::SSAValue, _)
+    function transform!(ir::IRCode, ssa::SSAValue, _, _)
         inst = ir[ssa]
         stmt = inst[:inst]
         if isa(stmt, ReturnNode)
@@ -44,7 +44,7 @@ function dontuse_nth_order_forward_stage2(tt::Type, order::Int=1)
         end
     end
 
-    function transform!(ir::IRCode, arg::Argument, _)
+    function transform!(ir::IRCode, arg::Argument, _, _)
         return insert_node!(ir, SSAValue(1), NewInstruction(Expr(:call, ∂xⁿ{order}(), arg), typeof(∂xⁿ{order}()(1.0))))
     end
 

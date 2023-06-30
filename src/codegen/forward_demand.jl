@@ -254,7 +254,7 @@ function forward_diff_no_inf!(ir::IRCode, to_diff::Vector{Pair{SSAValue,Int}};
             return arg
         elseif isa(arg, Argument)
             # TODO: Should we remember whether the callbacks wanted the arg?
-            return transform!(ir, arg, order)
+            return transform!(ir, arg, order, maparg)
         elseif isa(arg, GlobalRef)
             @assert isconst(arg)
             return insert_node!(ir, ssa, NewInstruction(Expr(:call, ZeroBundle{order}, arg), Any))
@@ -277,7 +277,7 @@ function forward_diff_no_inf!(ir::IRCode, to_diff::Vector{Pair{SSAValue,Int}};
             continue
         end
         if custom
-            transform!(ir, SSAValue(ssa), order)
+            transform!(ir, SSAValue(ssa), order, maparg)
         else
             inst = ir[SSAValue(ssa)]
             stmt = inst[:inst]

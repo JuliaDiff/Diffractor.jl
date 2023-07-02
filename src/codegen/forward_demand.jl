@@ -165,7 +165,7 @@ function forward_visit!(ir::IRCode, ssa::SSAValue, order::Int, ssa_orders::Vecto
     ssa_orders[ssa.id] = order => ssa_orders[ssa.id][2]
     inst = ir[ssa]
     stmt = inst[:inst]
-    recurse(@nospecialize(val)) = forward_visit!(ir, val, order, ssa_orders, visit_custom!)
+    recurse(@nospecialize(val), new_order=order) = forward_visit!(ir, val, new_order, ssa_orders, visit_custom!)
     if visit_custom!(ir, ssa, order, recurse)
         ssa_orders[ssa.id] = order => true
         return
@@ -220,9 +220,14 @@ function forward_diff_no_inf!(ir::IRCode, to_diff::Vector{Pair{SSAValue,Int}};
                               visit_custom! = (@nospecialize args...)->false,
                               transform! = (@nospecialize args...)->error())
     # Step 1: For each SSAValue in the IR, keep track of the differentiation order needed
-    ssa_orders = [0=>false for i = 1:length(ir.stmts)]
+    ssa_orders = [-1=>false for i = 1:length(ir.stmts)]
     for (ssa, order) in to_diff
         forward_visit!(ir, ssa, order, ssa_orders, visit_custom!)
+    end
+    for (ssa, (order, custom)) in enumerate(ssa_orders)
+        if order == -1
+            ssa_orders[ssa] = 0 => custom
+        end
     end
 
     truncation_map = Dict{Pair{SSAValue, Int}, SSAValue}()
@@ -266,7 +271,9 @@ function forward_diff_no_inf!(ir::IRCode, to_diff::Vector{Pair{SSAValue,Int}};
     end
 
     for (ssa, (order, custom)) in enumerate(ssa_orders)
-        if order == 0
+        if custom
+            transform!(ir, SSAValue(ssa), order, maparg)
+        elseif order == 0
             inst = ir[SSAValue(ssa)]
             stmt = inst[:inst]
             urs = userefs(stmt)
@@ -275,9 +282,6 @@ function forward_diff_no_inf!(ir::IRCode, to_diff::Vector{Pair{SSAValue,Int}};
             end
             inst[:inst] = urs[]
             continue
-        end
-        if custom
-            transform!(ir, SSAValue(ssa), order, maparg)
         else
             inst = ir[SSAValue(ssa)]
             stmt = inst[:inst]

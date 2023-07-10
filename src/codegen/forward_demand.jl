@@ -151,7 +151,7 @@ function forward_diff_uncached!(ir::IRCode, interp::AbstractInterpreter, irsv::I
         frule_result = insert_node!(ir, ssa, NewInstruction(
             frule_call, frule_rt, info.frule_call.info, inst[:line],
             frule_flag))
-        ir[ssa][:inst] = Expr(:call, GlobalRef(Core, :getfield), frule_result, 1)
+        replace_call!(ir, ssa, Expr(:call, GlobalRef(Core, :getfield), frule_result, 1))
         Δssa = insert_node!(ir, ssa, NewInstruction(
             Expr(:call, GlobalRef(Core, :getfield), frule_result, 2), CC.getfield_tfunc(CC.typeinf_lattice(interp), frule_rt, Const(2))), #=attach_after=#true)
         return Δssa
@@ -285,15 +285,13 @@ function forward_diff_no_inf!(ir::IRCode, to_diff::Vector{Pair{SSAValue,Int}};
                 newargs = map(stmt.args[2:end]) do @nospecialize arg
                     maparg(arg, SSAValue(ssa), order)
                 end
-                inst[:inst] = Expr(:call, ∂☆{order}(), newargs...)
-                inst[:type] = Any
+                replace_call!(ir, SSAValue(ssa), Expr(:call, ∂☆{order}(), newargs...))
             elseif isexpr(stmt, :call) || isexpr(stmt, :new)
                 newargs = map(stmt.args) do @nospecialize arg
                     maparg(arg, SSAValue(ssa), order)
                 end
                 f = isexpr(stmt, :call) ? ∂☆{order}() : ∂☆new{order}()
-                inst[:inst] = Expr(:call, f, newargs...)
-                inst[:type] = Any
+                replace_call!(ir, SSAValue(ssa), Expr(:call, f, newargs...))
             elseif isa(stmt, PiNode)
                 # TODO: New PiNode that discriminates based on primal?
                 inst[:inst] = maparg(stmt.val, SSAValue(ssa), order)
@@ -304,8 +302,7 @@ function forward_diff_no_inf!(ir::IRCode, to_diff::Vector{Pair{SSAValue,Int}};
                     stmt = insert_node!(ir, ssa, NewInstruction(inst))
                 end
 
-                inst[:inst] = Expr(:call, ZeroBundle{order}, stmt)
-                inst[:type] = Any
+                replace_call!(ir, SSAValue(ssa), Expr(:call, ZeroBundle{order}, stmt))
             elseif isa(stmt, SSAValue) || isa(stmt, QuoteNode)
                 inst[:inst] = maparg(stmt, SSAValue(ssa), order)
                 inst[:type] = Any

@@ -80,7 +80,6 @@ function find_end_of_phi_block(ir, start_search_idx::Int)
     stmt !== nothing && !isa(stmt, PhiNode) && return start_search_idx
 
     # Actually going to have to go digging throught the IR to out if were are in a phi block
-    # TODO: this is not so efficient. maybe preconstruct CFG then use block_for_inst?
     bb=CC.block_for_inst(ir.cfg, start_search_idx)
     end_search_idx=ir.cfg.blocks[bb].stmts[end]
     for idx in (start_search_idx):(end_search_idx-1)

@@ -90,3 +90,9 @@ function find_end_of_phi_block(ir, start_search_idx::Int)
     end
     return end_search_idx
 end
+
+function replace_call!(ir, idx::SSAValue, new_call)
+    ir[idx][:inst] = new_call
+    ir[idx][:type] = Any
+    ir[idx][:info] = CC.NoCallInfo()
+end

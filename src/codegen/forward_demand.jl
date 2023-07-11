@@ -241,9 +241,9 @@ function forward_diff_no_inf!(ir::IRCode, to_diff::Vector{Pair{SSAValue,Int}};
                 @assert order < argorder
                 return get!(truncation_map, arg=>order) do
                     if order == 0
-                        insert_node!(ir, arg, NewInstruction(Expr(:call, primal, arg), Any), #=attach_after=#true)
+                        insert_node!(ir, ssa, NewInstruction(Expr(:call, primal, arg), Any), #=attach_after=#false)
                     else
-                        insert_node!(ir, arg, NewInstruction(Expr(:call, truncate, arg, Val{order}()), Any), #=attach_after=#true)
+                        insert_node!(ir, ssa, NewInstruction(Expr(:call, truncate, arg, Val{order}()), Any), #=attach_after=#false)
                     end
                 end
             end

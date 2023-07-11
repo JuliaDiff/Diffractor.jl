@@ -60,7 +60,7 @@ module forward_diff_no_inf
 
         Diffractor.forward_diff_no_inf!(ir, diff_ssa .=> 1; transform! = identity_transform!)
         ir2 = Core.Compiler.compact!(ir)
-        Core.Compiler.verify_ir(ir2)  # This would error if we were not handling nonconst phi nodes correctly (after https://github.com/JuliaLang/julia/pull/50158)
+        Core.Compiler.verify_ir(ir2)  # This would error if we were not handling nonconst phi nodes correctly
         f = Core.OpaqueClosure(ir2; do_compile=false)
         @test f(3.5) == 3.5  # this will segfault if we are not handling phi nodes correctly
     end

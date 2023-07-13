@@ -19,12 +19,19 @@ function fwd_abstract_call_gf_by_type(interp::AbstractInterpreter, @nospecialize
     frule_preargtypes = Any[Const(ChainRulesCore.frule), Tuple{Nothing,Vararg{Any,nargs}}]
     frule_argtypes = append!(frule_preargtypes, arginfo.argtypes)
     frule_arginfo = ArgInfo(nothing, frule_argtypes)
+    frule_si = StmtInfo(true)
+    frule_atype = CC.argtypes_to_type(frule_argtypes)
     # turn off frule analysis in the frule to avoid cycling
     interp′ = disable_forward(interp)
-    frule_call = CC.abstract_call_known(interp′, ChainRulesCore.frule, frule_arginfo, StmtInfo(true), sv, #=max_methods=#-1)
+    frule_call = CC.abstract_call_gf_by_type(interp′,
+        ChainRulesCore.frule, frule_arginfo, frule_si, frule_atype, sv, #=max_methods=#-1)
     if frule_call.rt !== Const(nothing)
         return CallMeta(primal_call.rt, primal_call.effects, FRuleCallInfo(primal_call.info, frule_call))
+    else
+        CC.add_mt_backedge!(sv, frule_mt, frule_atype)
     end
 
     return nothing
 end
+
+const frule_mt = methods(ChainRulesCore.frule).mt

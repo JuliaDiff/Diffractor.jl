@@ -11,12 +11,28 @@ module stage2_fwd
     end
 
     myminus(a, b) = a - b
-    ChainRulesCore.@scalar_rule myminus(x, y) (true, -1)
-
     self_minus(a) = myminus(a, a)
-    let self_minus′′ = Diffractor.dontuse_nth_order_forward_stage2(Tuple{typeof(self_minus), Float64}, 2)
-        @test isa(self_minus′′, Core.OpaqueClosure{Tuple{Float64}, Float64})
-        @test self_minus′′(1.0) == 0.
+    ChainRulesCore.@scalar_rule myminus(x, y) (true, -1)
+    let self_minus′ = Diffractor.dontuse_nth_order_forward_stage2(Tuple{typeof(self_minus), Float64})
+        @test isa(self_minus′, Core.OpaqueClosure{Tuple{Float64}, Float64})
+        @test self_minus′(1.0) == 0.
+    end
+    ChainRulesCore.@scalar_rule myminus(x, y) (true, true) # frule for `x - y`
+    let self_minus′ = Diffractor.dontuse_nth_order_forward_stage2(Tuple{typeof(self_minus), Float64})
+        @test isa(self_minus′, Core.OpaqueClosure{Tuple{Float64}, Float64})
+        @test self_minus′(1.0) == 2.
+    end
+
+    myminus2(a, b) = a - b
+    self_minus2(a) = myminus2(a, a)
+    let self_minus2′ = Diffractor.dontuse_nth_order_forward_stage2(Tuple{typeof(self_minus2), Float64})
+        @test isa(self_minus2′, Core.OpaqueClosure{Tuple{Float64}, Float64})
+        @test self_minus2′(1.0) == 0.
+    end
+    ChainRulesCore.@scalar_rule myminus2(x, y) (true, true) # frule for `x - y`
+    let self_minus2′ = Diffractor.dontuse_nth_order_forward_stage2(Tuple{typeof(self_minus2), Float64})
+        @test isa(self_minus2′, Core.OpaqueClosure{Tuple{Float64}, Float64})
+        @test self_minus2′(1.0) == 2.
     end
 
     @testset "structs" begin

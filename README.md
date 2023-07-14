@@ -31,6 +31,7 @@ It is in a position to compete with [ForwardDiff.jl](https://github.com/JuliaDif
 It is not as battle-tested as ForwardDiff.jl, but it has several advantages.
 Primarily, as it is not an operator overloading AD, it frees one from the need to relax type-constants and worry about the types of containers.
 Furthermore, Like TaylorDiff.jl, it supports Taylor series based computation of higher order derviatives.
+It directly and efficiently uses ChainRules.jl's `frules`, no need for a wrapper macro to import them etc.
 
 
 One limitation over ForwardDiff.jl is a lack of chunking support, to pushforward multiple bases at once.

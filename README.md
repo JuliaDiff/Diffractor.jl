@@ -9,21 +9,42 @@
 # General Overview
 
 Diffractor is an experimental next-generation, compiler-based AD system for Julia.
-Its public interface should be familiar to users, essentially matching Zygote.
 
 Design goals:
 - Ultra high performance for both scalar and array code
-- Efficient higher order derivatives
+- Efficient higher order derivatives though nested AD
 - Reasonable compile times
 - High flexibility (like Zygote)
 - Support for forward/reverse/mixed modes
+- Fast Jacobians
 
 This is achieved through a combination of innovations:
 - A new lowest level interface (∂⃖ the "AD optic functor" or "diffractor"), more suited to higher order AD
 - New capabilities in Base Julia (Opaque closures, inference plugins)
 - Better integration with ChainRules.jl
+- Demand-driven forward-mode AD (Forwards-mode AD that knows which outputs are active and only ADs the path to them.)
 
-# Current Status
+# Current status
+## Current Status: Forwards-Mode
+Recently forwards-mode has been a priority, and now forms a core part of some closed source products.
+It is in a position to compete with [ForwardDiff.jl](https://github.com/JuliaDiff/TaylorDiff.jl), and with [TaylorDiff.jl](https://github.com/JuliaDiff/TaylorDiff.jl).
+It is certainly no where near as battle-tested as ForwardDiff.jl, but it has several advantages.
+Primarily, as it is not an operator overloading AD, it frees one from the need to relax type-constants and worry about the types of containers.
+Furthermore, Like TaylorDiff.jl, it supports Taylor series based computation of higher order derviatives.
+
+
+One limitation over ForwardDiff.jl is a lack of chunking support, to pushforward multiple basies at once.
+
+
+
+## Current Status: Reverse-Mode
+Reverse mode has recently been deprioritized.
+While originally, a higher priority and working well, it is now a secondary priority.<br>
+⚠️ **Reverse Mode support should be considered experimental, and may break without warning, and may not be fixed rapidly.** ⚠️ <br>
+
+With that said, issues and PRs for reverse mode continue to be appreciated.
+
+### Status as of last time reverse mode was worked on:
 
 The plan is to implement this in two stages:
 1. Generated function based transforms, using the ChainRules, the new low level interface and Opaque closures

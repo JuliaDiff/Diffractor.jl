@@ -283,7 +283,7 @@ end
 Base.getindex(u::UniformBundle, ::TaylorTangentIndex) = u.tangent.val
 
 """
-    CompositeBundle{N, B <: Tuple}
+    CompositeBundle{N, B, B <: Tuple}
 
 Represents the tagent bundle where the base space is some tuple or struct type.
 Mathematically, this tangent bundle is the product bundle of the individual

@@ -47,7 +47,7 @@ function perform_fwd_transform(world::UInt, source::LineNumberNode,
         return generate_lambda_ex(world, source,
             Core.svec(:ff, :args), Core.svec(), :(∂☆builtin(args)))
     end
-    
+
     mthds = Base._methods_by_ftype(sig, -1, world)
     if mthds === nothing || length(mthds) != 1
         # Core.println("[perform_fwd_transform] ", sig, " => ", mthds)

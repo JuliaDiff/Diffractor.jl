@@ -59,4 +59,13 @@ module stage2_fwd
         g(x) = Diffractor.∂☆{1}()(Diffractor.ZeroBundle{1}(f), Diffractor.TaylorBundle{1}(x, (1.0,)))
         Diffractor.∂☆{1}()(Diffractor.ZeroBundle{1}(g), Diffractor.TaylorBundle{1}(10f0, (1.0,)))
     end
+
+    @testset "ddt intrinsic" begin
+        function my_cos_ddt(x)
+            return Diffractor.dont_use_ddt_intrinsic(sin(x))
+        end
+        let my_cos_ddt_transformed = Diffractor.dontuse_nth_order_forward_stage2(Tuple{typeof(my_cos_ddt), Float64}, 0)
+            @test my_cos_ddt_transformed(1.0) == cos(1.0)
+        end
+    end
 end

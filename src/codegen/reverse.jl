@@ -465,7 +465,8 @@ function diffract_ir!(ir, ci, meth, sparams::Core.SimpleVector, nargs::Int, N::I
             elseif isexpr(stmt, :static_parameter)
                 fwds[i] = ZeroTangent()
             elseif isa(stmt, Union{GotoNode, GotoIfNot})
-                return :(error("Control flow support not fully implemented yet for higher-order reverse mode (TODO)"))
+                #@show stmt
+                error("Control flow support not fully implemented yet for higher-order reverse mode (TODO)")
             elseif !isa(stmt, Expr)
                 @show stmt
                 error()

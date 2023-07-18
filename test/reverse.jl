@@ -77,8 +77,8 @@ isa_control_flow(::Type{T}, x) where {T} = isa(x, T) ? x : T(x)
 let var"'" = Diffractor.PrimeDerivativeBack
     # Integration tests
     @test @inferred(sin'(1.0)) == cos(1.0)
-    @test sin''(1.0) == -sin(1.0)
-    @test sin'''(1.0) == -cos(1.0)
+    @test @inferred(sin''(1.0)) == -sin(1.0)
+    @test @inferred(sin'''(1.0)) == -cos(1.0)
     # TODO These currently cause segfaults c.f. https://github.com/JuliaLang/julia/pull/48742
     # @test sin''''(1.0) == sin(1.0)
     # @test sin'''''(1.0) == cos(1.0)
@@ -86,8 +86,8 @@ let var"'" = Diffractor.PrimeDerivativeBack
 
     f_getfield(x) = getfield((x,), 1)
     @test f_getfield'(1) == 1
-    @test f_getfield''(1) == 0
-    @test f_getfield'''(1) == 0
+    @test f_getfield''(1) == NoTangent()
+    @test f_getfield'''(1) == NoTangent()
 
     # Higher order mixed mode tests
 
@@ -107,6 +107,5 @@ let var"'" = Diffractor.PrimeDerivativeBack
     pow5p(x) = (x->mypow(x, 5))'(x)
     @test pow5p(1.0) == 5.0
 end
-
 
 end

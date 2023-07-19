@@ -248,9 +248,9 @@ function forward_diff_no_inf!(ir::IRCode, to_diff::Vector{Pair{SSAValue,Int}};
                     # identify where to insert. Must be after phi blocks
                     pos = SSAValue(find_end_of_phi_block(ir, arg.id))
                     if order == 0
-                        insert_node!(ir, pos, NewInstruction(Expr(:call, primal, arg), Any), #=attach_after=#true)
+                        insert_node!(ir, pos, NewInstruction(Expr(:call, primal, arg)), #=attach_after=#true)
                     else
-                        insert_node!(ir, pos, NewInstruction(Expr(:call, truncate, arg, Val{order}()), Any), #=attach_after=#true)
+                        insert_node!(ir, pos, NewInstruction(Expr(:call, truncate, arg, Val{order}())), #=attach_after=#true)
                     end
                 end
             end
@@ -262,7 +262,7 @@ function forward_diff_no_inf!(ir::IRCode, to_diff::Vector{Pair{SSAValue,Int}};
             return transform!(ir, arg, order, maparg)
         elseif isa(arg, GlobalRef)
             @assert isconst(arg)
-            return insert_node!(ir, ssa, NewInstruction(Expr(:call, ZeroBundle{order}, arg), Any))
+            return insert_node!(ir, ssa, NewInstruction(Expr(:call, ZeroBundle{order}, arg)))
         elseif isa(arg, QuoteNode)
             return ZeroBundle{order}(arg.value)
         end
@@ -300,6 +300,7 @@ function forward_diff_no_inf!(ir::IRCode, to_diff::Vector{Pair{SSAValue,Int}};
                 # TODO: New PiNode that discriminates based on primal?
                 inst[:inst] = maparg(stmt.val, SSAValue(ssa), order)
                 inst[:type] = Any
+                inst[:flag] |= CC.IR_FLAG_REFINED
             elseif isa(stmt, GlobalRef)
                 if !isconst(stmt)
                     # Non-const GlobalRefs need to need to be accessed as seperate statements
@@ -310,6 +311,7 @@ function forward_diff_no_inf!(ir::IRCode, to_diff::Vector{Pair{SSAValue,Int}};
             elseif isa(stmt, SSAValue) || isa(stmt, QuoteNode)
                 inst[:inst] = maparg(stmt, SSAValue(ssa), order)
                 inst[:type] = Any
+                inst[:flag] |= CC.IR_FLAG_REFINED
             elseif isa(stmt, Expr) || isa(stmt, PhiNode) || isa(stmt, PhiCNode) ||
                    isa(stmt, UpsilonNode) || isa(stmt, GotoIfNot) || isa(stmt, Argument)
                 urs = userefs(stmt)
@@ -318,6 +320,7 @@ function forward_diff_no_inf!(ir::IRCode, to_diff::Vector{Pair{SSAValue,Int}};
                 end
                 inst[:inst] = urs[]
                 inst[:type] = Any
+                inst[:flag] |= CC.IR_FLAG_REFINED
             else
                 val = ZeroBundle{order}(inst[:inst])
                 inst[:inst] = val
@@ -336,10 +339,12 @@ function forward_diff!(interp::ADInterpreter, ir::IRCode, src::CodeInfo, mi::Met
     ir = compact!(ir)
 
     for i = 1:length(ir.stmts)
-        if ir[SSAValue(i)][:type] == Any
-            # TODO: this flag should actually be being set at the insert site
-            # and we should be filtering on if it is present rather than [:type]=Any
-            ir[SSAValue(i)][:flag] |= CC.IR_FLAG_REFINED
+        inst = ir[SSAValue(i)][:inst]
+        if !isa(inst, ReturnNode) && ir[SSAValue(i)][:type] === Any
+            if iszero(ir[SSAValue(i)][:flag] & CC.IR_FLAG_REFINED)
+                @warn "IR_FLAG_REFINED Flag missed on statement" i inst
+                ir[SSAValue(i)][:flag] |= CC.IR_FLAG_REFINED
+            end
         end
     end
 

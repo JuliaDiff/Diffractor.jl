@@ -60,7 +60,7 @@ function dontuse_nth_order_forward_stage2(tt::Type, order::Int=1)
             if order == 0
                 return
             end
-            nr = insert_node!(ir, ssa, NewInstruction(Expr(:call, getindex, stmt.val, TaylorTangentIndex(order)), Any, CC.NoCallInfo(), nothing, CC.IR_FLAG_REFINED))
+            nr = insert_node!(ir, ssa, NewInstruction(Expr(:call, getindex, stmt.val, TaylorTangentIndex(order))))
             inst[:inst] = ReturnNode(nr)
         elseif is_known_invoke_or_call(stmt, dont_use_ddt_intrinsic, ir)
             arg = maparg(stmt.args[end], ssa, order+1)

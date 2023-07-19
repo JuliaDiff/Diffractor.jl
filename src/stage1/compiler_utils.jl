@@ -1,5 +1,5 @@
 # Utilities that should probably go into Core.Compiler
-using Core.Compiler: CFG, BasicBlock, BBIdxIter
+using Core.Compiler: IRCode, CFG, BasicBlock, BBIdxIter
 
 function Base.push!(cfg::CFG, bb::BasicBlock)
     @assert cfg.blocks[end].stmts.stop+1 == bb.stmts.start
@@ -12,25 +12,22 @@ Base.getindex(ir::IRCode, ssa::SSAValue) =
 
 Base.copy(ir::IRCode) = Core.Compiler.copy(ir)
 
-function Core.Compiler.NewInstruction(node)
-    Core.Compiler.NewInstruction(node, Any, CC.NoCallInfo(), nothing, CC.IR_FLAG_REFINED)
-end
+Core.Compiler.NewInstruction(@nospecialize node) =
+    NewInstruction(node, Any, CC.NoCallInfo(), nothing, CC.IR_FLAG_REFINED)
 
-function Base.setproperty!(x::Core.Compiler.Instruction, f::Symbol, v)
+Base.setproperty!(x::Core.Compiler.Instruction, f::Symbol, v) =
     Core.Compiler.setindex!(x, v, f)
-end
 
-function Base.getproperty(x::Core.Compiler.Instruction, f::Symbol)
+Base.getproperty(x::Core.Compiler.Instruction, f::Symbol) =
     Core.Compiler.getindex(x, f)
-end
 
-function Base.setindex!(ir::Core.Compiler.IRCode, ni::NewInstruction, i::Int)
+function Base.setindex!(ir::IRCode, ni::NewInstruction, i::Int)
     stmt = ir.stmts[i]
     stmt.inst = ni.stmt
     stmt.type = ni.type
     stmt.flag = something(ni.flag, 0)  # fixes 1.9?
     stmt.line = something(ni.line, 0)
-    ni
+    return ni
 end
 
 function Base.push!(ir::IRCode, ni::NewInstruction)
@@ -67,14 +64,14 @@ end
 
 
 """
-    find_end_of_phi_block(ir, start_search_idx)
+    find_end_of_phi_block(ir::IRCode, start_search_idx::Int)
 
 Finds the last index within the same basic block, on or after the `start_search_idx` which is not within a phi block.
 A phi-block is a run on PhiNodes or nothings that must be the first statements within the basic block.
 
 If `start_search_idx` is not within a phi block to begin with, then just returns `start_search_idx`
 """
-function find_end_of_phi_block(ir, start_search_idx::Int)
+function find_end_of_phi_block(ir::IRCode, start_search_idx::Int)
     # Short-cut for early exit:
     stmt = ir.stmts[start_search_idx][:inst]
     stmt !== nothing && !isa(stmt, PhiNode) && return start_search_idx
@@ -90,7 +87,7 @@ function find_end_of_phi_block(ir, start_search_idx::Int)
     return end_search_idx
 end
 
-function replace_call!(ir, idx::SSAValue, new_call)
+function replace_call!(ir::IRCode, idx::SSAValue, new_call::Expr)
     ir[idx][:inst] = new_call
     ir[idx][:type] = Any
     ir[idx][:info] = CC.NoCallInfo()

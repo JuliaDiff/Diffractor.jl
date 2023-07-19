@@ -338,9 +338,12 @@ function forward_diff!(interp::ADInterpreter, ir::IRCode, src::CodeInfo, mi::Met
     ir = compact!(ir)
 
     for i = 1:length(ir.stmts)
-        if ir[SSAValue(i)][:type] == Any
-            @warn "IR_FLAG_REFINED Flag missed on statement" i ir[SSAValue(i)][:inst]
-            ir[SSAValue(i)][:flag] |= CC.IR_FLAG_REFINED
+        inst = ir[SSAValue(i)][:inst]
+        if !isa(inst, ReturnNode) && ir[SSAValue(i)][:type] == Any
+            if iszero(ir[SSAValue(i)][:flag] & CC.IR_FLAG_REFINED)
+                @warn "IR_FLAG_REFINED Flag missed on statement" i inst
+                ir[SSAValue(i)][:flag] |= CC.IR_FLAG_REFINED
+            end
         end
     end
 

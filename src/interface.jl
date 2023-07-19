@@ -127,8 +127,6 @@ function (::Type{∇})(f, x1, args...)
     unthunk.(∇(f)(x1, args...))
 end
 
-const gradient = ∇
-
 # Star Trek has their prime directive. We have the...
 abstract type AbstractPrimeDerivative{N, T}; end
 
@@ -181,8 +179,8 @@ struct PrimeDerivative{N, T}
 end
 
 function (f::PrimeDerivative{N, T})(x) where {N, T}
-    # For now, this is backwards mode, since that's more fully implemented
-    return PrimeDerivativeBack{N, T}(f.f)(x)
+    # For now, this is forward mode, since that's more fully implemented
+    return PrimeDerivativeFwd{N, T}(f.f)(x)
 end
 
 """
@@ -227,3 +225,7 @@ will compute the derivative `∂^3 f/∂x^2 ∂y` at `(x,y)`.
 macro ∂(expr)
     error("Write me")
 end
+derivative(f, x) = Diffractor.PrimeDerivativeFwd(f)(x)
+const gradient = ∇
+jacobian(f, x::AbstractArray) = reduce(hcat, vec.(gradient(f, x)))
+hessian(f, x::AbstractArray) = jacobian(y -> gradient(f, y), float(x))

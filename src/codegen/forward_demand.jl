@@ -300,6 +300,7 @@ function forward_diff_no_inf!(ir::IRCode, to_diff::Vector{Pair{SSAValue,Int}};
                 # TODO: New PiNode that discriminates based on primal?
                 inst[:inst] = maparg(stmt.val, SSAValue(ssa), order)
                 inst[:type] = Any
+                inst[:flag] |= CC.IR_FLAG_REFINED
             elseif isa(stmt, GlobalRef)
                 if !isconst(stmt)
                     # Non-const GlobalRefs need to need to be accessed as seperate statements

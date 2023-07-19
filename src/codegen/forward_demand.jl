@@ -248,9 +248,9 @@ function forward_diff_no_inf!(ir::IRCode, to_diff::Vector{Pair{SSAValue,Int}};
                     # identify where to insert. Must be after phi blocks
                     pos = SSAValue(find_end_of_phi_block(ir, arg.id))
                     if order == 0
-                        insert_node!(ir, pos, NewInstruction(Expr(:call, primal, arg), Any), #=attach_after=#true)
+                        insert_node!(ir, pos, NewInstruction(Expr(:call, primal, arg), Any, CC.NoCallInfo(), nothing, CC.IR_FLAG_REFINED), #=attach_after=#true)
                     else
-                        insert_node!(ir, pos, NewInstruction(Expr(:call, truncate, arg, Val{order}()), Any), #=attach_after=#true)
+                        insert_node!(ir, pos, NewInstruction(Expr(:call, truncate, arg, Val{order}()), Any, CC.NoCallInfo(), nothing, CC.IR_FLAG_REFINED), #=attach_after=#true)
                     end
                 end
             end
@@ -262,7 +262,7 @@ function forward_diff_no_inf!(ir::IRCode, to_diff::Vector{Pair{SSAValue,Int}};
             return transform!(ir, arg, order, maparg)
         elseif isa(arg, GlobalRef)
             @assert isconst(arg)
-            return insert_node!(ir, ssa, NewInstruction(Expr(:call, ZeroBundle{order}, arg), Any))
+            return insert_node!(ir, ssa, NewInstruction(Expr(:call, ZeroBundle{order}, arg), Any, CC.NoCallInfo(), nothing, CC.IR_FLAG_REFINED))
         elseif isa(arg, QuoteNode)
             return ZeroBundle{order}(arg.value)
         end

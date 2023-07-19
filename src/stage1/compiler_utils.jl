@@ -94,4 +94,5 @@ function replace_call!(ir, idx::SSAValue, new_call)
     ir[idx][:inst] = new_call
     ir[idx][:type] = Any
     ir[idx][:info] = CC.NoCallInfo()
+    ir[idx][:flag] = CC.IR_FLAG_REFINED
 end

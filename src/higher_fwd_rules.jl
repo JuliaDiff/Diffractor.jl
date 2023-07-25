@@ -1,5 +1,4 @@
 using Combinatorics
-using StatsBase
 
 using Base.Iterators
 

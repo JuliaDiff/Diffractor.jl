@@ -239,6 +239,14 @@ expressions for the t′ᵢ that are hopefully easier on the compiler.
     end...)
 end
 
+function countmap(xs)
+    counts = Dict{eltype(xs), Int}()
+    for x in xs
+        counts[x] = get(counts, x, 0) + 1
+    end
+    return counts
+end
+
 @generated function (j::Jet{T, N} where T)(x::TaylorBundle{M}) where {N, M}
     O = min(M,N)
     quote

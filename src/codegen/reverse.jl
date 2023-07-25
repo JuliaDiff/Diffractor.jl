@@ -602,8 +602,7 @@ function diffract_ir!(ir, ci, meth, sparams::Core.SimpleVector, nargs::Int, N::I
             if length(succs) != 0
                 override = false
                 if has_terminator[active_bb]
-                    terminator = compact[SSAValue(idx)]
-                    terminator = VERSION < v"1.9.0-DEV.739" ? terminator : terminator.inst
+                    terminator = compact[SSAValue(idx)].inst
                     compact[SSAValue(idx)] = nothing
                     override = true
                 end

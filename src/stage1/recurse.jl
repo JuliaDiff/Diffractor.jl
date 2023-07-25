@@ -244,13 +244,9 @@ Base.getindex(c::Core.Compiler.IncrementalCompact, args...) = Core.Compiler.geti
 Base.setindex!(c::Core.Compiler.IncrementalCompact, args...) = Core.Compiler.setindex!(c, args...)
 Base.setindex!(urs::Core.Compiler.UseRef, args...) = Core.Compiler.setindex!(urs, args...)
 
-VERSION >= v"1.10.0-DEV.552" && import Core.Compiler: VarState
+import Core.Compiler: VarState
 function sptypes(sparams)
-    return if VERSION>=v"1.10.0-DEV.552"
-        VarState[Core.Compiler.VarState.(sparams, false)...]
-    else
-        Any[sparams...]
-    end
+    VarState[Core.Compiler.VarState.(sparams, false)...]
 end
 
 function optic_transform(ci, args...)

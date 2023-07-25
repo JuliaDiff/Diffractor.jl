@@ -118,7 +118,7 @@ end
 
 function (f::∇)(args...)
     y, f☆ = ∂⃖(getfield(f, :f), args...)
-    return tail(f☆(dx(y)))
+    tail(f☆(dx(y)))
 end
 
 # N.B: This means the gradient is not available for zero-arg function, but such
@@ -149,9 +149,7 @@ PrimeDerivativeBack(f) = PrimeDerivativeBack{1, typeof(f)}(f)
 PrimeDerivativeBack(f::PrimeDerivativeBack{N, T}) where {N, T} = raise_pd(f)
 
 function (f::PrimeDerivativeBack)(x)
-    z = ∂⃖¹(lower_pd(f), x)
-    y = getfield(z, 1)
-    f☆ = getfield(z, 2)
+    y, f☆ = ∂⃖¹(lower_pd(f), x)
     return unthunk(getfield(f☆(dx(y)), 2))
 end
 
@@ -227,5 +225,3 @@ macro ∂(expr)
 end
 derivative(f, x) = Diffractor.PrimeDerivativeFwd(f)(x)
 const gradient = ∇
-jacobian(f, x::AbstractArray) = reduce(hcat, vec.(gradient(f, x)))
-hessian(f, x::AbstractArray) = jacobian(y -> gradient(f, y), float(x))

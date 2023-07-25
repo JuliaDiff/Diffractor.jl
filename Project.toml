@@ -4,6 +4,7 @@ authors = ["Keno Fischer <keno@juliacomputing.com> and contributors"]
 version = "0.2.0"
 
 [deps]
+AbstractDifferentiation = "c29ec348-61ec-40c8-8164-b8c60e9d9f3d"
 ChainRules = "082447d4-558c-5d27-93f4-14fc19e9eca2"
 ChainRulesCore = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
 Combinatorics = "861a8166-3701-5b0c-9a16-15d98fcdc6aa"

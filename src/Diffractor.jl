@@ -40,6 +40,7 @@ const GENERATORS = Expr[]
     include("debugutils.jl")
 
     include("stage1/termination.jl")
+    include("AbstractDifferentiation.jl")
 end
 
 end

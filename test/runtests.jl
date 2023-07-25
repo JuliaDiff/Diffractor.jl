@@ -20,6 +20,7 @@ const bwd = Diffractor.PrimeDerivativeBack
     "forward.jl",
     "reverse.jl",
     "regression.jl",
+    "AbstractDifferentiationTests.jl"
     #"pinn.jl",  # Higher order control flow not yet supported (https://github.com/JuliaDiff/Diffractor.jl/issues/24)
 )
     include(file)

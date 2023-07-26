@@ -118,7 +118,7 @@ end
 
 function (f::∇)(args...)
     y, f☆ = ∂⃖(getfield(f, :f), args...)
-    return tail(f☆(dx(y)))
+    tail(f☆(dx(y)))
 end
 
 # N.B: This means the gradient is not available for zero-arg function, but such
@@ -126,8 +126,6 @@ end
 function (::Type{∇})(f, x1, args...)
     unthunk.(∇(f)(x1, args...))
 end
-
-const gradient = ∇
 
 # Star Trek has their prime directive. We have the...
 abstract type AbstractPrimeDerivative{N, T}; end
@@ -151,9 +149,7 @@ PrimeDerivativeBack(f) = PrimeDerivativeBack{1, typeof(f)}(f)
 PrimeDerivativeBack(f::PrimeDerivativeBack{N, T}) where {N, T} = raise_pd(f)
 
 function (f::PrimeDerivativeBack)(x)
-    z = ∂⃖¹(lower_pd(f), x)
-    y = getfield(z, 1)
-    f☆ = getfield(z, 2)
+    y, f☆ = ∂⃖¹(lower_pd(f), x)
     return unthunk(getfield(f☆(dx(y)), 2))
 end
 
@@ -181,8 +177,8 @@ struct PrimeDerivative{N, T}
 end
 
 function (f::PrimeDerivative{N, T})(x) where {N, T}
-    # For now, this is backwards mode, since that's more fully implemented
-    return PrimeDerivativeBack{N, T}(f.f)(x)
+    # For now, this is forward mode, since that's more fully implemented
+    return PrimeDerivativeFwd{N, T}(f.f)(x)
 end
 
 """
@@ -227,3 +223,5 @@ will compute the derivative `∂^3 f/∂x^2 ∂y` at `(x,y)`.
 macro ∂(expr)
     error("Write me")
 end
+derivative(f, x) = Diffractor.PrimeDerivativeFwd(f)(x)
+const gradient = ∇

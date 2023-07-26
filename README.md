@@ -25,18 +25,19 @@ This is achieved through a combination of innovations:
 - Demand-driven forward-mode AD (Applying transforms to only those IR statements that contribute to relevant outputs of the function being differentiated)
 
 # Current status
+
+Diffractor is currently supported on Julia v1.10+.
+While the best performance is generally achieved by running on Julia nightly due to constant compiler improvements, the current release of Diffractor is guaranteed to work on Julia v1.10.
+
 ## Current Status: Forward-Mode
 Currently, forward-mode is the only fully-functional mode and is now shipping in some closed source products.
 It is in a position to compete with [ForwardDiff.jl](https://github.com/JuliaDiff/TaylorDiff.jl), and with [TaylorDiff.jl](https://github.com/JuliaDiff/TaylorDiff.jl).
-It is not as battle-tested as ForwardDiff.jl, but it has several advantages.
+It is not as battle-tested as ForwardDiff.jl, but it has several advantages:
 Primarily, as it is not an operator overloading AD, it frees one from the need to relax type-constants and worry about the types of containers.
 Furthermore, Like TaylorDiff.jl, it supports Taylor series based computation of higher order derviatives.
 It directly and efficiently uses ChainRules.jl's `frules`, no need for a wrapper macro to import them etc.
 
-
 One limitation over ForwardDiff.jl is a lack of chunking support, to pushforward multiple bases at once.
-
-
 
 ## Current Status: Reverse-Mode
 Improved reverse mode support is planned for a future release.

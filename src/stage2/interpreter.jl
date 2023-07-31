@@ -100,7 +100,7 @@ function CC.InferenceState(result::InferenceResult, cache::Symbol, interp::ADInt
     if interp.current_level === missing
         # override initial bestguess
         arginfo = ArgInfo(nothing, result.argtypes)
-        si = StmtInfo(true)
+        si = StmtInfo(false)
         sv.bestguess = CC.abstract_call(interp.native_interpreter, arginfo, si, sv).rt
     end
     return sv

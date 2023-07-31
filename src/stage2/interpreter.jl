@@ -95,24 +95,24 @@ lower_level(interp::ADInterpreter) = change_level(interp, interp.current_level -
 disable_forward(interp::ADInterpreter) = ADInterpreter(interp; forward=false)
 
 function CC.InferenceState(result::InferenceResult, cache::Symbol, interp::ADInterpreter)
+    sv = @invoke CC.InferenceState(result::InferenceResult, cache::Symbol, interp::AbstractInterpreter)
+    sv === nothing && return sv
     if interp.current_level === missing
-        error()
+        # override initial bestguess
+        arginfo = ArgInfo(nothing, result.argtypes)
+        si = StmtInfo(true)
+        sv.bestguess = CC.abstract_call(interp.native_interpreter, arginfo, si, sv).rt
     end
-    return @invoke CC.InferenceState(result::InferenceResult, cache::Symbol, interp::AbstractInterpreter)
-    # prepare an InferenceState object for inferring lambda
-    world = get_world_counter(interp)
-    src = retrieve_code_info(result.linfo, world)
-    src === nothing && return nothing
-    validate_code_in_debug_mode(result.linfo, src, "lowered")
-    return InferenceState(result, src, cache, interp, Bottom)
+    return sv
 end
 
-
-function CC.initial_bestguess(interp::ADInterpreter, result::InferenceResult)
+function CC.update_bestguess!(interp::ADInterpreter, frame::InferenceState,
+                              currstate::CC.VarTable, @nospecialize(rt))
     if interp.current_level === missing
-        return CC.typeinf_lattice(interp.native_interpreter, result.linfo)
+        rt = CC.getfield_tfunc(rt, Const(1))
     end
-    return Bottom
+    return @invoke CC.update_bestguess!(interp::AbstractInterpreter, frame::InferenceState,
+                                        currstate::CC.VarTable, rt::Any)
 end
 
 function Cthulhu.get_optimized_codeinst(interp::ADInterpreter, curs::ADCursor)
@@ -120,7 +120,6 @@ function Cthulhu.get_optimized_codeinst(interp::ADInterpreter, curs::ADCursor)
     (curs.transformed ? interp.transformed : interp.opt)[curs.level][curs.mi]
 end
 Cthulhu.AbstractCursor(interp::ADInterpreter, mi::MethodInstance) = ADCursor(0, mi, false)
-
 
 # This is a lie, but let's clean this up later
 Cthulhu.can_descend(interp::ADInterpreter, @nospecialize(key), optimize::Bool) = true

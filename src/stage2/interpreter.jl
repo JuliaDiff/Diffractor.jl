@@ -94,6 +94,10 @@ lower_level(interp::ADInterpreter) = change_level(interp, interp.current_level -
 
 disable_forward(interp::ADInterpreter) = ADInterpreter(interp; forward=false)
 
+const GENERIC_INFERENCE_ENABLED = isdefined(CC, :update_bestguess!)
+
+@static if GENERIC_INFERENCE_ENABLED
+
 function CC.InferenceState(result::InferenceResult, cache::Symbol, interp::ADInterpreter)
     sv = @invoke CC.InferenceState(result::InferenceResult, cache::Symbol, interp::AbstractInterpreter)
     sv === nothing && return sv
@@ -114,6 +118,8 @@ function CC.update_bestguess!(interp::ADInterpreter, frame::InferenceState,
     return @invoke CC.update_bestguess!(interp::AbstractInterpreter, frame::InferenceState,
                                         currstate::CC.VarTable, rt::Any)
 end
+
+end # @static if GENERIC_INFERENCE_ENABLED
 
 function Cthulhu.get_optimized_codeinst(interp::ADInterpreter, curs::ADCursor)
     @show curs

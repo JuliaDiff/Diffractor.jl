@@ -55,8 +55,11 @@ struct ADInterpreter <: AbstractInterpreter
     unopt::Union{OffsetVector{UnoptCache},Nothing}
     transformed::OffsetVector{OptCache}
 
+    # Cache results for forward inference over a converged inference (current_level == missing)
+    generic::OptCache
+
     native_interpreter::NativeInterpreter
-    current_level::Int
+    current_level::Union{Int, Missing}
     remarks::OffsetVector{RemarksCache}
 
     function _ADInterpreter()
@@ -66,6 +69,7 @@ struct ADInterpreter <: AbstractInterpreter
             #=opt::OffsetVector{OptCache}=#OffsetVector([OptCache(), OptCache()], 0:1),
             #=unopt::Union{OffsetVector{UnoptCache},Nothing}=#OffsetVector([UnoptCache(), UnoptCache()], 0:1),
             #=transformed::OffsetVector{OptCache}=#OffsetVector([OptCache(), OptCache()], 0:1),
+            OptCache(),
             #=native_interpreter::NativeInterpreter=#NativeInterpreter(),
             #=current_level::Int=#0,
             #=remarks::OffsetVector{RemarksCache}=#OffsetVector([RemarksCache()], 0:0))
@@ -76,10 +80,11 @@ struct ADInterpreter <: AbstractInterpreter
                            opt::OffsetVector{OptCache} = interp.opt,
                            unopt::Union{OffsetVector{UnoptCache},Nothing} = interp.unopt,
                            transformed::OffsetVector{OptCache} = interp.transformed,
+                           generic::OptCache = interp.generic,
                            native_interpreter::NativeInterpreter = interp.native_interpreter,
-                           current_level::Int = interp.current_level,
+                           current_level::Union{Int, Missing} = interp.current_level,
                            remarks::OffsetVector{RemarksCache} = interp.remarks)
-        return new(forward, backward, opt, unopt, transformed, native_interpreter, current_level, remarks)
+        return new(forward, backward, opt, unopt, transformed, generic, native_interpreter, current_level, remarks)
     end
 end
 
@@ -88,6 +93,27 @@ raise_level(interp::ADInterpreter) = change_level(interp, interp.current_level +
 lower_level(interp::ADInterpreter) = change_level(interp, interp.current_level - 1)
 
 disable_forward(interp::ADInterpreter) = ADInterpreter(interp; forward=false)
+
+function CC.InferenceState(result::InferenceResult, cache::Symbol, interp::ADInterpreter)
+    if interp.current_level === missing
+        error()
+    end
+    return @invoke CC.InferenceState(result::InferenceResult, cache::Symbol, interp::AbstractInterpreter)
+    # prepare an InferenceState object for inferring lambda
+    world = get_world_counter(interp)
+    src = retrieve_code_info(result.linfo, world)
+    src === nothing && return nothing
+    validate_code_in_debug_mode(result.linfo, src, "lowered")
+    return InferenceState(result, src, cache, interp, Bottom)
+end
+
+
+function CC.initial_bestguess(interp::ADInterpreter, result::InferenceResult)
+    if interp.current_level === missing
+        return CC.typeinf_lattice(interp.native_interpreter, result.linfo)
+    end
+    return Bottom
+end
 
 function Cthulhu.get_optimized_codeinst(interp::ADInterpreter, curs::ADCursor)
     @show curs
@@ -333,15 +359,6 @@ function CC.inlining_policy(interp::ADInterpreter,
     # the default inlining policy may try additional effor to find the source in a local cache
     return @invoke CC.inlining_policy(interp::AbstractInterpreter,
         nothing, info::CC.CallInfo, stmt_flag::UInt8, mi::MethodInstance, argtypes::Vector{Any})
-end
-
-# TODO remove this overload once https://github.com/JuliaLang/julia/pull/49191 gets merged
-function CC.abstract_call_gf_by_type(interp::ADInterpreter, @nospecialize(f),
-    arginfo::ArgInfo, si::StmtInfo, @nospecialize(atype),
-    sv::IRInterpretationState, max_methods::Int)
-    return @invoke CC.abstract_call_gf_by_type(interp::AbstractInterpreter, f::Any,
-        arginfo::ArgInfo, si::StmtInfo, atype::Any,
-        sv::CC.AbsIntState, max_methods::Int)
 end
 
 #=

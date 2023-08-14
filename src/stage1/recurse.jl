@@ -273,7 +273,8 @@ function optic_transform!(ci, mi, nargs, N)
     # SSA conversion
     meth = mi.def::Method
     domtree = construct_domtree(ir.cfg.blocks)
-    defuse_insts = scan_slot_def_use(Int(meth.nargs), ci, ir.stmts.inst)
+    stmts = VERSION < v"1.11.0-DEV.258" ? ir.stmts.inst : ir.stmts.stmt
+    defuse_insts = scan_slot_def_use(Int(meth.nargs), ci, stmts)
     ci.ssavaluetypes = Any[Any for i = 1:ci.ssavaluetypes]
     ir = construct_ssa!(ci, ir, domtree, defuse_insts, ci.slottypes, SimpleInferenceLattice.instance)
     ir = compact!(ir)

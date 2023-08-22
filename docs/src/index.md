@@ -14,7 +14,7 @@ Please see the AbstractDifferentiation.jl docs for detailed usage.
 ```@jldoctest
 julia> using Diffractor: DiffractorForwardBackend
 
-julia> using AbstractDifferentiation: derivative
+julia> using AbstractDifferentiation: derivative, jacobian
 
 julia> derivative(DiffractorForwardBackend(), +, 1.5, 10.0)
 (1.0, 1.0)

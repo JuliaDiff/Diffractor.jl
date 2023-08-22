@@ -11,8 +11,7 @@ This is more or less the Diffractor equivelent of ForwardDiff.jl's `Dual` type.
 function bundle end
 bundle(x, dx::ChainRulesCore.AbstractZero) = UniformBundle{1, typeof(x), typeof(dx)}(x, dx)
 bundle(x::Number, dx::Number) = TaylorBundle{1}(x, (dx,))
-bundle(x::AbstractArray{<:Number}, dx) = TaylorBundle{1}(x, (dx,))
-bundle(x::AbstractArray, dx) = error("Nonnumeric arrays not implemented, that type is a mess")
+bundle(x::AbstractArray{<:Number}, dx::AbstractArray{<:Number}) = TaylorBundle{1}(x, (dx,))
 bundle(x::P, dx::Tangent{P}) where P = _bundle(x, ChainRulesCore.canonicalize(dx))
 
 "helper that assumes tangent is in canonical form"

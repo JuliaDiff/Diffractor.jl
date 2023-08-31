@@ -262,7 +262,7 @@ function forward_diff_no_inf!(ir::IRCode, to_diff::Vector{Pair{SSAValue,Int}};
             return transform!(ir, arg, order, maparg)
         elseif isa(arg, GlobalRef)
             @assert isconst(arg)
-            return insert_node!(ir, ssa, NewInstruction(Expr(:call, ZeroBundle{order}, arg)))
+            return ZeroBundle{order}(getfield(arg.mod, arg.name))
         elseif isa(arg, QuoteNode)
             return ZeroBundle{order}(arg.value)
         end

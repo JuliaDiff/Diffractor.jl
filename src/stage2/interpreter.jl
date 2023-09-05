@@ -315,7 +315,9 @@ function CC.transform_result_for_cache(interp::ADInterpreter,
 end
 
 function CC.inlining_policy(interp::ADInterpreter,
-    @nospecialize(src), @nospecialize(info::CC.CallInfo), stmt_flag::UInt8, mi::MethodInstance, argtypes::Vector{Any})
+    @nospecialize(src), @nospecialize(info::CC.CallInfo),
+    stmt_flag::(@static VERSION ≥ v"1.11.0-DEV.377" ? UInt32 : UInt8),
+    mi::MethodInstance, argtypes::Vector{Any})
     # Disallow inlining things away that have an frule
     if isa(info, FRuleCallInfo)
         return nothing
@@ -332,7 +334,9 @@ function CC.inlining_policy(interp::ADInterpreter,
     end
     # the default inlining policy may try additional effor to find the source in a local cache
     return @invoke CC.inlining_policy(interp::AbstractInterpreter,
-        nothing, info::CC.CallInfo, stmt_flag::UInt8, mi::MethodInstance, argtypes::Vector{Any})
+        nothing, info::CC.CallInfo,
+        stmt_flag::(@static VERSION ≥ v"1.11.0-DEV.377" ? UInt32 : UInt8),
+        mi::MethodInstance, argtypes::Vector{Any})
 end
 
 # TODO remove this overload once https://github.com/JuliaLang/julia/pull/49191 gets merged

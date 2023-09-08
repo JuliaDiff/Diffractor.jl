@@ -84,7 +84,7 @@ abstract type AbstractTangentSpace; end
     struct ExplicitTangent{P}
 
 A fully explicit coordinate representation of the tangent space,
-represented by a vector of `2^(N-1)` partials.
+represented by a vector of `2^N-1` partials.
 """
 struct ExplicitTangent{P <: Tuple} <: AbstractTangentSpace
     partials::P
@@ -243,7 +243,7 @@ function truncate(tb::TangentBundle, order::Val)
 end
 
 function truncate(tb::ExplicitTangent, order::Val{N}) where {N}
-    ExplicitTangent(tb.partials[1:2^(N-1)])
+    ExplicitTangent(tb.partials[1:2^N-1])
 end
 
 function truncate(et::ExplicitTangent, order::Val{1})

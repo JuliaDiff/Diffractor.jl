@@ -242,6 +242,14 @@ function truncate(tb::TangentBundle, order::Val)
     _TangentBundle(order, tb.primal, truncate(tb.tangent, order))
 end
 
+function truncate(tb::ExplicitTangent, order::Val{N}) where {N}
+    ExplicitTangent(tb.partials[1:2^(N-1)])
+end
+
+function truncate(et::ExplicitTangent, order::Val{1})
+    TaylorTangent(et.partials[1:1])
+end
+
 const UniformBundle{N, B, U} = TangentBundle{N, B, UniformTangent{U}}
 UniformBundle{N, B, U}(primal::B, partial::U) where {N,B,U} = _TangentBundle(Val{N}(), primal, UniformTangent{U}(partial))
 UniformBundle{N, B, U}(primal::B) where {N,B,U} = _TangentBundle(Val{N}(), primal, UniformTangent{U}(U.instance))

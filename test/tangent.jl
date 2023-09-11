@@ -2,6 +2,7 @@ module tagent
 using Diffractor
 using Diffractor: AbstractZeroBundle, ZeroBundle, DNEBundle
 using Diffractor: TaylorBundle, TaylorTangentIndex, CompositeBundle
+using Diffractor: ExplicitTangent, TaylorTangent, truncate
 using ChainRulesCore
 using Test
 
@@ -42,6 +43,14 @@ end
     var"'" = Diffractor.PrimeDerivativeFwd
     f(x) = Foo152(x)
     @test f'(23.5) == Tangent{Foo152}(; x=1.0)
+end
+
+@testset "truncate" begin
+    tt = TaylorTangent((1.0,2.0,3.0,4.0,5.0,6.0,7.0))
+    @test truncate(tt, Val(2)) == TaylorTangent((1.0,2.0))
+    et = ExplicitTangent((1.0,2.0,3.0,4.0,5.0,6.0,7.0))
+    @test truncate(et, Val(2)) == ExplicitTangent((1.0,2.0,3.0))
+    @test truncate(et, Val(1)) == TaylorTangent((1.0,))
 end
 
 end  # module

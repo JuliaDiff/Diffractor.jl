@@ -4,14 +4,6 @@ partial(x::TaylorTangent, i) = getfield(getfield(x, :coeffs), i)
 partial(x::UniformTangent, i) = getfield(x, :val)
 partial(x::ProductTangent, i) = ProductTangent(map(x->partial(x, i), getfield(x, :factors)))
 partial(x::AbstractZero, i) = x
-partial(x::CompositeBundle{N, B}, i) where {N, B<:Tuple} = Tangent{B}(map(x->partial(x, i), getfield(x, :tup))...)
-function partial(x::CompositeBundle{N, B}, i) where {N, B}
-    # This is tangent for a struct, but fields partials are each stored in a plain tuple
-    # so we add the names back using the primal `B`
-    # TODO: If required this can be done as a `@generated` function so it is type-stable
-    backing = NamedTuple{fieldnames(B)}(map(x->partial(x, i), getfield(x, :tup)))
-    return Tangent{B, typeof(backing)}(backing)
-end
 
 
 primal(x::AbstractTangentBundle) = x.primal
@@ -42,14 +34,6 @@ function shuffle_down(b::TaylorBundle{N, B}) where {N, B}
         ntuple(_sdown, N-1))
 end
 
-function shuffle_down(b::CompositeBundle{N, B}) where {N, B}
-    z = CompositeBundle{N-1, CompositeBundle{1, B}}(
-        (CompositeBundle{N-1, Tuple}(
-            map(shuffle_down, b.tup)
-        ),)
-    )
-    z
-end
 
 function shuffle_up(r::TaylorBundle{1, Tuple{B1,B2}}) where {B1,B2}
     z₀ = primal(r)[1]
@@ -63,18 +47,7 @@ function shuffle_up(r::TaylorBundle{1, Tuple{B1,B2}}) where {B1,B2}
     end
 end
 
-function shuffle_up(r::CompositeBundle{1})
-    z₀ = primal(r.tup[1])
-    z₁ = partial(r.tup[1], 1)
-    z₂ = primal(r.tup[2])
-    z₁₂ = partial(r.tup[2], 1)
-    if z₁ == z₂
-        return TaylorBundle{2}(z₀, (z₁, z₁₂))
-    else
-        return ExplicitTangentBundle{2}(z₀, (z₁, z₂, z₁₂))
-    end
-end
-
+#==
 function taylor_compatible(a::ATB{N}, b::ATB{N}) where {N}
     primal(b) === a[TaylorTangentIndex(1)] || return false
     return all(1:(N-1)) do i
@@ -88,7 +61,7 @@ isswifty(::UniformBundle) = true
 isswifty(b::CompositeBundle) = all(isswifty, b.tup)
 isswifty(::Any) = false
 
-#TODO: port this to TaylorTangent:
+#TODO: port this to TaylorTangent over composite structures
 function shuffle_up(r::CompositeBundle{N}) where {N}
     a, b = r.tup
     if isswifty(a) && isswifty(b) && taylor_compatible(a, b)
@@ -102,6 +75,7 @@ function shuffle_up(r::CompositeBundle{N}) where {N}
             ntuple(i->partial(b,i), 1<<(N+1)-1)...))
     end
 end
+==#
 
 function shuffle_up(r::UniformBundle{N, B, U}) where {N, B, U}
     (a, b) = primal(r)
@@ -198,13 +172,6 @@ end
         map(y->lifted_getfield(y, s), x.tangent.coeffs))
 end
 
-@Base.constprop :aggressive function (::∂☆{N})(::ATB{N, typeof(getfield)}, x::CompositeBundle{N}, s::AbstractTangentBundle{N, Int}) where {N}
-    x.tup[primal(s)]
-end
-
-@Base.constprop :aggressive function (::∂☆{N})(::ATB{N, typeof(getfield)}, x::CompositeBundle{N, B}, s::AbstractTangentBundle{N, Symbol}) where {N, B}
-    x.tup[Base.fieldindex(B, primal(s))]
-end
 
 @Base.constprop :aggressive function (::∂☆{N})(f::ATB{N, typeof(getfield)}, x::UniformBundle{N, <:Any, U}, s::AbstractTangentBundle{N}) where {N, U}
     UniformBundle{N,<:Any,U}(getfield(primal(x), primal(s)), x.tangent.val)
@@ -223,9 +190,12 @@ struct FwdMap{N, T<:AbstractTangentBundle{N}}
 end
 (f::FwdMap{N})(args::AbstractTangentBundle{N}...) where {N} = ∂☆{N}()(f.f, args...)
 
+#==
+# TODO port this to TaylorBundle over composite structure
 function (::∂☆{N})(::ZeroBundle{N, typeof(map)}, f::ATB{N}, tup::CompositeBundle{N, <:Tuple}) where {N}
     ∂vararg{N}()(map(FwdMap(f), tup.tup)...)
 end
+==#
 
 function (::∂☆{N})(::ZeroBundle{N, typeof(map)}, f::ATB{N}, args::ATB{N, <:AbstractArray}...) where {N}
     # TODO: This could do an inplace map! to avoid the extra rebundling
@@ -267,23 +237,28 @@ function (this::∂☆{N})(::ZeroBundle{N, typeof(Core._apply_iterate)}, iterate
     Core._apply_iterate(FwdIterate(iterate), this, (f,), args...)
 end
 
+#==
+#TODO: port this to TaylorTangent over composite structures
 function (this::∂☆{N})(::ZeroBundle{N, typeof(iterate)}, t::CompositeBundle{N, <:Tuple}) where {N}
     r = iterate(t.tup)
     r === nothing && return ZeroBundle{N}(nothing)
     ∂vararg{N}()(r[1], ZeroBundle{N}(r[2]))
 end
 
+#TODO: port this to TaylorTangent over composite structures
 function (this::∂☆{N})(::ZeroBundle{N, typeof(iterate)}, t::CompositeBundle{N, <:Tuple}, a::ATB{N}, args::ATB{N}...) where {N}
     r = iterate(t.tup, primal(a), map(primal, args)...)
     r === nothing && return ZeroBundle{N}(nothing)
     ∂vararg{N}()(r[1], ZeroBundle{N}(r[2]))
 end
 
+#TODO: port this to TaylorTangent over composite structures
 function (this::∂☆{N})(::ZeroBundle{N, typeof(Base.indexed_iterate)}, t::CompositeBundle{N, <:Tuple}, i::ATB{N}) where {N}
     r = Base.indexed_iterate(t.tup, primal(i))
     ∂vararg{N}()(r[1], ZeroBundle{N}(r[2]))
 end
 
+#TODO: port this to TaylorTangent over composite structures
 function (this::∂☆{N})(::ZeroBundle{N, typeof(Base.indexed_iterate)}, t::CompositeBundle{N, <:Tuple}, i::ATB{N}, st1::ATB{N}, st::ATB{N}...) where {N}
     r = Base.indexed_iterate(t.tup, primal(i), primal(st1), map(primal, st)...)
     ∂vararg{N}()(r[1], ZeroBundle{N}(r[2]))
@@ -293,10 +268,11 @@ function (this::∂☆{N})(::ZeroBundle{N, typeof(Base.indexed_iterate)}, t::Tan
     ∂vararg{N}()(this(ZeroBundle{N}(getfield), t, i), ZeroBundle{N}(primal(i) + 1))
 end
 
-
+#TODO: port this to TaylorTangent over composite structures
 function (this::∂☆{N})(::ZeroBundle{N, typeof(getindex)}, t::CompositeBundle{N, <:Tuple}, i::ZeroBundle) where {N}
     t.tup[primal(i)]
 end
+==#
 
 function (this::∂☆{N})(::ZeroBundle{N, typeof(typeof)}, x::ATB{N}) where {N}
     DNEBundle{N}(typeof(primal(x)))

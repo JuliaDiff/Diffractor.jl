@@ -7,14 +7,14 @@ backend = Diffractor.DiffractorForwardBackend()
 
     @test bundle(1.0, 2.0) isa Diffractor.TaylorBundle{1}
     @test bundle([1.0, 2.0], [2.0, 3.0]) isa Diffractor.TaylorBundle{1}
-    @test bundle(1.5=>2.5, Tangent{Pair{Float64, Float64}}(first=1.0, second=2.0)) isa Diffractor.CompositeBundle{1}
+    @test bundle(1.5=>2.5, Tangent{Pair{Float64, Float64}}(first=1.0, second=2.0)) isa Diffractor.TaylorBundle{1}
     @test bundle(1.1, ChainRulesCore.ZeroTangent()) isa Diffractor.ZeroBundle{1}
-    @test bundle(1.5=>2.5=>3.5, Tangent{Pair{Float64, Pair{Float64, Float64}}}(first=1.0, second=Tangent{Pair{Float64, Float64}}(first=1.0, second=2.0))) isa Diffractor.CompositeBundle{1}
+    @test bundle(1.5=>2.5=>3.5, Tangent{Pair{Float64, Pair{Float64, Float64}}}(first=1.0, second=Tangent{Pair{Float64, Float64}}(first=1.0, second=2.0))) isa Diffractor.TaylorBundle{1}
     
     # noncanonical structural tangent
     b = bundle(1.5=>2.5=>3.5, Tangent{Pair{Float64, Pair{Float64, Float64}}}(second=Tangent{Pair{Float64, Float64}}(second=2.0, first=1.0)))
     t = Diffractor.first_partial(b)
-    @test b isa Diffractor.CompositeBundle{1}
+    @test b isa Diffractor.TaylorBundle{1}
     @test iszero(t.first)
     @test t.second.first == 1.0
     @test t.second.second == 2.0

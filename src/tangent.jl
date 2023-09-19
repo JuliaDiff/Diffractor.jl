@@ -290,33 +290,6 @@ end
 
 Base.getindex(u::UniformBundle, ::TaylorTangentIndex) = u.tangent.val
 
-"""
-    CompositeBundle{N, B, B <: Tuple}
-
-Represents the tagent bundle where the base space is some tuple or struct type.
-Mathematically, this tangent bundle is the product bundle of the individual
-element bundles.
-"""
-struct CompositeBundle{N, B, T<:Tuple{Vararg{AbstractTangentBundle{N}}}} <: AbstractTangentBundle{N, B}
-    tup::T
-end
-CompositeBundle{N, B}(tup::T) where {N, B, T} = CompositeBundle{N, B, T}(tup)
-
-function Base.getindex(tb::CompositeBundle{N, B} where N, tti::TaylorTangentIndex) where {B}
-    B <: SArray && error()
-    return partial(tb, tti.i)
-end
-
-primal(b::CompositeBundle{N, <:Tuple} where N) = map(primal, b.tup)
-function primal(b::CompositeBundle{N, T} where N) where T<:CompositeBundle
-    T(map(primal, b.tup)...)
-end
-@generated primal(b::CompositeBundle{N, B} where N) where {B} =
-    quote
-        x = map(primal, b.tup)
-        $(Expr(:splatnew, B, :x))
-    end
-
 expand_singleton_to_array(asize, a::AbstractZero) = fill(a, asize...)
 expand_singleton_to_array(asize, a::AbstractArray) = a
 

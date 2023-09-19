@@ -29,7 +29,7 @@ end
 
 # standard tests from AbstractDifferentiation.test_utils
 include(joinpath(pathof(AbstractDifferentiation), "..", "..", "test", "test_utils.jl"))
-@testset "ForwardDiffBackend" begin
+@testset "Standard AbstractDifferentiation.test_utils tests" begin
     backends = [
         @inferred(Diffractor.DiffractorForwardBackend())
     ]

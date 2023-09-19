@@ -51,6 +51,18 @@ function shuffle_down(b::CompositeBundle{N, B}) where {N, B}
     z
 end
 
+function shuffle_up(r::TaylorBundle{1, Tuple{B1,B2}}) where {B1,B2}
+    z₀ = primal(r)[1]
+    z₁ = partial(r, 1)[1]
+    z₂ = primal(r)[2]
+    z₁₂ = partial(r, 1)[2]
+    if z₁ == z₂
+        return TaylorBundle{2}(z₀, (z₁, z₁₂))
+    else
+        return ExplicitTangentBundle{2}(z₀, (z₁, z₂, z₁₂))
+    end
+end
+
 function shuffle_up(r::CompositeBundle{1})
     z₀ = primal(r.tup[1])
     z₁ = partial(r.tup[1], 1)
@@ -76,6 +88,7 @@ isswifty(::UniformBundle) = true
 isswifty(b::CompositeBundle) = all(isswifty, b.tup)
 isswifty(::Any) = false
 
+#TODO: port this to TaylorTangent:
 function shuffle_up(r::CompositeBundle{N}) where {N}
     a, b = r.tup
     if isswifty(a) && isswifty(b) && taylor_compatible(a, b)

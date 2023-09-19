@@ -4,13 +4,47 @@ struct ∂vararg{N}; end
 
 (::∂vararg{N})() where {N} = ZeroBundle{N}(())
 function (::∂vararg{N})(a::AbstractTangentBundle{N}...) where N
-    CompositeBundle{N, Tuple{map(x->basespace(typeof(x)), a)...}}(a)
+    B = Tuple{map(x->basespace(Core.Typeof(x)), a)...}
+    return (∂☆new{N}())(B, a...)
 end
 
 struct ∂☆new{N}; end
 
-(::∂☆new{N})(B::Type, a::AbstractTangentBundle{N}...) where {N} =
-    CompositeBundle{N, B}(a)
+# we split out the 1st order derivative as a special case for performance
+# but the nth order case does also work for this
+function (::∂☆new{1})(B::Type, xs::AbstractTangentBundle{1}...)
+    primal_args = map(primal, xs)
+    the_primal = B <: Tuple ? B(primal_args) : B(primal_args...)
+        
+    tangent_tup = map(x->partial(x, 1), xs)
+    the_partial = if B<:Tuple
+        Tangent{B, typeof(tangent_tup)}(tangent_tup)
+    else
+        names = fieldnames(B)
+        tangent_nt = NamedTuple{names}(tangent_tup)
+        Tangent{B, typeof(tangent_nt)}(tangent_nt)
+    end
+    return TaylorBundle{1, B}(the_primal, (the_partial,))
+end
+
+function (::∂☆new{N})(B::Type, xs::AbstractTangentBundle{N}...) where {N}
+    primal_args = map(primal, xs)
+    the_primal = B <: Tuple ? B(primal_args) : B(primal_args...)
+        
+    the_partials = ntuple(Val{N}()) do ii
+        iith_order_type = ii==1 ? B : Any  # the type of the higher order tangents isn't worth tracking
+        tangent_tup = map(x->partial(x, ii), xs)
+        tangent = if B<:Tuple
+            Tangent{iith_order_type, typeof(tangent_tup)}(tangent_tup)
+        else
+            names = fieldnames(B)
+            tangent_nt = NamedTuple{names}(tangent_tup)
+            Tangent{iith_order_type, typeof(tangent_nt)}(tangent_nt)
+        end
+        return tangent
+    end
+    return TaylorBundle{N, B}(the_primal, the_partials)
+end
 
 @generated (::∂☆new{N})(B::Type) where {N} = return :(ZeroBundle{$N}($(Expr(:new, :B))))
 

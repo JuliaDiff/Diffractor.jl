@@ -25,8 +25,7 @@ let var"'" = Diffractor.PrimeDerivativeFwd
     # Integration tests
     @test recursive_sin'(1.0) == cos(1.0)
     @test recursive_sin''(1.0) == -sin(1.0)
-    # Error: ArgumentError: Tangent for the primal Tangent{Tuple{Float64, Float64}, Tuple{Float64, Float64}}
-    # should be backed by a NamedTuple type, not by Tuple{Tangent{Tuple{Float64, Float64}, Tuple{Float64, Float64}}}.
+    
     @test_broken recursive_sin'''(1.0) == -cos(1.0)
     @test_broken recursive_sin''''(1.0) == sin(1.0)
     @test_broken recursive_sin'''''(1.0) == cos(1.0)
@@ -40,6 +39,7 @@ let var"'" = Diffractor.PrimeDerivativeFwd
 end
 
 # Some Basic Mixed Mode tests
+# TODO: unbreak this
 function sin_twice_fwd(x)
     let var"'" = Diffractor.PrimeDerivativeFwd
             sin''(x)
@@ -87,6 +87,48 @@ end
     end
     let var"'" = Diffractor.PrimeDerivativeFwd
         @test_throws BoundsError foo_errors'(1.0) == 1.0
+    end
+end
+
+
+@testset "structs" begin
+    struct IDemo
+        x::Float64
+        y::Float64
+    end
+
+    function foo(a)
+        obj = IDemo(2.0, a)
+        return obj.x * obj.y
+    end
+
+    let var"'" = Diffractor.PrimeDerivativeFwd
+        @test foo'(100.0) == 2.0
+        @test foo''(100.0) == 0.0
+    end
+end
+
+@testset "tuples" begin
+    function foo(a)
+        tup = (2.0, a)
+        return first(tup) * tup[2]
+    end
+
+    let var"'" = Diffractor.PrimeDerivativeFwd
+        @test foo'(100.0) == 2.0
+        @test foo''(100.0) == 0.0
+    end
+end
+
+@testset "vararg" begin
+    function foo(a)
+        tup = (2.0, a)
+        return *(tup...)
+    end
+
+    let var"'" = Diffractor.PrimeDerivativeFwd
+        @test foo'(100.0) == 2.0
+        @test foo''(100.0) == 0.0
     end
 end
 

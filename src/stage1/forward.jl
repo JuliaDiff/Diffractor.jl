@@ -194,12 +194,9 @@ struct FwdMap{N, T<:AbstractTangentBundle{N}}
 end
 (f::FwdMap{N})(args::AbstractTangentBundle{N}...) where {N} = ∂☆{N}()(f.f, args...)
 
-#==
-# TODO port this to TaylorBundle over composite structure
-function (::∂☆{N})(::ZeroBundle{N, typeof(map)}, f::ATB{N}, tup::CompositeBundle{N, <:Tuple}) where {N}
-    ∂vararg{N}()(map(FwdMap(f), tup.tup)...)
+function (::∂☆{N})(::ZeroBundle{N, typeof(map)}, f::ATB{N}, tup::TaylorBundle{N, <:Tuple}) where {N}
+    ∂vararg{N}()(map(FwdMap(f), destructure(tup))...)
 end
-==#
 
 function (::∂☆{N})(::ZeroBundle{N, typeof(map)}, f::ATB{N}, args::ATB{N, <:AbstractArray}...) where {N}
     # TODO: This could do an inplace map! to avoid the extra rebundling

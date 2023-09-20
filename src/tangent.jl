@@ -228,6 +228,18 @@ function Base.getindex(tb::TaylorBundle, tti::CanonicalTangentIndex)
     tb.tangent.coeffs[count_ones(tti.i)]
 end
 
+"for a TaylorTangent{N, <:Tuple} this breaks it up unto 1 TaylorTangent{N} for each element of the primal tuple"
+function destructure(r::TaylorBundle{N, B}) where {N, B<:Tuple}
+    return ntuple(fieldcount(B)) do field_ii
+        the_primal = primal(r)[field_ii]
+        the_partials = ntuple(N) do  order_ii
+            partial(r, order_ii)[field_ii]
+        end
+        return TaylorBundle{N}(the_primal, the_partials)
+    end
+end
+
+
 function truncate(tt::TaylorTangent, order::Val{N}) where {N}
     TaylorTangent(tt.coeffs[1:N])
 end

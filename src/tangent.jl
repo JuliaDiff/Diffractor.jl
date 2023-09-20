@@ -1,5 +1,5 @@
 """
-    abstract type TangentBundle{N, B}; end
+    abstract type AbstractTangentBundle{N, B}; end
 
 This type represents the `N`-th order (iterated) tangent bundle [1] `TⁿB` over some base
 (Riemannian) manifold `B`. Note that `TⁿB` is itself another manifold and thus

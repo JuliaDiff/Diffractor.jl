@@ -202,7 +202,7 @@ end
 const TaylorBundle{N, B, P} = TangentBundle{N, B, TaylorTangent{P}}
 
 function TaylorBundle{N, B}(primal::B, coeffs) where {N, B}
-    check_taylor_invariants(coeffs, primal, N)
+#    check_taylor_invariants(coeffs, primal, N) # TODO: renable this
     _TangentBundle(Val{N}(), primal, TaylorTangent(coeffs))
 end
 

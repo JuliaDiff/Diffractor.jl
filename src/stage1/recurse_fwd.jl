@@ -14,9 +14,9 @@ struct ∂☆new{N}; end
 # but the nth order case does also work for this
 function (::∂☆new{1})(B::Type, xs::AbstractTangentBundle{1}...)
     primal_args = map(primal, xs)
-    the_primal = B <: Tuple ? B(primal_args) : B(primal_args...)
-        
-    tangent_tup = map(x->partial(x, 1), xs)
+    the_primal = _construct(B, primal_args)
+
+    tangent_tup = map(first_partial, xs)
     the_partial = if B<:Tuple
         Tangent{B, typeof(tangent_tup)}(tangent_tup)
     else
@@ -29,7 +29,7 @@ end
 
 function (::∂☆new{N})(B::Type, xs::AbstractTangentBundle{N}...) where {N}
     primal_args = map(primal, xs)
-    the_primal = B <: Tuple ? B(primal_args) : B(primal_args...)
+    the_primal = _construct(B, primal_args)
         
     the_partials = ntuple(Val{N}()) do ii
         iith_order_type = ii==1 ? B : Any  # the type of the higher order tangents isn't worth tracking
@@ -45,6 +45,10 @@ function (::∂☆new{N})(B::Type, xs::AbstractTangentBundle{N}...) where {N}
     end
     return TaylorBundle{N, B}(the_primal, the_partials)
 end
+
+_construct(::Type{B}, args) where B<:Tuple = B(args)
+# Hack for making things that do not have public constructors constructable:
+@generated _construct(B::Type, args) = :($(Expr(:splatnew, :B, :args)))
 
 @generated (::∂☆new{N})(B::Type) where {N} = return :(ZeroBundle{$N}($(Expr(:new, :B))))
 

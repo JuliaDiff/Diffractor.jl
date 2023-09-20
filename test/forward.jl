@@ -39,7 +39,6 @@ let var"'" = Diffractor.PrimeDerivativeFwd
 end
 
 # Some Basic Mixed Mode tests
-# TODO: unbreak this
 function sin_twice_fwd(x)
     let var"'" = Diffractor.PrimeDerivativeFwd
             sin''(x)

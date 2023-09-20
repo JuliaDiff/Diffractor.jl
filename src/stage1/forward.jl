@@ -47,7 +47,6 @@ function shuffle_up(r::TaylorBundle{1, Tuple{B1,B2}}) where {B1,B2}
     end
 end
 
-#==
 function taylor_compatible(a::ATB{N}, b::ATB{N}) where {N}
     primal(b) === a[TaylorTangentIndex(1)] || return false
     return all(1:(N-1)) do i
@@ -55,27 +54,32 @@ function taylor_compatible(a::ATB{N}, b::ATB{N}) where {N}
     end
 end
 
-# Check whether the tangent bundle element is taylor-like
-isswifty(::TaylorBundle) = true
-isswifty(::UniformBundle) = true
-isswifty(b::CompositeBundle) = all(isswifty, b.tup)
-isswifty(::Any) = false
-
-#TODO: port this to TaylorTangent over composite structures
-function shuffle_up(r::CompositeBundle{N}) where {N}
-    a, b = r.tup
-    if isswifty(a) && isswifty(b) && taylor_compatible(a, b)
-        return TaylorBundle{N+1}(primal(a),
-            ntuple(i->i == N+1 ?
-                b[TaylorTangentIndex(i-1)] : a[TaylorTangentIndex(i)],
-            N+1))
-    else
-        return TangentBundle{N+1}(r.tup[1].primal,
-            (r.tup[1].tangent.partials..., primal(b),
-            ntuple(i->partial(b,i), 1<<(N+1)-1)...))
+function taylor_compatible(r::TaylorBundle{N, Tuple{B1,B2}}) where {N, B1,B2}
+    partial(r, 1)[1] = primal(r)[2] || return false
+    return all(1:N-1) do ii
+        partial(r, i+1)[1] == partial(r, i)[2]
     end
 end
-==#
+function shuffle_up(r::TaylorBundle{N, Tuple{B1,B2}}) where {N, B1,B2}
+    the_primal = primal(r)[1]
+    if taylor_compatible(r)
+        the_partials = ntuple(N+1) do i
+            if ii <= N
+                partial(r, i)[1]  # == `partial(r,i-1)[2]` (except first which is primal(r)[2])
+            else  # ii = N+1
+                partial(r, i-1)[2]
+            end
+        end
+        return TaylorBundle{N+1}(the_primal, the_partials)
+    else
+        #XXX: am dubious of the correctness of this
+        a_partials = ntuple(i->partial(r, ii)[1], N)
+        b_partials = ntuple(i->partial(r, ii)[2], N)
+        the_partials = (a_partials..., primal_b, b_partials...)
+        return TangentBundle{N+1}(the_primal, the_partials)
+    end
+end
+
 
 function shuffle_up(r::UniformBundle{N, B, U}) where {N, B, U}
     (a, b) = primal(r)

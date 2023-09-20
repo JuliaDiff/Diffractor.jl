@@ -238,30 +238,26 @@ function (this::∂☆{N})(::ZeroBundle{N, typeof(Core._apply_iterate)}, iterate
     Core._apply_iterate(FwdIterate(iterate), this, (f,), args...)
 end
 
-#==
-#TODO: port this to TaylorTangent over composite structures
-function (this::∂☆{N})(::ZeroBundle{N, typeof(iterate)}, t::CompositeBundle{N, <:Tuple}) where {N}
-    r = iterate(t.tup)
+
+function (this::∂☆{N})(::ZeroBundle{N, typeof(iterate)}, t::TaylorBundle{N, <:Tuple}) where {N}
+    r = iterate(destructure(t))
     r === nothing && return ZeroBundle{N}(nothing)
     ∂vararg{N}()(r[1], ZeroBundle{N}(r[2]))
 end
 
-#TODO: port this to TaylorTangent over composite structures
-function (this::∂☆{N})(::ZeroBundle{N, typeof(iterate)}, t::CompositeBundle{N, <:Tuple}, a::ATB{N}, args::ATB{N}...) where {N}
-    r = iterate(t.tup, primal(a), map(primal, args)...)
+function (this::∂☆{N})(::ZeroBundle{N, typeof(iterate)}, t::TaylorBundle{N, <:Tuple}, a::ATB{N}, args::ATB{N}...) where {N}
+    r = iterate(destructure(t), primal(a), map(primal, args)...)
     r === nothing && return ZeroBundle{N}(nothing)
     ∂vararg{N}()(r[1], ZeroBundle{N}(r[2]))
 end
 
-#TODO: port this to TaylorTangent over composite structures
-function (this::∂☆{N})(::ZeroBundle{N, typeof(Base.indexed_iterate)}, t::CompositeBundle{N, <:Tuple}, i::ATB{N}) where {N}
-    r = Base.indexed_iterate(t.tup, primal(i))
+function (this::∂☆{N})(::ZeroBundle{N, typeof(Base.indexed_iterate)}, t::TaylorBundle{N, <:Tuple}, i::ATB{N}) where {N}
+    r = Base.indexed_iterate(destructure(t), primal(i))
     ∂vararg{N}()(r[1], ZeroBundle{N}(r[2]))
 end
 
-#TODO: port this to TaylorTangent over composite structures
-function (this::∂☆{N})(::ZeroBundle{N, typeof(Base.indexed_iterate)}, t::CompositeBundle{N, <:Tuple}, i::ATB{N}, st1::ATB{N}, st::ATB{N}...) where {N}
-    r = Base.indexed_iterate(t.tup, primal(i), primal(st1), map(primal, st)...)
+function (this::∂☆{N})(::ZeroBundle{N, typeof(Base.indexed_iterate)}, t::TaylorBundle{N, <:Tuple}, i::ATB{N}, st1::ATB{N}, st::ATB{N}...) where {N}
+    r = Base.indexed_iterate(destructure(t), primal(i), primal(st1), map(primal, st)...)
     ∂vararg{N}()(r[1], ZeroBundle{N}(r[2]))
 end
 
@@ -269,11 +265,11 @@ function (this::∂☆{N})(::ZeroBundle{N, typeof(Base.indexed_iterate)}, t::Tan
     ∂vararg{N}()(this(ZeroBundle{N}(getfield), t, i), ZeroBundle{N}(primal(i) + 1))
 end
 
-#TODO: port this to TaylorTangent over composite structures
-function (this::∂☆{N})(::ZeroBundle{N, typeof(getindex)}, t::CompositeBundle{N, <:Tuple}, i::ZeroBundle) where {N}
-    t.tup[primal(i)]
+function (this::∂☆{N})(::ZeroBundle{N, typeof(getindex)}, t::TaylorBundle{N, <:Tuple}, i::ZeroBundle) where {N}
+    field_ind = primal(i)
+    the_partials = ntuple(order_ind->partial(t, order_ind)[field_ind], N)
+    TaylorBundle{N}(primal(t)[field_ind], the_partials)
 end
-==#
 
 function (this::∂☆{N})(::ZeroBundle{N, typeof(typeof)}, x::ATB{N}) where {N}
     DNEBundle{N}(typeof(primal(x)))

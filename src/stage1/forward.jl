@@ -162,7 +162,6 @@ function (::∂☆internal{N})(args::AbstractTangentBundle{N}...) where {N}
 end
 (::∂☆{N})(args::AbstractTangentBundle{N}...) where {N} = ∂☆internal{N}()(args...)
 
-ChainRulesCore.frule((_, ẋ))
 # Special case rules for performance
 #==
 @Base.constprop :aggressive function (::∂☆{N})(f::ATB{N, typeof(getfield)}, x::TangentBundle{N}, s::AbstractTangentBundle{N}) where {N}

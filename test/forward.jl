@@ -1,17 +1,10 @@
 module forward_tests
 using Diffractor
-using Diffractor: var"'", ∂⃖, DiffractorRuleConfig, ZeroBundle
 using ChainRules
 using ChainRulesCore
 using ChainRulesCore: ZeroTangent, NoTangent, frule_via_ad, rrule_via_ad
 using LinearAlgebra
-
 using Test
-
-const fwd = Diffractor.PrimeDerivativeFwd
-const bwd = Diffractor.PrimeDerivativeBack
-
-
 
 # Minimal 2-nd order forward smoke test
 @test Diffractor.∂☆{2}()(Diffractor.ZeroBundle{2}(sin),
@@ -26,7 +19,8 @@ let var"'" = Diffractor.PrimeDerivativeFwd
     @test recursive_sin'(1.0) == cos(1.0)
     @test recursive_sin''(1.0) == -sin(1.0)
     
-    @test_broken recursive_sin'''(1.0) == -cos(1.0)
+    @test recursive_sin'''(1.0) == -cos(1.0)
+    
     @test_broken recursive_sin''''(1.0) == sin(1.0)
     @test_broken recursive_sin'''''(1.0) == cos(1.0)
     @test_broken recursive_sin''''''(1.0) == -sin(1.0)

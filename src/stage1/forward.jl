@@ -73,8 +73,8 @@ function shuffle_up(r::TaylorBundle{N, Tuple{B1,B2}}) where {N, B1,B2}
         return TaylorBundle{N+1}(the_primal, the_partials)
     else
         #XXX: am dubious of the correctness of this
-        a_partials = ntuple(i->partial(r, ii)[1], N)
-        b_partials = ntuple(i->partial(r, ii)[2], N)
+        a_partials = ntuple(i->partial(r, i)[1], N)
+        b_partials = ntuple(i->partial(r, i)[2], N)
         the_partials = (a_partials..., primal_b, b_partials...)
         return TangentBundle{N+1}(the_primal, the_partials)
     end

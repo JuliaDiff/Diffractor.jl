@@ -1,15 +1,11 @@
 module forward_tests
 using Diffractor
-using Diffractor: var"'", ∂⃖, DiffractorRuleConfig, ZeroBundle
+using Diffractor: TaylorBundle
 using ChainRules
 using ChainRulesCore
 using ChainRulesCore: ZeroTangent, NoTangent, frule_via_ad, rrule_via_ad
 using LinearAlgebra
-
 using Test
-
-const fwd = Diffractor.PrimeDerivativeFwd
-const bwd = Diffractor.PrimeDerivativeBack
 
 
 
@@ -129,6 +125,43 @@ end
         @test foo'(100.0) == 2.0
         @test foo''(100.0) == 0.0
     end
+end
+
+
+@testset "taylor_compatible" begin
+    taylor_compatible = Diffractor.taylor_compatible
+
+    @test taylor_compatible(
+        TaylorBundle{1}(10.0, (20.0,)),
+        TaylorBundle{1}(20.0, (30.0,))
+    )
+    @test !taylor_compatible(
+        TaylorBundle{1}(10.0, (20.0,)),
+        TaylorBundle{1}(21.0, (30.0,))
+    )
+    @test taylor_compatible(
+        TaylorBundle{2}(10.0, (20.0, 30.)),
+        TaylorBundle{2}(20.0, (30.0, 40.))
+    )
+    @test !taylor_compatible(
+        TaylorBundle{2}(10.0, (20.0, 30.0)),
+        TaylorBundle{2}(20.0, (31.0, 40.0))
+    )
+
+
+    tuptan(args...) = Tangent{typeof(args)}(args...)
+    @test taylor_compatible(
+        TaylorBundle{1}((10.0, 20.0), (tuptan(20.0, 30.0),)),
+    )
+    @test taylor_compatible(
+        TaylorBundle{2}((10.0, 20.0), (tuptan(20.0, 30.0),tuptan(30.0, 40.0))),
+    )
+    @test !taylor_compatible(
+        TaylorBundle{1}((10.0, 20.0), (tuptan(21.0, 30.0),)),
+    )
+    @test !taylor_compatible(
+        TaylorBundle{2}((10.0, 20.0), (tuptan(20.0, 31.0),tuptan(30.0, 40.0))),
+    )
 end
 
 end

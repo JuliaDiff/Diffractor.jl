@@ -55,8 +55,8 @@ function taylor_compatible(a::ATB{N}, b::ATB{N}) where {N}
 end
 
 function taylor_compatible(r::TaylorBundle{N, Tuple{B1,B2}}) where {N, B1,B2}
-    partial(r, 1)[1] = primal(r)[2] || return false
-    return all(1:N-1) do ii
+    partial(r, 1)[1] == primal(r)[2] || return false
+    return all(1:N-1) do i
         partial(r, i+1)[1] == partial(r, i)[2]
     end
 end
@@ -64,7 +64,7 @@ function shuffle_up(r::TaylorBundle{N, Tuple{B1,B2}}) where {N, B1,B2}
     the_primal = primal(r)[1]
     if taylor_compatible(r)
         the_partials = ntuple(N+1) do i
-            if ii <= N
+            if i <= N
                 partial(r, i)[1]  # == `partial(r,i-1)[2]` (except first which is primal(r)[2])
             else  # ii = N+1
                 partial(r, i-1)[2]

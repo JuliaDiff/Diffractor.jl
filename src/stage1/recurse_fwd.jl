@@ -48,7 +48,7 @@ end
 
 _construct(::Type{B}, args) where B<:Tuple = B(args)
 # Hack for making things that do not have public constructors constructable:
-@generated _construct(B::Type, args) = :($(Expr(:splatnew, :B, :args)))
+@generated _construct(B::Type, args) = Expr(:splatnew, :B, :args)
 
 @generated (::∂☆new{N})(B::Type) where {N} = return :(ZeroBundle{$N}($(Expr(:new, :B))))
 

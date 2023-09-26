@@ -1,6 +1,6 @@
 module forward_tests
 using Diffractor
-using Diffractor: TaylorBundle
+using Diffractor: TaylorBundle, ZeroBundle
 using ChainRules
 using ChainRulesCore
 using ChainRulesCore: ZeroTangent, NoTangent, frule_via_ad, rrule_via_ad
@@ -10,8 +10,10 @@ using Test
 
 
 # Minimal 2-nd order forward smoke test
-@test Diffractor.∂☆{2}()(Diffractor.ZeroBundle{2}(sin),
-    Diffractor.ExplicitTangentBundle{2}(1.0, (1.0, 1.0, 0.0)))[Diffractor.CanonicalTangentIndex(1)] == sin'(1.0)
+let var"'" = Diffractor.PrimeDerivativeFwd
+    @test Diffractor.∂☆{2}()(ZeroBundle{2}(sin),
+        Diffractor.ExplicitTangentBundle{2}(1.0, (1.0, 1.0, 0.0)))[Diffractor.CanonicalTangentIndex(1)] == sin'(1.0)
+end
 
 # Simple Forward Mode tests
 let var"'" = Diffractor.PrimeDerivativeFwd

@@ -1,4 +1,3 @@
-struct ∂☆recurse{N}; end
 
 struct ∂vararg{N}; end
 

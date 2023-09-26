@@ -1,7 +1,7 @@
 name = "Diffractor"
 uuid = "9f5e2b26-1114-432f-b630-d3fe2085c51c"
 authors = ["Keno Fischer <keno@juliacomputing.com> and contributors"]
-version = "0.2.2"
+version = "0.2.3"
 
 [deps]
 AbstractDifferentiation = "c29ec348-61ec-40c8-8164-b8c60e9d9f3d"

@@ -39,7 +39,8 @@ function shuffle_up(r::TaylorBundle{1, Tuple{B1,B2}}) where {B1,B2}
     z₁ = partial(r, 1)[1]
     z₂ = primal(r)[2]
     z₁₂ = partial(r, 1)[2]
-    if z₁ == z₂
+    if true
+        @assert z₁ == z₂
         return TaylorBundle{2}(z₀, (z₁, z₁₂))
     else
         return ExplicitTangentBundle{2}(z₀, (z₁, z₂, z₁₂))
@@ -61,7 +62,8 @@ function taylor_compatible(r::TaylorBundle{N, Tuple{B1,B2}}) where {N, B1,B2}
 end
 function shuffle_up(r::TaylorBundle{N, Tuple{B1,B2}}) where {N, B1,B2}
     the_primal = primal(r)[1]
-    if taylor_compatible(r)
+    if true
+        @assert taylor_compatible(r)
         the_partials = ntuple(N+1) do i
             if i <= N
                 partial(r, i)[1]  # == `partial(r,i-1)[2]` (except first which is primal(r)[2])

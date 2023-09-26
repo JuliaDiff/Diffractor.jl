@@ -93,7 +93,37 @@ function shuffle_up(r::UniformBundle{N, B, U}) where {N, B, U}
 end
 @ChainRulesCore.non_differentiable shuffle_up(r::UniformBundle)
 
+function shuffle_up_bundle(r::Diffractor.TaylorBundle{1, <:TaylorBundle{<:Any, Float64}})
+    a = primal(r)
+    b = partial(r, 1)
+    z₀ = primal(a)
+    z₁ = partial(a, 1)
+    z₂ = b.primal
+    z₁₂ = b.tagent
+    if z₁ == z₂
+        return TaylorBundle{2}(z₀, (z₁, z₁₂))
+    else
+        return ExplicitTangentBundle{2}(z₀, (z₁, z₂, z₁₂))
+    end
+end
+
+function shuffle_up_bundle(r::UniformBundle{1, <:UniformBundle{N, B, U}}) where {N, B, U}
+    return UniformBundle{N+1, B, U}(primal(primal(r)))
+end
+
+function shuffle_down_bundle(b::ExplicitTangentBundle{N, B}) where {N, B}
+    error("TODO")
+end
+
+function shuffle_down_bundle(b::TaylorBundle{2, B}) where {B}
+    z₀ = primal(b)
+    z₁ = b.tangent.coeffs[1]
+    z₁₂ = b.tangent.coeffs[2]
+    TaylorBundle{1}(TaylorBundle{1}(z₀, (z₁,)), (TaylorBundle{1}(z₁, (z₁₂,)),))
+end
+
 struct ∂☆internal{N}; end
+struct ∂☆recurse{N}; end
 struct ∂☆shuffle{N}; end
 
 function shuffle_base(r)
@@ -147,8 +177,13 @@ function (::∂☆internal{N})(args::AbstractTangentBundle{N}...) where {N}
         return shuffle_up(r)
     end
 end
-(::∂☆{N})(args::AbstractTangentBundle{N}...) where {N} = ∂☆internal{N}()(args...)
 
+# TODO: Generalize to N,M
+@inline function (::∂☆{1})(rec::AbstractZeroBundle{1, ∂☆recurse{1}}, args::ATB{1}...)
+    return shuffle_down_bundle(∂☆recurse{2}()(map(shuffle_up_bundle, args)...))
+end
+
+(::∂☆{N})(args::AbstractTangentBundle{N}...) where {N} = ∂☆internal{N}()(args...)
 
 # Special case rules for performance
 @Base.constprop :aggressive function (::∂☆{N})(f::ATB{N, typeof(getfield)}, x::TangentBundle{N}, s::AbstractTangentBundle{N}) where {N}

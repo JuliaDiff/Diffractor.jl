@@ -35,7 +35,7 @@ end
     end
 
     # Unit Test
-    cb = TaylorBundle{1, Foo152}(Foo152(23.5), (Tangent{Foo152}(;x=1.0),))   
+    cb = TaylorBundle{1, Foo152}(Foo152(23.5), (Tangent{Foo152}(;x=1.0),))
     tti = TaylorTangentIndex(1,)
     @test cb[tti] == Tangent{Foo152}(; x=1.0)
 

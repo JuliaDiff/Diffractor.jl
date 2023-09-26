@@ -208,9 +208,7 @@ end
 
 function check_taylor_invariants(coeffs, primal, N)
     @assert length(coeffs) == N
-    if isa(primal, TangentBundle)
-        @assert isa(coeffs[1], TangentBundle)
-    end
+
 end
 @ChainRulesCore.non_differentiable check_taylor_invariants(coeffs, primal, N)
 
@@ -229,6 +227,18 @@ Base.getindex(tb::TaylorBundle, tti::TaylorTangentIndex) = tb.tangent.coeffs[tti
 function Base.getindex(tb::TaylorBundle, tti::CanonicalTangentIndex)
     tb.tangent.coeffs[count_ones(tti.i)]
 end
+
+"for a TaylorTangent{N, <:Tuple} this breaks it up unto 1 TaylorTangent{N} for each element of the primal tuple"
+function destructure(r::TaylorBundle{N, B}) where {N, B<:Tuple}
+    return ntuple(fieldcount(B)) do field_ii
+        the_primal = primal(r)[field_ii]
+        the_partials = ntuple(N) do  order_ii
+            partial(r, order_ii)[field_ii]
+        end
+        return TaylorBundle{N}(the_primal, the_partials)
+    end
+end
+
 
 function truncate(tt::TaylorTangent, order::Val{N}) where {N}
     TaylorTangent(tt.coeffs[1:N])
@@ -289,33 +299,6 @@ end
 
 
 Base.getindex(u::UniformBundle, ::TaylorTangentIndex) = u.tangent.val
-
-"""
-    CompositeBundle{N, B, B <: Tuple}
-
-Represents the tagent bundle where the base space is some tuple or struct type.
-Mathematically, this tangent bundle is the product bundle of the individual
-element bundles.
-"""
-struct CompositeBundle{N, B, T<:Tuple{Vararg{AbstractTangentBundle{N}}}} <: AbstractTangentBundle{N, B}
-    tup::T
-end
-CompositeBundle{N, B}(tup::T) where {N, B, T} = CompositeBundle{N, B, T}(tup)
-
-function Base.getindex(tb::CompositeBundle{N, B} where N, tti::TaylorTangentIndex) where {B}
-    B <: SArray && error()
-    return partial(tb, tti.i)
-end
-
-primal(b::CompositeBundle{N, <:Tuple} where N) = map(primal, b.tup)
-function primal(b::CompositeBundle{N, T} where N) where T<:CompositeBundle
-    T(map(primal, b.tup)...)
-end
-@generated primal(b::CompositeBundle{N, B} where N) where {B} =
-    quote
-        x = map(primal, b.tup)
-        $(Expr(:splatnew, B, :x))
-    end
 
 expand_singleton_to_array(asize, a::AbstractZero) = fill(a, asize...)
 expand_singleton_to_array(asize, a::AbstractArray) = a

@@ -1,21 +1,19 @@
 module forward_tests
 using Diffractor
-using Diffractor: var"'", ∂⃖, DiffractorRuleConfig, ZeroBundle
+using Diffractor: TaylorBundle, ZeroBundle
 using ChainRules
 using ChainRulesCore
 using ChainRulesCore: ZeroTangent, NoTangent, frule_via_ad, rrule_via_ad
 using LinearAlgebra
-
 using Test
-
-const fwd = Diffractor.PrimeDerivativeFwd
-const bwd = Diffractor.PrimeDerivativeBack
 
 
 
 # Minimal 2-nd order forward smoke test
-@test Diffractor.∂☆{2}()(Diffractor.ZeroBundle{2}(sin),
-    Diffractor.ExplicitTangentBundle{2}(1.0, (1.0, 1.0, 0.0)))[Diffractor.CanonicalTangentIndex(1)] == sin'(1.0)
+let var"'" = Diffractor.PrimeDerivativeFwd
+    @test Diffractor.∂☆{2}()(ZeroBundle{2}(sin),
+        Diffractor.ExplicitTangentBundle{2}(1.0, (1.0, 1.0, 0.0)))[Diffractor.CanonicalTangentIndex(1)] == sin'(1.0)
+end
 
 # Simple Forward Mode tests
 let var"'" = Diffractor.PrimeDerivativeFwd
@@ -25,8 +23,7 @@ let var"'" = Diffractor.PrimeDerivativeFwd
     # Integration tests
     @test recursive_sin'(1.0) == cos(1.0)
     @test recursive_sin''(1.0) == -sin(1.0)
-    # Error: ArgumentError: Tangent for the primal Tangent{Tuple{Float64, Float64}, Tuple{Float64, Float64}}
-    # should be backed by a NamedTuple type, not by Tuple{Tangent{Tuple{Float64, Float64}, Tuple{Float64, Float64}}}.
+    
     @test_broken recursive_sin'''(1.0) == -cos(1.0)
     @test_broken recursive_sin''''(1.0) == sin(1.0)
     @test_broken recursive_sin'''''(1.0) == cos(1.0)
@@ -88,6 +85,85 @@ end
     let var"'" = Diffractor.PrimeDerivativeFwd
         @test_throws BoundsError foo_errors'(1.0) == 1.0
     end
+end
+
+
+@testset "structs" begin
+    struct IDemo
+        x::Float64
+        y::Float64
+    end
+
+    function foo(a)
+        obj = IDemo(2.0, a)
+        return obj.x * obj.y
+    end
+
+    let var"'" = Diffractor.PrimeDerivativeFwd
+        @test foo'(100.0) == 2.0
+        @test foo''(100.0) == 0.0
+    end
+end
+
+@testset "tuples" begin
+    function foo(a)
+        tup = (2.0, a)
+        return first(tup) * tup[2]
+    end
+
+    let var"'" = Diffractor.PrimeDerivativeFwd
+        @test foo'(100.0) == 2.0
+        @test foo''(100.0) == 0.0
+    end
+end
+
+@testset "vararg" begin
+    function foo(a)
+        tup = (2.0, a)
+        return *(tup...)
+    end
+
+    let var"'" = Diffractor.PrimeDerivativeFwd
+        @test foo'(100.0) == 2.0
+        @test foo''(100.0) == 0.0
+    end
+end
+
+
+@testset "taylor_compatible" begin
+    taylor_compatible = Diffractor.taylor_compatible
+
+    @test taylor_compatible(
+        TaylorBundle{1}(10.0, (20.0,)),
+        TaylorBundle{1}(20.0, (30.0,))
+    )
+    @test !taylor_compatible(
+        TaylorBundle{1}(10.0, (20.0,)),
+        TaylorBundle{1}(21.0, (30.0,))
+    )
+    @test taylor_compatible(
+        TaylorBundle{2}(10.0, (20.0, 30.)),
+        TaylorBundle{2}(20.0, (30.0, 40.))
+    )
+    @test !taylor_compatible(
+        TaylorBundle{2}(10.0, (20.0, 30.0)),
+        TaylorBundle{2}(20.0, (31.0, 40.0))
+    )
+
+
+    tuptan(args...) = Tangent{typeof(args)}(args...)
+    @test taylor_compatible(
+        TaylorBundle{1}((10.0, 20.0), (tuptan(20.0, 30.0),)),
+    )
+    @test taylor_compatible(
+        TaylorBundle{2}((10.0, 20.0), (tuptan(20.0, 30.0),tuptan(30.0, 40.0))),
+    )
+    @test !taylor_compatible(
+        TaylorBundle{1}((10.0, 20.0), (tuptan(21.0, 30.0),)),
+    )
+    @test !taylor_compatible(
+        TaylorBundle{2}((10.0, 20.0), (tuptan(20.0, 31.0),tuptan(30.0, 40.0))),
+    )
 end
 
 end

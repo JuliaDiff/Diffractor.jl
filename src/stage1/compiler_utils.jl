@@ -7,7 +7,7 @@ function Base.push!(cfg::CFG, bb::BasicBlock)
     push!(cfg.index, bb.stmts.start)
 end
 
-if VERSION <= v"1.11.0-DEV.116"
+if VERSION < v"1.11.0-DEV.258"
     Base.getindex(ir::IRCode, ssa::SSAValue) = Core.Compiler.getindex(ir, ssa)
 end
 

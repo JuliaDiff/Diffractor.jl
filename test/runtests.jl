@@ -18,6 +18,7 @@ const bwd = Diffractor.PrimeDerivativeBack
     "tangent.jl",
     "forward_diff_no_inf.jl",
     "forward.jl",
+    "forward_mutation.jl",
     "reverse.jl",
     "regression.jl",
     "AbstractDifferentiationTests.jl"

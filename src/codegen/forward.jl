@@ -71,7 +71,7 @@ function fwd_transform!(ci, mi, nargs, N)
             if isa(stmt, Expr)
                 error("Unexprected statement encountered. This is a bug in Diffractor. stmt=$stmt")
             end
-            return Expr(:call, ZeroBundle{N}, stmt)
+            return Expr(:call, zero_bundle{order}(), stmt)
         end
     end
 

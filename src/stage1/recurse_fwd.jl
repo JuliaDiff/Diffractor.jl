@@ -50,7 +50,7 @@ _construct(::Type{B}, args) where B<:Tuple = B(args)
 # Hack for making things that do not have public constructors constructable:
 @generated _construct(B::Type, args) = Expr(:splatnew, :B, :args)
 
-@generated (::∂☆new{N})(B::Type) where {N} = return :(ZeroBundle{$N}($(Expr(:new, :B))))
+@generated (::∂☆new{N})(B::Type) where {N} = return :(zero_bundle{order}()($(Expr(:new, :B))))
 
 # Sometimes we don't know whether or not we need to the ZeroBundle when doing
 # the transform, so this can happen - allow it for now.

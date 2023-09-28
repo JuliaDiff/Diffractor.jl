@@ -122,4 +122,19 @@ end
     @test truncate(et, Val(1)) == TaylorTangent((1.0,))
 end
 
+@testset "zero_bundle" begin
+    zero_bundle = Diffractor.zero_bundle
+
+    tup_zb = zero_bundle{2}()((1, 0))
+    @test tup_zb isa ZeroBundle{2}
+    @test iszero(tup_zb[TaylorTangentIndex(1)])
+    @test iszero(tup_zb[TaylorTangentIndex(2)])
+
+
+    ref_zb = zero_bundle{2}()(Ref(1.5))
+    @test ref_zb isa TaylorBundle{2}
+    @test iszero(ref_zb[TaylorTangentIndex(1)])
+    @test iszero(ref_zb[TaylorTangentIndex(2)])
+end
+
 end  # module

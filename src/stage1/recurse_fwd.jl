@@ -15,14 +15,14 @@ struct ∂☆new{N}; end
 function (::∂☆new{1})(B::Type, xs::AbstractTangentBundle{1}...)
     primal_args = map(primal, xs)
     the_primal = _construct(B, primal_args)
-
+    @info "∂☆new{1}"
     tangent_tup = map(first_partial, xs)
     the_partial = if B<:Tuple
         Tangent{B, typeof(tangent_tup)}(tangent_tup)
     else
         names = fieldnames(B)
         tangent_nt = NamedTuple{names}(tangent_tup)
-        Tangent{B, typeof(tangent_nt)}(tangent_nt)
+        StructuralTangent{B}(tangent_nt)
     end
     return TaylorBundle{1, B}(the_primal, (the_partial,))
 end
@@ -30,13 +30,14 @@ end
 function (::∂☆new{N})(B::Type, xs::AbstractTangentBundle{N}...) where {N}
     primal_args = map(primal, xs)
     the_primal = _construct(B, primal_args)
-        
+    @info "∂☆new{N}"
     the_partials = ntuple(Val{N}()) do ii
         iith_order_type = ii==1 ? B : Any  # the type of the higher order tangents isn't worth tracking
         tangent_tup = map(x->partial(x, ii), xs)
         tangent = if B<:Tuple
             Tangent{iith_order_type, typeof(tangent_tup)}(tangent_tup)
         else
+            # TODO support mutation
             names = fieldnames(B)
             tangent_nt = NamedTuple{names}(tangent_tup)
             Tangent{iith_order_type, typeof(tangent_nt)}(tangent_nt)

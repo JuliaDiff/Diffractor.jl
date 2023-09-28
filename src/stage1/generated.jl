@@ -390,7 +390,7 @@ end
 lifted_getfield(x::ZeroTangent, s) = ZeroTangent()
 lifted_getfield(x::NoTangent, s) = NoTangent()
 
-lifted_getfield(x::Tangent, s) = getproperty(x, s)
+lifted_getfield(x::StructuralTangent, s) = getproperty(x, s)
 
 function lifted_getfield(x::Tangent{<:Tangent{T}}, s) where T
     bb = getfield(x.backing, 1)

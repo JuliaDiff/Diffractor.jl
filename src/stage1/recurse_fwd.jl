@@ -32,15 +32,15 @@ function (::∂☆new{N})(B::Type, xs::AbstractTangentBundle{N}...) where {N}
     the_primal = _construct(B, primal_args)
     @info "∂☆new{N}"
     the_partials = ntuple(Val{N}()) do ii
-        iith_order_type = ii==1 ? B : Any  # the type of the higher order tangents isn't worth tracking
         tangent_tup = map(x->partial(x, ii), xs)
         tangent = if B<:Tuple
-            Tangent{iith_order_type, typeof(tangent_tup)}(tangent_tup)
+            Tangent{B, typeof(tangent_tup)}(tangent_tup)
         else
-            # TODO support mutation
+            # It is a little dubious using StructuralTangent{B} for >1st order, but it is isomorphic.
+            # Just watch out for order mixing bugs.
             names = fieldnames(B)
             tangent_nt = NamedTuple{names}(tangent_tup)
-            Tangent{iith_order_type, typeof(tangent_nt)}(tangent_nt)
+            StructuralTangent{B}(tangent_nt)
         end
         return tangent
     end

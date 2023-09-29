@@ -262,3 +262,18 @@ Base.real(z::NoTangent) = z  # TODO should be in CRC, https://github.com/JuliaDi
 
 # Avoid https://github.com/JuliaDiff/ChainRulesCore.jl/pull/495
 ChainRulesCore._backing_error(P::Type{<:Base.Pairs}, G::Type{<:NamedTuple}, E::Type{<:AbstractDict}) = nothing
+
+# Needed for higher order so we don't see the `backing` field of StructuralTangents, just the contents
+# SHould these be in ChainRules/ChainRulesCore?
+# is this always the right behavour, or just because of how we do higher order
+function ChainRulesCore.frule((_, Δ, _, _), ::typeof(getproperty), strct::StructuralTangent, sym::Union{Int,Symbol}, inbounds)
+    return (getproperty(strct, sym, inbounds), getproperty(Δ, sym))
+end
+
+
+function ChainRulesCore.frule((_, ȯbj, _, ẋ), ::typeof(setproperty!), obj::MutableTangent, field, x)
+    ȯbj::MutableTangent
+    y = setproperty!(obj, field, x)
+    ẏ = setproperty!(ȯbj, field, ẋ)
+    return y, ẏ
+end

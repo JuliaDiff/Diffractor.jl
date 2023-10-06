@@ -66,5 +66,22 @@ end
     @test 🐇[TaylorTangentIndex(2)].x == 2.0  # returns 20
 end
 
+@testset "closure" begin
+    function bar(x)
+        z = x + 1.0
+        function foo!(y)
+            z = z * y
+            return z
+        end
+
+        foo!(2)
+        foo!(2)
+        return z 
+    end
+
+    🥯 = ∂☆{1}()(ZeroBundle{1}(bar), TaylorBundle{1}(10.0, (1.0,)))
+    @test 🥯[TaylorTangentIndex(1)] == 4.0
+end
+
 
 # end # module

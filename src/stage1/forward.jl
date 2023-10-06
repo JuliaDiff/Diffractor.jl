@@ -131,12 +131,12 @@ end
 function (::∂☆internal{N})(f::AbstractZeroBundle{N}, args::AbstractZeroBundle{N}...) where {N}
     f_v = primal(f)
     args_v = map(primal, args)
-    return ZeroBundle{N}(f_v(args_v...))
+    return zero_bundle{N}()(f_v(args_v...))
 end
 function (::∂☆internal{1})(f::AbstractZeroBundle{1}, args::AbstractZeroBundle{1}...)
     f_v = primal(f)
     args_v = map(primal, args)
-    return ZeroBundle{1}(f_v(args_v...))
+    return zero_bundle{1}()(f_v(args_v...))
 end
 
 function (::∂☆internal{N})(args::AbstractTangentBundle{N}...) where {N}

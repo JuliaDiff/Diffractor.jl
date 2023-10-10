@@ -360,7 +360,7 @@ function ChainRulesCore.rrule(::typeof(unbundle), atb::AbstractTangentBundle)
     unbundle(atb), Δ->throw(Δ)
 end
 
-function StructArrays.createinstance(T::Type{<:ZeroBundle}, args...)
+function StructArrays.createinstance(T::Type{<:UniformBundle}, args...)
     T(args[1], args[2])
 end
 

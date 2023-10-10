@@ -93,6 +93,16 @@ end
         ∂☆{1}()(ZeroBundle{1}(xs->(map(x->2*x, xs))), TaylorBundle{1}([1.0, 2.0], ([10.0, 100.0],))),
         TaylorBundle{1}([2.0, 4.0], ([20.0, 200.0],))
     )
+
+
+    # map over all closure, wrt the closed variable
+    mulby(x) = y->x*y
+    🐇 = ∂☆{1}()(
+        ZeroBundle{1}(x->(map(mulby(x), [2.0, 4.0]))), 
+        TaylorBundle{1}(2.0, (10.0,))
+    )
+    @test 🐇 == TaylorBundle{1}([4.0, 8.0], ([20.0, 40.0],))
+
 end
 
 

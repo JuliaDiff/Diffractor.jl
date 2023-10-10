@@ -94,6 +94,8 @@ end
     coeffs::C
     TaylorTangent(coeffs) = $(Expr(:new, :(TaylorTangent{typeof(coeffs)}), :coeffs))
 end
+Base.:(==)(a::TaylorTangent, b::TaylorTangent) = a.coeffs == b.coeffs
+Base.hash(tt::TaylorTangent, h::UInt64) = hash(tt.coeffs, h)
 
 """
     struct TaylorTangent{C}
@@ -158,6 +160,9 @@ TangentBundle
 
 TangentBundle{N}(primal::B, tangent::P) where {N, B, P<:AbstractTangentSpace} =
     _TangentBundle(Val{N}(), primal, tangent)
+
+Base.hash(tb::TangentBundle, h::UInt64) = hash(tb.primal, h)
+Base.:(==)(a::TangentBundle, b::TangentBundle) = (a.primal == b.primal) && (a.tangent == b.tangent)    
 
 const ExplicitTangentBundle{N, B, P} = TangentBundle{N, B, ExplicitTangent{P}}
 

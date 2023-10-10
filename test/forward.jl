@@ -1,6 +1,6 @@
-module forward_tests
+#module forward_tests
 using Diffractor
-using Diffractor: TaylorBundle, ZeroBundle
+using Diffractor: TaylorBundle, ZeroBundle, ∂☆
 using ChainRules
 using ChainRulesCore
 using ChainRulesCore: ZeroTangent, NoTangent, frule_via_ad, rrule_via_ad
@@ -61,7 +61,7 @@ end
     end
 
     # Special case if there is no derivative information at all:
-    @test (Diffractor.∂☆{1}())(ZeroBundle{1}(foo), ZeroBundle{1}(2.0), ZeroBundle{1}(3.0)) == ZeroBundle{1}(5.0)
+    @test ∂☆{1}()(ZeroBundle{1}(foo), ZeroBundle{1}(2.0), ZeroBundle{1}(3.0)) == ZeroBundle{1}(5.0)
     @test frule_calls[] == 0
     @test primal_calls[] == 1
 end
@@ -85,6 +85,14 @@ end
     let var"'" = Diffractor.PrimeDerivativeFwd
         @test_throws BoundsError foo_errors'(1.0) == 1.0
     end
+end
+
+
+@testset "map" begin
+    @test ==(
+        ∂☆{1}()(ZeroBundle{1}(xs->(map(x->2*x, xs))), TaylorBundle{1}([1.0, 2.0], ([10.0, 100.0],))),
+        TaylorBundle{1}([2.0, 4.0], ([20.0, 200.0],))
+    )
 end
 
 

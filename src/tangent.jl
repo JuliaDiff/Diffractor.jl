@@ -206,20 +206,25 @@ end
 
 const TaylorBundle{N, B, P} = TangentBundle{N, B, TaylorTangent{P}}
 
+
+function TaylorBundle{N, B, P}(primal::B, coeffs::P) where {N, B, P}
+    check_taylor_invariants(coeffs, primal, N)
+    _TangentBundle(Val{N}(), primal, TaylorTangent(coeffs))
+end
 function TaylorBundle{N, B}(primal::B, coeffs) where {N, B}
+    check_taylor_invariants(coeffs, primal, N)
+    _TangentBundle(Val{N}(), primal, TaylorTangent(coeffs))
+end
+function TaylorBundle{N}(primal, coeffs) where {N}
     check_taylor_invariants(coeffs, primal, N)
     _TangentBundle(Val{N}(), primal, TaylorTangent(coeffs))
 end
 
 function check_taylor_invariants(coeffs, primal, N)
     @assert length(coeffs) == N
-
 end
 @ChainRulesCore.non_differentiable check_taylor_invariants(coeffs, primal, N)
 
-function TaylorBundle{N}(primal, coeffs) where {N}
-    _TangentBundle(Val{N}(), primal, TaylorTangent(coeffs))
-end
 
 function Base.show(io::IO, x::TaylorBundle{1})
     print(io, x.primal)

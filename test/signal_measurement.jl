@@ -5,10 +5,10 @@ Not even something as sophistricated as FFT, just time domain edge detection stu
 Its an important use case so we test it directly.
 """
 module SignalMeasurement
-
+using Test
 using Diffractor
 using Diffractor: ∂☆, ZeroBundle, TaylorBundle
-using Diffractor: bundle, first_partial, TaylorTangentIndex
+using Diffractor: bundle, first_partial, TaylorTangentIndex, primal
 
 
 function make_soft_square_pulse(width, hardness=100)
@@ -51,7 +51,7 @@ end
 function signal_problem(width)
     func = make_soft_square_pulse(width, 8)
     ts = 0.0:0.001:1.0
-    signal = func.(ts)
+    signal = map(func, ts)
     return determine_width(signal, ts)
 end
 

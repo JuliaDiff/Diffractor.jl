@@ -1,7 +1,7 @@
-module tagent
+module tangent
 using Diffractor
-using Diffractor: AbstractZeroBundle, ZeroBundle, DNEBundle
-using Diffractor: TaylorBundle, TaylorTangentIndex
+using Diffractor: AbstractZeroBundle, ZeroBundle, DNEBundle, TaylorBundle, ExplicitTangentBundle
+using Diffractor:TaylorTangentIndex, CanonicalTangentIndex
 using Diffractor: ExplicitTangent, TaylorTangent, truncate
 using ChainRulesCore
 using Test
@@ -46,10 +46,70 @@ end
     end
 end
 
-@testset "== and hash" begin
-    @test TaylorBundle{1}([2.0, 4.0], ([20.0, 200.0],)) == TaylorBundle{1}([2.0, 4.0], ([20.0, 200.0],))
-    @test hash(TaylorBundle{1}(0.0, (0.0,))) == hash(0)
+@testset "getindex" begin
+    tt = TaylorBundle{2}(1.5, (1.0, 2.0))
+    @test tt[TaylorTangentIndex(1)] == 1.0
+    @test tt[TaylorTangentIndex(2)] == 2.0
+    @test tt[CanonicalTangentIndex(1)] == 1.0
+    @test tt[CanonicalTangentIndex(2)] == 1.0
+    @test tt[CanonicalTangentIndex(3)] == 2.0
+
+    et = ExplicitTangentBundle{2}(1.5, (1.0, 2.0, 3.0))
+    @test_throws DomainError et[TaylorTangentIndex(1)] == 1.0
+    @test et[TaylorTangentIndex(2)] == 3.0
+    @test et[CanonicalTangentIndex(1)] == 1.0
+    @test et[CanonicalTangentIndex(2)] == 2.0
+    @test et[CanonicalTangentIndex(3)] == 3.0
+
+    zb = ZeroBundle{2}(1.5)
+    @test zb[TaylorTangentIndex(1)] == ZeroTangent()
+    @test zb[TaylorTangentIndex(2)] == ZeroTangent()
+    @test zb[CanonicalTangentIndex(1)] == ZeroTangent()
+    @test zb[CanonicalTangentIndex(2)] == ZeroTangent()
+    @test zb[CanonicalTangentIndex(3)] == ZeroTangent()
 end
+
+@testset "promote" begin
+    @test promote_type(
+        typeof(ExplicitTangentBundle{1}([2.0, 4.0], ([20.0, 200.0],))),
+        typeof(TaylorBundle{1}([2.0, 4.0], ([20.0, 200.0],)))
+    ) <: ExplicitTangentBundle{1, Vector{Float64}}
+
+    @test promote_type(TaylorBundle{1, Float64, Tuple{Float64}}, ZeroBundle{1, Float64}) <: TaylorBundle{1, Float64, Tuple{Float64}}
+    @test promote_type(ExplicitTangentBundle{1, Float64, Tuple{Float64}}, ZeroBundle{1, Float64}) <: ExplicitTangentBundle{1, Float64, Tuple{Float64}}
+end
+@testset "convert" begin
+    @test convert(TaylorBundle{1, Float64, Tuple{Float64}}, ZeroBundle{1}(1.4)) == TaylorBundle{1}(1.4, (0.0,))
+    @test convert(ExplicitTangentBundle{1, Float64, Tuple{Float64}}, ZeroBundle{1}(1.4)) == ExplicitTangentBundle{1}(1.4, (0.0,))
+
+    @test convert(
+        typeof(ExplicitTangentBundle{1}([2.0, 4.0], ([20.0, 200.0],))),
+        TaylorBundle{1}([2.0, 4.0], ([20.0, 200.0],))
+    ) == ExplicitTangentBundle{1}([2.0, 4.0], ([20.0, 200.0],))
+
+    @test convert(
+        typeof(ExplicitTangentBundle{2}(1.5, (10.0, 10.0, 20.0,))),
+        TaylorBundle{2}(1.5, (10.0, 20.0))
+    ) === ExplicitTangentBundle{2}(1.5, (10.0, 10.0, 20.0,))
+end
+@testset "==" begin
+    @test TaylorBundle{1}([2.0, 4.0], ([20.0, 200.0],)) == TaylorBundle{1}([2.0, 4.0], ([20.0, 200.0],))
+    @test TaylorBundle{1}([2.0, 4.0], ([20.0, 200.0],)) == ExplicitTangentBundle{1}([2.0, 4.0], ([20.0, 200.0],)) 
+
+    @test ZeroBundle{3}(1.5) == ZeroBundle{3}(1.5)
+    @test ZeroBundle{3}(1.5) == TaylorBundle{3}(1.5, (0.0, 0.0, 0.0))
+    @test ZeroBundle{3}(1.5) == ExplicitTangentBundle{3}(1.5, (0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0))
+end
+
+@testset "hash" begin
+    @test hash(TaylorBundle{1}([2.0, 4.0], ([20.0, 200.0],))) == hash(TaylorBundle{1}([2.0, 4.0], ([20.0, 200.0],)))
+    @test hash(TaylorBundle{1}([2.0, 4.0], ([20.0, 200.0],))) == hash(ExplicitTangentBundle{1}([2.0, 4.0], ([20.0, 200.0],)))
+
+    @test hash(ZeroBundle{3}(1.5)) == hash(ZeroBundle{3}(1.5))
+    @test hash(ZeroBundle{3}(1.5)) == hash(TaylorBundle{3}(1.5, (0.0, 0.0, 0.0)))
+    @test hash(ZeroBundle{3}(1.5)) == hash(ExplicitTangentBundle{3}(1.5, (0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)))
+end
+
 
 @testset "truncate" begin
     tt = TaylorTangent((1.0,2.0,3.0,4.0,5.0,6.0,7.0))

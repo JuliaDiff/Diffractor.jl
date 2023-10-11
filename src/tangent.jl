@@ -94,6 +94,8 @@ end
     coeffs::C
     TaylorTangent(coeffs) = $(Expr(:new, :(TaylorTangent{typeof(coeffs)}), :coeffs))
 end
+Base.:(==)(a::TaylorTangent, b::TaylorTangent) = a.coeffs == b.coeffs
+Base.hash(tt::TaylorTangent, h::UInt64) = hash(tt.coeffs, h)
 
 """
     struct TaylorTangent{C}
@@ -159,6 +161,9 @@ TangentBundle
 TangentBundle{N}(primal::B, tangent::P) where {N, B, P<:AbstractTangentSpace} =
     _TangentBundle(Val{N}(), primal, tangent)
 
+Base.hash(tb::TangentBundle, h::UInt64) = hash(tb.primal, h)
+Base.:(==)(a::TangentBundle, b::TangentBundle) = (a.primal == b.primal) && (a.tangent == b.tangent)    
+
 const ExplicitTangentBundle{N, B, P} = TangentBundle{N, B, ExplicitTangent{P}}
 
 check_tangent_invariant(lp, N) = @assert lp == 2^N - 1
@@ -201,20 +206,25 @@ end
 
 const TaylorBundle{N, B, P} = TangentBundle{N, B, TaylorTangent{P}}
 
+
+function TaylorBundle{N, B, P}(primal::B, coeffs::P) where {N, B, P}
+    check_taylor_invariants(coeffs, primal, N)
+    _TangentBundle(Val{N}(), primal, TaylorTangent(coeffs))
+end
 function TaylorBundle{N, B}(primal::B, coeffs) where {N, B}
+    check_taylor_invariants(coeffs, primal, N)
+    _TangentBundle(Val{N}(), primal, TaylorTangent(coeffs))
+end
+function TaylorBundle{N}(primal, coeffs) where {N}
     check_taylor_invariants(coeffs, primal, N)
     _TangentBundle(Val{N}(), primal, TaylorTangent(coeffs))
 end
 
 function check_taylor_invariants(coeffs, primal, N)
     @assert length(coeffs) == N
-
 end
 @ChainRulesCore.non_differentiable check_taylor_invariants(coeffs, primal, N)
 
-function TaylorBundle{N}(primal, coeffs) where {N}
-    _TangentBundle(Val{N}(), primal, TaylorTangent(coeffs))
-end
 
 function Base.show(io::IO, x::TaylorBundle{1})
     print(io, x.primal)
@@ -350,7 +360,7 @@ function ChainRulesCore.rrule(::typeof(unbundle), atb::AbstractTangentBundle)
     unbundle(atb), Δ->throw(Δ)
 end
 
-function StructArrays.createinstance(T::Type{<:ZeroBundle}, args...)
+function StructArrays.createinstance(T::Type{<:UniformBundle}, args...)
     T(args[1], args[2])
 end
 

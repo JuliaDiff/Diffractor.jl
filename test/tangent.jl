@@ -46,6 +46,11 @@ end
     end
 end
 
+@testset "== and hash" begin
+    @test TaylorBundle{1}([2.0, 4.0], ([20.0, 200.0],)) == TaylorBundle{1}([2.0, 4.0], ([20.0, 200.0],))
+    @test hash(TaylorBundle{1}(0.0, (0.0,))) == hash(0)
+end
+
 @testset "truncate" begin
     tt = TaylorTangent((1.0,2.0,3.0,4.0,5.0,6.0,7.0))
     @test truncate(tt, Val(2)) == TaylorTangent((1.0,2.0))

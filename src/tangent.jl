@@ -138,16 +138,6 @@ Base.getindex(tangent::TaylorTangent, tti::CanonicalTangentIndex) = tangent.coef
 
 
 """
-    struct ProductTangent{T <: Tuple{Vararg{AbstractTangentSpace}}}
-
-Represents the product space of the given representations of the
-tangent space.
-"""
-struct ProductTangent{T <: Tuple} <: AbstractTangentSpace
-    factors::T
-end
-
-"""
     struct UniformTangent
 
 Represents an N-th order tangent bundle with all unform partials. Particularly
@@ -191,7 +181,7 @@ end
     struct TangentBundle{N, B, P}
 
 Represents a tangent bundle as an explicit primal together
-with some representation of (potentially a product of) the tangent space.
+with some representation of the tangent space.
 """
 TangentBundle
 

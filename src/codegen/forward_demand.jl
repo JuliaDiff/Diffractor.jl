@@ -187,6 +187,8 @@ function forward_visit!(ir::IRCode, ssa::SSAValue, order::Int, ssa_orders::Vecto
         return
     elseif isexpr(stmt, :loopinfo) #TODO preserve this properly
         return
+    elseif isexpr(stmt, :boundscheck)
+        return
     elseif !isa(stmt, Expr)
         return
     else

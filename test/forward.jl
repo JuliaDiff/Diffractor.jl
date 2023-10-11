@@ -1,4 +1,4 @@
-#module forward_tests
+module forward_tests
 using Diffractor
 using Diffractor: TaylorBundle, ZeroBundle, ∂☆
 using ChainRules
@@ -184,4 +184,4 @@ end
     )
 end
 
-end
+end  # module

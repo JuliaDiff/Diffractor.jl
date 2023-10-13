@@ -74,11 +74,8 @@ struct TaylorTangentIndex <: TangentIndex
     i::Int
 end
 
-function Base.getindex(a::AbstractTangentBundle, b::TaylorTangentIndex)
-    error("$(typeof(a)) is not taylor-like. Taylor indexing is ambiguous")
-end
-
 abstract type AbstractTangentSpace; end
+Base.:(==)(x::AbstractTangentSpace, y::AbstractTangentSpace) = ==(promote(x, y)...)
 
 """
     struct ExplicitTangent{P}
@@ -89,13 +86,23 @@ represented by a vector of `2^N-1` partials.
 struct ExplicitTangent{P <: Tuple} <: AbstractTangentSpace
     partials::P
 end
+Base.:(==)(a::ExplicitTangent, b::ExplicitTangent) = a.partials == b.partials
+Base.hash(tt::ExplicitTangent, h::UInt64) = hash(tt.partials, h)
+
+Base.getindex(tangent::ExplicitTangent, b::CanonicalTangentIndex) = tangent.partials[b.i]
+function Base.getindex(tangent::ExplicitTangent, b::TaylorTangentIndex)
+    if lastindex(tangent.partials) == exp2(b.i) - 1
+        return tangent.partials[end]
+    end
+    # TODO: should we also allow other indexes if all the partials at that level are equal up regardless of order?
+    throw(DomainError(b, "$(typeof(tangent)) is not taylor-like. Taylor indexing is ambiguous"))
+end
+
 
 @eval struct TaylorTangent{C <: Tuple} <: AbstractTangentSpace
     coeffs::C
     TaylorTangent(coeffs) = $(Expr(:new, :(TaylorTangent{typeof(coeffs)}), :coeffs))
 end
-Base.:(==)(a::TaylorTangent, b::TaylorTangent) = a.coeffs == b.coeffs
-Base.hash(tt::TaylorTangent, h::UInt64) = hash(tt.coeffs, h)
 
 """
     struct TaylorTangent{C}
@@ -122,15 +129,13 @@ by analogy with the (truncated) Taylor series
 """
 TaylorTangent
 
-"""
-    struct ProductTangent{T <: Tuple{Vararg{AbstractTangentSpace}}}
+Base.:(==)(a::TaylorTangent, b::TaylorTangent) = a.coeffs == b.coeffs
+Base.hash(tt::TaylorTangent, h::UInt64) = hash(tt.coeffs, h)
 
-Represents the product space of the given representations of the
-tangent space.
-"""
-struct ProductTangent{T <: Tuple} <: AbstractTangentSpace
-    factors::T
-end
+
+Base.getindex(tangent::TaylorTangent, tti::TaylorTangentIndex) = tangent.coeffs[tti.i]
+Base.getindex(tangent::TaylorTangent, tti::CanonicalTangentIndex) = tangent.coeffs[count_ones(tti.i)]
+
 
 """
     struct UniformTangent
@@ -141,6 +146,28 @@ useful for representing singleton values.
 struct UniformTangent{U} <: AbstractTangentSpace
     val::U
 end
+Base.hash(t::UniformTangent, h::UInt64) = hash(t.val, h)
+Base.:(==)(t1::UniformTangent, t2::UniformTangent) = t1.val == t2.val
+
+Base.getindex(tangent::UniformTangent, ::Any) = tangent.val
+
+# Conversion and promotion
+Base.promote_rule(et::Type{<:ExplicitTangent}, ::Type{<:AbstractTangentSpace}) = et
+Base.promote_rule(tt::Type{<:TaylorTangent}, ::Type{<:AbstractTangentSpace}) = tt
+Base.promote_rule(et::Type{<:ExplicitTangent}, ::Type{<:TaylorTangent}) = et
+Base.promote_rule(::Type{<:TaylorTangent}, et::Type{<:ExplicitTangent}) = et
+
+num_partials(::Type{TaylorTangent{P}}) where P = fieldcount(P)
+num_partials(::Type{ExplicitTangent{P}}) where P = fieldcount(P)
+Base.eltype(::Type{TaylorTangent{P}}) where P = eltype(P)
+Base.eltype(::Type{ExplicitTangent{P}}) where P = eltype(P)
+function Base.convert(::Type{T}, ut::UniformTangent) where {T<:Union{TaylorTangent, ExplicitTangent}}
+    # can't just use T to construct as the inner constructor doesn't accept type params. So get T_wrapper
+    T_wrapper = T<:TaylorTangent ? TaylorTangent : ExplicitTangent  
+    T_wrapper(ntuple(_->convert(eltype(T), ut.val), num_partials(T)))
+end
+Base.convert(T::Type{<:ExplicitTangent},  tt::TaylorTangent) = ExplicitTangent(ntuple(i->tt[CanonicalTangentIndex(i)], num_partials(T)))
+#TODO: Should we define the reverse: Explict->Taylor for the cases where that is actually defined?
 
 function _TangentBundle end
 
@@ -154,7 +181,7 @@ end
     struct TangentBundle{N, B, P}
 
 Represents a tangent bundle as an explicit primal together
-with some representation of (potentially a product of) the tangent space.
+with some representation of the tangent space.
 """
 TangentBundle
 
@@ -162,7 +189,9 @@ TangentBundle{N}(primal::B, tangent::P) where {N, B, P<:AbstractTangentSpace} =
     _TangentBundle(Val{N}(), primal, tangent)
 
 Base.hash(tb::TangentBundle, h::UInt64) = hash(tb.primal, h)
-Base.:(==)(a::TangentBundle, b::TangentBundle) = (a.primal == b.primal) && (a.tangent == b.tangent)    
+Base.:(==)(a::TangentBundle, b::TangentBundle) = false  # different orders
+Base.:(==)(a::TangentBundle{N}, b::TangentBundle{N}) where {N} = (a.primal == b.primal) && (a.tangent == b.tangent)
+Base.getindex(tbun::TangentBundle, x) = getindex(tbun.tangent, x)
 
 const ExplicitTangentBundle{N, B, P} = TangentBundle{N, B, ExplicitTangent{P}}
 
@@ -197,12 +226,7 @@ function Base.show(io::IO, x::ExplicitTangentBundle)
     length(x.partials) >= 7 && print(io, " + ", x.partials[7], " ∂₁ ∂₂ ∂₃")
 end
 
-function Base.getindex(a::ExplicitTangentBundle{N}, b::TaylorTangentIndex) where {N}
-    if b.i === N
-        return a.tangent.partials[end]
-    end
-    error("$(typeof(a)) is not taylor-like. Taylor indexing is ambiguous")
-end
+
 
 const TaylorBundle{N, B, P} = TangentBundle{N, B, TaylorTangent{P}}
 
@@ -231,11 +255,6 @@ function Base.show(io::IO, x::TaylorBundle{1})
     print(io, " + ")
     x = x.tangent
     print(io, x.coeffs[1], " ∂₁")
-end
-
-Base.getindex(tb::TaylorBundle, tti::TaylorTangentIndex) = tb.tangent.coeffs[tti.i]
-function Base.getindex(tb::TaylorBundle, tti::CanonicalTangentIndex)
-    tb.tangent.coeffs[count_ones(tti.i)]
 end
 
 "for a TaylorTangent{N, <:Tuple} this breaks it up unto 1 TaylorTangent{N} for each element of the primal tuple"
@@ -307,8 +326,18 @@ function Base.show(io::IO, t::AbstractZeroBundle{N}) where N
     print(io, ")")
 end
 
+# Conversion and promotion
+function Base.promote_rule(::Type{TangentBundle{N, B, P1}}, ::Type{TangentBundle{N, B, P2}}) where {N,B,P1,P2}
+    return TangentBundle{N, B, promote_type(P1, P2)}
+end
 
-Base.getindex(u::UniformBundle, ::TaylorTangentIndex) = u.tangent.val
+function Base.convert(::Type{T}, tbun::TangentBundle{N, B}) where {N, B, P, T<:TangentBundle{N,B,P}}
+    the_primal = convert(B, primal(tbun))
+    the_partials = convert(P, tbun.tangent)
+    return _TangentBundle(Val{N}(), the_primal, the_partials)
+end
+
+# StructureArrays helpers
 
 expand_singleton_to_array(asize, a::AbstractZero) = fill(a, asize...)
 expand_singleton_to_array(asize, a::AbstractArray) = a

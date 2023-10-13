@@ -2,7 +2,6 @@ partial(x::TangentBundle, i) = partial(getfield(x, :tangent), i)
 partial(x::ExplicitTangent, i) = getfield(getfield(x, :partials), i)
 partial(x::TaylorTangent, i) = getfield(getfield(x, :coeffs), i)
 partial(x::UniformTangent, i) = getfield(x, :val)
-partial(x::ProductTangent, i) = ProductTangent(map(x->partial(x, i), getfield(x, :factors)))
 partial(x::AbstractZero, i) = x
 
 

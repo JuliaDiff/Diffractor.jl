@@ -314,6 +314,11 @@ function forward_diff_no_inf!(ir::IRCode, to_diff::Vector{Pair{SSAValue,Int}};
                 inst[:inst] = maparg(stmt, SSAValue(ssa), order)
                 inst[:type] = Any
                 inst[:flag] |= CC.IR_FLAG_REFINED
+            elseif isexpr(stmt, :boundscheck)
+                val = ZeroBundle{order}(stmt.args[1])
+                inst[:inst] = val
+                inst[:type] = Const(val)
+                inst[:flag] |= CC.IR_FLAG_REFINED
             elseif isa(stmt, Expr) || isa(stmt, PhiNode) || isa(stmt, PhiCNode) ||
                    isa(stmt, UpsilonNode) || isa(stmt, GotoIfNot) || isa(stmt, Argument)
                 urs = userefs(stmt)

@@ -257,7 +257,7 @@ function (::∂☆{N})(f::ATB{N, typeof(tuple)}, args::AbstractTangentBundle{N}.
     ∂vararg{N}()(args...)
 end
 
-function (::∂☆{N})(f::ATB{N, typeof(tuple)}, args::ZeroBundle{N}...) where {N}
+function (::∂☆{N})(f::ATB{N, typeof(tuple)}, args::AbstractZeroBundle{N}...) where {N}
     ZeroBundle{N}(map(primal, args))  # special fast case
 end
 

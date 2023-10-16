@@ -26,10 +26,10 @@ end
 
 function shuffle_down(b::TaylorBundle{N, B}) where {N, B}
     Base.@constprop :aggressive function _sdown(i::Int64)
-        ExplicitTangentBundle{1}(b.tangent.coeffs[i], (b.tangent.coeffs[i+1],))
+        TaylorBundle{1}(b.tangent.coeffs[i], (b.tangent.coeffs[i+1],))
     end
     TaylorBundle{N-1}(
-        ExplicitTangentBundle{1}(b.primal, (b.tangent.coeffs[1],)),
+        TaylorBundle{1}(b.primal, (b.tangent.coeffs[1],)),
         ntuple(_sdown, N-1))
 end
 

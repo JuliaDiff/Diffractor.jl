@@ -58,7 +58,8 @@ function fwd_transform!(ci, mi, nargs, N)
             # Can't trust that meta annotations are still valid in the AD'd
             # version.
             return nothing
-        
+        elseif isexpr(stmt, :isdefined)
+            return Expr(:call, ZeroBundle{N}, emit!(stmt))
         # Always disable `@inbounds`, as we don't actually know if the AD'd
         # code is truly `@inbounds` or not.
         elseif isexpr(stmt, :boundscheck)

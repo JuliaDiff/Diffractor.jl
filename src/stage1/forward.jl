@@ -95,13 +95,14 @@ function shuffle_up(r::UniformBundle{N, B, U}) where {N, B, U}
 end
 @ChainRulesCore.non_differentiable shuffle_up(r::UniformBundle)
 
-function shuffle_up_bundle(r::Diffractor.TangentBundle{1, <:TaylorBundle{1}})
+
+function shuffle_up_bundle(r::Diffractor.TangentBundle{1, B}) where {B<:ATB{1}}
     a = primal(r)
     b = partial(r, 1)
     z₀ = primal(a)
     z₁ = partial(a, 1)
     z₂ = b.primal
-    z₁₂ = only(b.tangent.coeffs)
+    z₁₂ = _shuffle_up_partial₁₂(B, b.tangent)
 
     if z₁ == z₂
         return TaylorBundle{2}(z₀, (z₁, z₁₂))
@@ -110,20 +111,9 @@ function shuffle_up_bundle(r::Diffractor.TangentBundle{1, <:TaylorBundle{1}})
     end
 end
 
-function shuffle_up_bundle(r::Diffractor.TangentBundle{1, <:ExplicitTangentBundle{1}})
-    a = primal(r)
-    b = partial(r, 1)
-    z₀ = primal(a)
-    z₁ = partial(a, 1)
-    z₂ = b.primal
-    z₂ = b.primal
-    z₁₂ = only(b.tangent.coeffs)
-    if z₁ == z₂
-        return TaylorBundle{2}(z₀, (z₁, z₁₂))
-    else
-        return ExplicitTangentBundle{2}(z₀, (z₁, z₂, z₁₂))
-    end
-end
+_shuffle_up_partial₁₂(::Type{<:TaylorBundle}, tangent) = only(tangent.coeffs)
+_shuffle_up_partial₁₂(::Type{<:ExplicitTangentBundle}, tangent) = only(tangent.partials)
+_shuffle_up_partial₁₂(::Type{<:UniformBundle}, tangent) = tangent.val
 
 
 function shuffle_up_bundle(r::UniformBundle{1, <:UniformBundle{N, B, U}}) where {N, B, U}

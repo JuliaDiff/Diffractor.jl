@@ -11,7 +11,7 @@ primal(z::ZeroTangent) = ZeroTangent()
 first_partial(x) = partial(x, 1)
 
 shuffle_down(b::UniformBundle{N, B, U}) where {N, B, U} =
-    UniformBundle{N-1, <:Any}(UniformBundle{1, B}(b.primal, b.tangent.val),
+    UniformBundle{N-1}(UniformBundle{1, B}(b.primal, b.tangent.val),
                                     UniformBundle{1, U}(b.tangent.val, b.tangent.val))
 
 function shuffle_down(b::ExplicitTangentBundle{N, B}) where {N, B}

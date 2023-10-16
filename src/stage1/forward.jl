@@ -95,13 +95,14 @@ function shuffle_up(r::UniformBundle{N, B, U}) where {N, B, U}
 end
 @ChainRulesCore.non_differentiable shuffle_up(r::UniformBundle)
 
-function shuffle_up_bundle(r::Diffractor.TaylorBundle{1, <:TaylorBundle{<:Any, Float64}})
+function shuffle_up_bundle(r::Diffractor.TangentBundle{1, <:TaylorBundle{1}})
     a = primal(r)
     b = partial(r, 1)
     z₀ = primal(a)
     z₁ = partial(a, 1)
     z₂ = b.primal
-    z₁₂ = b.tagent
+    z₁₂ = only(b.tangent.coeffs)
+
     if z₁ == z₂
         return TaylorBundle{2}(z₀, (z₁, z₁₂))
     else
@@ -109,8 +110,27 @@ function shuffle_up_bundle(r::Diffractor.TaylorBundle{1, <:TaylorBundle{<:Any, F
     end
 end
 
+function shuffle_up_bundle(r::Diffractor.TangentBundle{1, <:ExplicitTangentBundle{1}})
+    a = primal(r)
+    b = partial(r, 1)
+    z₀ = primal(a)
+    z₁ = partial(a, 1)
+    z₂ = b.primal
+    z₂ = b.primal
+    z₁₂ = only(b.tangent.coeffs)
+    if z₁ == z₂
+        return TaylorBundle{2}(z₀, (z₁, z₁₂))
+    else
+        return ExplicitTangentBundle{2}(z₀, (z₁, z₂, z₁₂))
+    end
+end
+
+
 function shuffle_up_bundle(r::UniformBundle{1, <:UniformBundle{N, B, U}}) where {N, B, U}
     return UniformBundle{N+1, B, U}(primal(primal(r)))
+end
+function shuffle_up_bundle(r::UniformBundle{1, <:UniformBundle{1, B, U}}) where {B, U}  # break ambig
+    return UniformBundle{2, B, U}(primal(primal(r)))
 end
 
 function shuffle_down_bundle(b::ExplicitTangentBundle{N, B}) where {N, B}
@@ -166,6 +186,7 @@ end
 function (::∂☆shuffle{N})(args::AbstractTangentBundle{N}...) where {N}
     ∂☆p = ∂☆{N-1}()
     downargs = map(shuffle_down, args)
+    #@info "∂☆shuffle{N}" args downargs
     tupargs = ∂vararg{N-1}()(map(first_partial, downargs)...)
     ∂☆p(ZeroBundle{N-1}(frule), #= ZeroBundle{N-1}(DiffractorRuleConfig()), =# tupargs, map(primal, downargs)...)
 end

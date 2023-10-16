@@ -23,7 +23,8 @@ function (::∂☆new{1})(B::Type, xs::AbstractTangentBundle{1}...)
         tangent_nt = NamedTuple{names}(tangent_tup)
         Tangent{B, typeof(tangent_nt)}(tangent_nt)
     end
-    return TaylorBundle{1, B}(the_primal, (the_partial,))
+    B2 = typeof(the_primal)  # HACK: if the_primal actually has types in it then we want to make sure we get DataType not Type(...)
+    return TaylorBundle{1, B2}(the_primal, (the_partial,))
 end
 
 function (::∂☆new{N})(B::Type, xs::AbstractTangentBundle{N}...) where {N}

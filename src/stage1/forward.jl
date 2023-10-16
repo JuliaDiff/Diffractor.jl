@@ -40,7 +40,7 @@ function shuffle_up(r::TaylorBundle{1, Tuple{B1,B2}}) where {B1,B2}
     z₂ = primal(r)[2]
     z₁₂ = partial(r, 1)[2]
     if true
-        @assert z₁ == z₂
+        @assert(z₁ == z₂,  "$z₁ == $z₂")
         return TaylorBundle{2}(z₀, (z₁, z₁₂))
     else
         return ExplicitTangentBundle{2}(z₀, (z₁, z₂, z₁₂))

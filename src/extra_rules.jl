@@ -262,3 +262,8 @@ Base.real(z::NoTangent) = z  # TODO should be in CRC, https://github.com/JuliaDi
 
 # Avoid https://github.com/JuliaDiff/ChainRulesCore.jl/pull/495
 ChainRulesCore._backing_error(P::Type{<:Base.Pairs}, G::Type{<:NamedTuple}, E::Type{<:AbstractDict}) = nothing
+
+# https://github.com/JuliaDiff/ChainRulesCore.jl/issues/607
+Base.:(==)(x::Number, ::ZeroTangent) = iszero(x)
+Base.:(==)(::ZeroTangent, x::Number) = iszero(x)
+Base.hash(x::ZeroTangent, h::UInt64) = hash(0, h)

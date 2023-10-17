@@ -276,7 +276,13 @@ function optic_transform!(ci, mi, nargs, N)
     stmts = VERSION < v"1.11.0-DEV.258" ? ir.stmts.inst : ir.stmts.stmt
     defuse_insts = scan_slot_def_use(Int(meth.nargs), ci, stmts)
     ci.ssavaluetypes = Any[Any for i = 1:ci.ssavaluetypes]
-    ir = construct_ssa!(ci, ir, domtree, defuse_insts, ci.slottypes, SimpleInferenceLattice.instance)
+    if VERSION > v"1.11.0-DEV.337"
+        interp = NativeInterpreter(meth.primary_world)
+        opt_state=OptimizationState(mi, ci, interp)
+        ir = construct_ssa!(ci, ir, opt_state, domtree, defuse_insts, SimpleInferenceLattice.instance)
+    else
+        ir = construct_ssa!(ci, ir, domtree, defuse_insts, ci.slottypes, SimpleInferenceLattice.instance)
+    end
     ir = compact!(ir)
 
     nfixedargs = Int(meth.nargs)

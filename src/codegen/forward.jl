@@ -10,8 +10,9 @@ function fwd_transform!(ci, mi, nargs, N)
     ssa_mapping = Int[]
     loc_mapping = Int[]
 
-    function emit!(@nospecialize stmt)
-        (isexpr(stmt, :call) || isexpr(stmt, :(=)) || isexpr(stmt, :new)) || return stmt
+    emit!(@nospecialize stmt) = stmt
+    function emit!(stmt::Expr)
+        stmt.head ∈ (:call, :(=), :new, :isdefined) || return stmt
         push!(new_code, stmt)
         push!(new_codelocs, isempty(new_codelocs) ? 0 : new_codelocs[end])
         return SSAValue(length(new_code))
@@ -58,7 +59,8 @@ function fwd_transform!(ci, mi, nargs, N)
             # Can't trust that meta annotations are still valid in the AD'd
             # version.
             return nothing
-        
+        elseif isexpr(stmt, :isdefined)
+            return Expr(:call, ZeroBundle{N}, emit!(stmt))
         # Always disable `@inbounds`, as we don't actually know if the AD'd
         # code is truly `@inbounds` or not.
         elseif isexpr(stmt, :boundscheck)

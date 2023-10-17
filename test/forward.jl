@@ -147,6 +147,19 @@ end
     end
 end
 
+@testset "isdefined" begin
+    function foo_isdefined(x)
+        if (@noinline rand()) < 2
+            a=1  # always happens
+        end
+
+        2*@isdefined(a)*x + @isdefined(_thing_that_is_not_defined)
+    end
+    let var"'" = Diffractor.PrimeDerivativeFwd
+        @test foo_isdefined'(100.0) == 2.0
+    end
+end
+
 
 @testset "types in tuples" begin
     function foo(a)

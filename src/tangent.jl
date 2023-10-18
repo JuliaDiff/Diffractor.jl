@@ -214,6 +214,7 @@ function ExplicitTangentBundle{N,B,P}(primal::B, partials::P) where {N, B, P}
 end
 
 function Base.show(io::IO, x::ExplicitTangentBundle)
+    print(io, "(")
     print(io, x.primal)
     print(io, " + ")
     x = x.tangent
@@ -224,6 +225,7 @@ function Base.show(io::IO, x::ExplicitTangentBundle)
     length(x.partials) >= 5 && print(io, " + ", x.partials[5], " ∂₁ ∂₃")
     length(x.partials) >= 6 && print(io, " + ", x.partials[6], " ∂₂ ∂₃")
     length(x.partials) >= 7 && print(io, " + ", x.partials[7], " ∂₁ ∂₂ ∂₃")
+    print(io, ")")
 end
 
 
@@ -250,12 +252,8 @@ end
 @ChainRulesCore.non_differentiable check_taylor_invariants(coeffs, primal, N)
 
 
-function Base.show(io::IO, x::TaylorBundle{1})
-    print(io, x.primal)
-    print(io, " + ")
-    x = x.tangent
-    print(io, x.coeffs[1], " ∂₁")
-end
+Base.show(io::IO, x::TaylorBundle{1}) = print(io, "($(x.primal) + $(only(x.tangent.coeffs)) ∂₁)")
+
 
 "for a TaylorTangent{N, <:Tuple} this breaks it up unto 1 TaylorTangent{N} for each element of the primal tuple"
 function destructure(r::TaylorBundle{N, B}) where {N, B<:Tuple}

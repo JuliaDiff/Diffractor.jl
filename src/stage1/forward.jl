@@ -106,7 +106,7 @@ function shuffle_base(r)
 end
 
 function (::∂☆internal{1})(args::AbstractTangentBundle{1}...)
-    r = frule(#=DiffractorRuleConfig(),=# map(first_partial, args), map(primal, args)...)
+    r = frule(DiffractorRuleConfig(), map(first_partial, args), map(primal, args)...)
     if r === nothing
         return ∂☆recurse{1}()(args...)
     else

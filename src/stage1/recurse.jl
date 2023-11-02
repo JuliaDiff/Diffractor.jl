@@ -273,11 +273,11 @@ function optic_transform!(ci, mi, nargs, N)
     # SSA conversion
     meth = mi.def::Method
     domtree = construct_domtree(ir.cfg.blocks)
-    stmts = VERSION < v"1.11.0-DEV.258" ? ir.stmts.inst : ir.stmts.stmt
+    stmts = @static VERSION < v"1.11.0-DEV.258" ? ir.stmts.inst : ir.stmts.stmt
     defuse_insts = scan_slot_def_use(Int(meth.nargs), ci, stmts)
     ci.ssavaluetypes = Any[Any for i = 1:ci.ssavaluetypes]
-    if VERSION > v"1.11.0-DEV.337"
-        interp = NativeInterpreter(meth.primary_world)
+    @static if VERSION > v"1.11.0-DEV.337"
+        interp = NativeInterpreter() # dummy interpreter (not used by `construct_ssa!`)
         opt_state=OptimizationState(mi, ci, interp)
         ir = construct_ssa!(ci, ir, opt_state, domtree, defuse_insts, SimpleInferenceLattice.instance)
     else

@@ -21,29 +21,12 @@ end
 #signal = soft_square.(0:0.001:1)]st
 #scatter(signal)
 
-#@testset "pulse width" begin
+@testset "pulse width" begin
     function determine_width(xs, ts)
         # vs real signal processing functions this is not very robust, but for sake of demonstration it is fine.
-        @assert eachindex(xs) == eachindex(ts)
-
-        start_idx = nothing
-        end_idx = nothing
-        for ii in eachindex(xs)
-            x = xs[ii]
-            if isnothing(start_idx)
-                if x > 0.5
-                    start_idx = ii
-                end
-            else
-                if x < 0.5
-                    end_idx = ii
-                    break
-                end
-            end
-        end
-
-        (isnothing(start_idx) || isnothing(end_idx)) && throw(DomainError("no pulse found"))
-        return ts[end_idx] - ts[start_idx]
+        start_ind = findfirst(>(0.5), xs)
+        end_ind = findnext(<(0.5), xs, start_ind)
+        return ts[end_ind] - ts[start_ind]
     end
 
     function signal_problem(width)
@@ -65,17 +48,18 @@ end
     end
 
 
+    # δ (pertubation) Can't be too big or it will blow the perturbed signal out of the window
     for δ in (0.001, 0.003, 0.0045, 0.1, 0.04)
         🐰 = ∂☆{1}()(ZeroBundle{1}(signal_problem), TaylorBundle{1}(0.5, (δ,)))
         @test primal(🐰) ≈ signal_problem(0.5)
         @test convert(Float64, first_partial(🐰)) ≈ δ rtol=0.2
     end
-#end
+end
 
 @testset "risetime" begin
     function determine_risetime(xs, ts)
         start_ind = findfirst(>(0.2), xs)
-        end_ind = findfirst(>(0.8), @view(xs[Base.IdentityUnitRange(start_ind:end)]))
+        end_ind = findnext(>(0.8), xs, start_ind)
         return ts[end_ind] - ts[start_ind]
     end
 
@@ -101,7 +85,7 @@ end
 
     🐇 = ∂☆{1}()(ZeroBundle{1}(signal_risetime_problem), TaylorBundle{1}(12, (1.0,)))
     @test primal(🐇) ≈ signal_risetime_problem(12)
-    @test convert(Float64, first_partial(🐰)) < 0 # As you increase the hardness the risetime decreases
+    @test convert(Float64, first_partial(🐇)) < 0 # As you increase the hardness the risetime decreases
 end
 
 

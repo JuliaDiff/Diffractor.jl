@@ -304,6 +304,8 @@ wrapper_name(::Type{<:ZeroBundle}) = "ZeroBundle"
 wrapper_name(::Type{<:DNEBundle}) = "DNEBundle"
 wrapper_name(::Type{<:AbstractZeroBundle}) = "AbstractZeroBundle"
 
+#=
+# These methods cause too many invalidations to be feasible
 function Base.show(io::IO, T::Type{<:AbstractZeroBundle{N, B}}) where {N,B}
     print(io, wrapper_name(T))
     print(io, @isdefined(N) ? "{$N, " : "{N, ")
@@ -315,6 +317,7 @@ function Base.show(io::IO, T::Type{<:AbstractZeroBundle{N}}) where {N}
     print(io, wrapper_name(T))
     @isdefined(N) && print(io, "{$N}")
 end
+=#
 
 function Base.show(io::IO, t::AbstractZeroBundle{N}) where N
     print(io, wrapper_name(typeof(t)))

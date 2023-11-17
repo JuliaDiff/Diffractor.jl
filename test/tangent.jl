@@ -16,6 +16,8 @@ using Test
 
     @testset "Display" begin
         @test repr(ZeroBundle{1}(2.0)) == "ZeroBundle{1}(2.0)"
+        #=
+        Overloading of Type printing is disabled for now
         @test repr(DNEBundle{1}(getfield)) == "DNEBundle{1}(getfield)"
 
         @test repr(ZeroBundle{1}) == "ZeroBundle{1}"
@@ -24,6 +26,7 @@ using Test
         @test repr((ZeroBundle{N, Float64} where N).body) == "ZeroBundle{N, Float64}"
 
         @test repr(typeof(DNEBundle{1}(getfield))) == "DNEBundle{1, typeof(getfield)}"
+        =#
     end
 end
 

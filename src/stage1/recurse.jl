@@ -1,7 +1,7 @@
+using Core.IR
 using Core.Compiler:
-    Argument, BasicBlock, CFG, CodeInfo, GotoIfNot, GotoNode, IRCode, IncrementalCompact,
-    Instruction, MethodInstance, NewInstruction, NewvarNode, OldSSAValue, PhiNode,
-    ReturnNode, SSAValue, SlotNumber, StmtRange,
+    BasicBlock, CallInfo, CFG, IRCode, IncrementalCompact, Instruction, NewInstruction,
+    NoCallInfo, OldSSAValue, StmtRange,
     bbidxiter, cfg_delete_edge!, cfg_insert_edge!, compute_basic_blocks, complete,
     construct_domtree, construct_ssa!, domsort_ssa!, finish, insert_node!,
     insert_node_here!, effect_free_and_nothrow, non_dce_finish!, quoted, retrieve_code_info,
@@ -266,7 +266,7 @@ function optic_transform!(ci, mi, nargs, N)
 
     meta = Expr[]
     ir = IRCode(Core.Compiler.InstructionStream(code, Any[],
-        Any[nothing for i = 1:length(code)],
+        CallInfo[NoCallInfo() for i = 1:length(code)],
         ci.codelocs, UInt8[0 for i = 1:length(code)]), cfg, Core.LineInfoNode[ci.linetable...],
         Any[Any for i = 1:2], meta, sptypes(sparams))
 

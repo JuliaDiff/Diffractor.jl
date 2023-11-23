@@ -39,7 +39,6 @@ makedocs(
         "Reading List" => "reading_list.md",
         "API" => "api.md",
     ],
-    strict=true,
     checkdocs=:exports,
 )
 

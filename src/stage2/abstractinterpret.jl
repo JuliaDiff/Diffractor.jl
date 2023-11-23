@@ -1,13 +1,13 @@
-import Core.Compiler: abstract_call_gf_by_type, abstract_call
-using Core.Compiler: Const, isconstType, argtypes_to_type, tuple_tfunc, Const,
-    getfield_tfunc, _methods_by_ftype, VarTable, cache_lookup, nfields_tfunc,
+import .CC: abstract_call_gf_by_type, abstract_call_opaque_closure
+using .CC: Const, isconstType, argtypes_to_type, tuple_tfunc, Const,
+    getfield_tfunc, _methods_by_ftype, VarTable, nfields_tfunc,
     ArgInfo, singleton_type, CallMeta, MethodMatchInfo, specialize_method,
     PartialOpaque, UnionSplitApplyCallInfo, typeof_tfunc, apply_type_tfunc, instanceof_tfunc,
     StmtInfo
 using Core: PartialStruct
 using Base.Meta
 
-function Core.Compiler.abstract_call_gf_by_type(interp::ADInterpreter, @nospecialize(f),
+function CC.abstract_call_gf_by_type(interp::ADInterpreter, @nospecialize(f),
         arginfo::ArgInfo, si::StmtInfo, @nospecialize(atype), sv::InferenceState, max_methods::Int)
     (;argtypes) = arginfo
     if interp.backward
@@ -25,7 +25,7 @@ function Core.Compiler.abstract_call_gf_by_type(interp::ADInterpreter, @nospecia
                 mi = specialize_method(call.info.results.matches[1], preexisting=true)
                 ci = get(rinterp.unopt[rinterp.current_level], mi, nothing)
                 clos = AbstractCompClosure(rinterp.current_level, 1, call.info, ci.stmt_info)
-                clos = Core.PartialOpaque(Core.OpaqueClosure{<:Tuple, <:Any}, nothing, sv.linfo, clos)
+                clos = PartialOpaque(Core.OpaqueClosure{<:Tuple, <:Any}, nothing, sv.linfo, clos)
             elseif isa(call.info, RRuleInfo)
                 if rinterp.current_level == 1
                     clos = getfield_tfunc(call.info.rrule_rt, Const(2))
@@ -550,7 +550,7 @@ function infer_prim_closure(interp::ADInterpreter, pc::PrimClosure, @nospecializ
     error()
 end
 
-function Core.Compiler.abstract_call_opaque_closure(interp::ADInterpreter,
+function CC.abstract_call_opaque_closure(interp::ADInterpreter,
     closure::PartialOpaque, arginfo::ArgInfo, sv::InferenceState, check::Bool=true)
 
     if isa(closure.source, AbstractCompClosure)
@@ -565,8 +565,6 @@ function Core.Compiler.abstract_call_opaque_closure(interp::ADInterpreter,
         return infer_prim_closure(interp, closure.source, argtypes[2], sv)
     end
 
-    rt = invoke(Core.Compiler.abstract_call_opaque_closure, Tuple{AbstractInterpreter, PartialOpaque, ArgInfo, InferenceState, Bool},
-        interp, closure, arginfo, sv, check)
-
-    return rt
+    return @invoke CC.abstract_call_opaque_closure(interp::AbstractInterpreter,
+        closure::PartialOpaque, arginfo::ArgInfo, sv::InferenceState, check::Bool)
 end

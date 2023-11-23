@@ -260,10 +260,6 @@ CC.get_inference_cache(ei::ADInterpreter) = get_inference_cache(ei.native_interp
 CC.lock_mi_inference(ei::ADInterpreter, mi::MethodInstance) = nothing
 CC.unlock_mi_inference(ei::ADInterpreter, mi::MethodInstance) = nothing
 
-struct CodeInfoView
-    d::Dict{MethodInstance, Any}
-end
-
 function CC.code_cache(ei::ADInterpreter)
     while ei.current_level > lastindex(ei.opt)
         push!(ei.opt, Dict{MethodInstance, Any}())
@@ -273,16 +269,6 @@ end
 CC.may_optimize(ei::ADInterpreter) = true
 CC.may_compress(ei::ADInterpreter) = false
 CC.may_discard_trees(ei::ADInterpreter) = false
-function CC.get(view::CodeInfoView, mi::MethodInstance, default)
-    r = get(view.d, mi, nothing)
-    if r === nothing
-        return default
-    end
-    if isa(r, OptimizationState)
-        r = r.src
-    end
-    return r::CodeInfo
-end
 
 function CC.add_remark!(interp::ADInterpreter, sv::InferenceState, msg)
     key = CC.any(sv.result.overridden_by_const) ? sv.result : sv.linfo
@@ -365,9 +351,15 @@ function CC.optimize(interp::ADInterpreter, opt::OptimizationState,
 end
 =#
 
-function CC.finish!(interp::ADInterpreter, caller::InferenceResult)
+function _finish!(caller::InferenceResult)
     effects = caller.ipo_effects
     caller.src = Cthulhu.create_cthulhu_source(caller.src, effects)
+end
+
+@static if VERSION ≥ v"1.11.0-DEV.737"
+CC.finish!(::ADInterpreter, caller::InferenceState) = _finish!(caller.result)
+else
+CC.finish!(::ADInterpreter, caller::InferenceResult) = _finish!(caller)
 end
 
 function ir2codeinst(ir::IRCode, inst::CodeInstance, ci::CodeInfo)

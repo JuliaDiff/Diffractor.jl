@@ -26,7 +26,11 @@ function fwd_abstract_call_gf_by_type(interp::AbstractInterpreter, @nospecialize
     frule_call = CC.abstract_call_gf_by_type(interp′,
         ChainRulesCore.frule, frule_arginfo, frule_si, frule_atype, sv, #=max_methods=#-1)
     if frule_call.rt !== Const(nothing)
+        @static if VERSION ≥ v"1.11.0-DEV.945"
+        return CallMeta(primal_call.rt, primal_call.exct, primal_call.effects, FRuleCallInfo(primal_call.info, frule_call))
+        else
         return CallMeta(primal_call.rt, primal_call.effects, FRuleCallInfo(primal_call.info, frule_call))
+        end
     else
         CC.add_mt_backedge!(sv, frule_mt, frule_atype)
     end

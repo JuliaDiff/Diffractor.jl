@@ -57,13 +57,6 @@ end
 Base.lastindex(x::Core.Compiler.InstructionStream) =
     Core.Compiler.length(x)
 
-# Solves an error after https://github.com/JuliaLang/julia/pull/46961
-# as does https://github.com/FluxML/IRTools.jl/pull/101
-if isdefined(Core.Compiler, :CallInfo)
-    Base.convert(::Type{Core.Compiler.CallInfo}, ::Nothing) = Core.Compiler.NoCallInfo()
-end
-
-
 """
     find_end_of_phi_block(ir::IRCode, start_search_idx::Int)
 

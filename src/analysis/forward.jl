@@ -1,7 +1,7 @@
-using Core.Compiler: StmtInfo, ArgInfo, CallMeta
+using Core.Compiler: StmtInfo, ArgInfo, CallMeta, AbsIntState
 
 function fwd_abstract_call_gf_by_type(interp::AbstractInterpreter, @nospecialize(f),
-        arginfo::ArgInfo, si::StmtInfo, sv::InferenceState, primal_call::CallMeta)
+        arginfo::ArgInfo, si::StmtInfo, sv::AbsIntState, primal_call::CallMeta)
     if f === ChainRulesCore.frule
         # TODO: Currently, we don't have any termination analysis for the non-stratified
         # forward analysis, so bail out here.

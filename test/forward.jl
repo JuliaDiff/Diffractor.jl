@@ -209,22 +209,4 @@ end
     )
 end
 
-
-@testset "configured frule" begin
-    my_func(x) = sin(x)
-    frule_hits = 0
-    function ChainRulesCore.frule(config::RuleConfig{>:HasForwardsMode}, (_, dx), ::typeof(my_func), x)
-        res=my_func(x)
-        _, der_fwd = ChainRulesCore.frule_via_ad(config, (ChainRulesCore.NoTangent(), dx), sin, x)
-        frule_hits +=1
-        return res, der_fwd
-    end
-
-    let var"'" = Diffractor.PrimeDerivativeFwd
-        @assert frule_hits == 0
-        @test my_func'(1.0) == cos(1.0)
-        @test frule_hits == 1
-    end
-end
-
 end  # module

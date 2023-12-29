@@ -126,7 +126,7 @@ end
     zero_bundle = Diffractor.zero_bundle
 
     tup_zb = zero_bundle{2}()((1, 0))
-    @test tup_zb isa ZeroBundle{2}
+    @test tup_zb isa Diffractor.AbstractTangentBundle{2}
     @test iszero(tup_zb[TaylorTangentIndex(1)])
     @test iszero(tup_zb[TaylorTangentIndex(2)])
 

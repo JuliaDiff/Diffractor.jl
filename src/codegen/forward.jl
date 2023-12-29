@@ -35,7 +35,7 @@ function fwd_transform!(ci, mi, nargs, N)
             args = map(stmt.args) do stmt
                 emit!(mapstmt!(stmt))
             end
-            return Expr(:call, Core._apply_iterate, FwdIterate(ZeroBundle{N}(iterate)), ∂☆new{N}(), emit!(Expr(:call, tuple, args[1])), args[2:end]...)
+            return Expr(:call, Core._apply_iterate, FwdIterate(DNEBundle{N}(iterate)), ∂☆new{N}(), emit!(Expr(:call, tuple, args[1])), args[2:end]...)
         elseif isa(stmt, SSAValue)
             return SSAValue(ssa_mapping[stmt.id])
         elseif isa(stmt, Core.SlotNumber)
@@ -64,7 +64,7 @@ function fwd_transform!(ci, mi, nargs, N)
         # Always disable `@inbounds`, as we don't actually know if the AD'd
         # code is truly `@inbounds` or not.
         elseif isexpr(stmt, :boundscheck)
-            return ZeroBundle{N}(true)
+            return DNEBundle{N}(true)
         else
             # Fallback case, for literals.
             # If it is an Expr, then it is not a literal

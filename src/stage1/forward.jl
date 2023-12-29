@@ -98,9 +98,12 @@ struct ∂☆shuffle{N}; end
 
 function shuffle_base(r)
     (primal, dual) = r
-    if isa(dual, Union{NoTangent, ZeroTangent})
+    if dual isa NoTangent
         UniformBundle{1}(primal, dual)
     else
+        if dual isa ZeroTangent  # Normalize zero for type-stability reasons
+            dual = zero_tangent(primal)
+        end
         TaylorBundle{1}(primal, (dual,))
     end
 end
@@ -193,25 +196,25 @@ struct FwdMap{N, T<:AbstractTangentBundle{N}}
 end
 (f::FwdMap{N})(args::AbstractTangentBundle{N}...) where {N} = ∂☆{N}()(f.f, args...)
 
-function (::∂☆{N})(::ZeroBundle{N, typeof(map)}, f::ATB{N}, tup::TaylorBundle{N, <:Tuple}) where {N}
+function (::∂☆{N})(::AbstractZeroBundle{N, typeof(map)}, f::ATB{N}, tup::TaylorBundle{N, <:Tuple}) where {N}
     ∂vararg{N}()(map(FwdMap(f), destructure(tup))...)
 end
 
-function (::∂☆{N})(::ZeroBundle{N, typeof(map)}, f::ATB{N}, args::ATB{N, <:AbstractArray}...) where {N}
+function (::∂☆{N})(::AbstractZeroBundle{N, typeof(map)}, f::ATB{N}, args::ATB{N, <:AbstractArray}...) where {N}
     # TODO: This could do an inplace map! to avoid the extra rebundling
     rebundle(map(FwdMap(f), map(unbundle, args)...))
 end
 
-function (::∂☆{N})(::ZeroBundle{N, typeof(map)}, f::ATB{N}, args::ATB{N}...) where {N}
+function (::∂☆{N})(::AbstractZeroBundle{N, typeof(map)}, f::ATB{N}, args::ATB{N}...) where {N}
     ∂☆recurse{N}()(ZeroBundle{N, typeof(map)}(map), f, args...)
 end
 
 
-function (::∂☆{N})(f::ZeroBundle{N, typeof(ifelse)}, arg::ATB{N, Bool}, args::ATB{N}...) where {N}
+function (::∂☆{N})(f::AbstractZeroBundle{N, typeof(ifelse)}, arg::ATB{N, Bool}, args::ATB{N}...) where {N}
     ifelse(arg.primal, args...)
 end
 
-function (::∂☆{N})(f::ZeroBundle{N, typeof(Core.ifelse)}, arg::ATB{N, Bool}, args::ATB{N}...) where {N}
+function (::∂☆{N})(f::AbstractZeroBundle{N, typeof(Core.ifelse)}, arg::ATB{N, Bool}, args::ATB{N}...) where {N}
     Core.ifelse(arg.primal, args...)
 end
 
@@ -233,48 +236,48 @@ end
      primal(∂☆{N}()(ZeroBundle{N}(getindex), r, ZeroBundle{N}(2))))
 end
 
-function (this::∂☆{N})(::ZeroBundle{N, typeof(Core._apply_iterate)}, iterate::ATB{N}, f::ATB{N}, args::ATB{N}...) where {N}
+function (this::∂☆{N})(::AbstractZeroBundle{N, typeof(Core._apply_iterate)}, iterate::ATB{N}, f::ATB{N}, args::ATB{N}...) where {N}
     Core._apply_iterate(FwdIterate(iterate), this, (f,), args...)
 end
 
 
-function (this::∂☆{N})(::ZeroBundle{N, typeof(iterate)}, t::TaylorBundle{N, <:Tuple}) where {N}
+function (this::∂☆{N})(::AbstractZeroBundle{N, typeof(iterate)}, t::TaylorBundle{N, <:Tuple}) where {N}
     r = iterate(destructure(t))
     r === nothing && return ZeroBundle{N}(nothing)
     ∂vararg{N}()(r[1], ZeroBundle{N}(r[2]))
 end
 
-function (this::∂☆{N})(::ZeroBundle{N, typeof(iterate)}, t::TaylorBundle{N, <:Tuple}, a::ATB{N}, args::ATB{N}...) where {N}
+function (this::∂☆{N})(::AbstractZeroBundle{N, typeof(iterate)}, t::TaylorBundle{N, <:Tuple}, a::ATB{N}, args::ATB{N}...) where {N}
     r = iterate(destructure(t), primal(a), map(primal, args)...)
     r === nothing && return ZeroBundle{N}(nothing)
     ∂vararg{N}()(r[1], ZeroBundle{N}(r[2]))
 end
 
-function (this::∂☆{N})(::ZeroBundle{N, typeof(Base.indexed_iterate)}, t::TaylorBundle{N, <:Tuple}, i::ATB{N}) where {N}
+function (this::∂☆{N})(::AbstractZeroBundle{N, typeof(Base.indexed_iterate)}, t::TaylorBundle{N, <:Tuple}, i::ATB{N}) where {N}
     r = Base.indexed_iterate(destructure(t), primal(i))
     ∂vararg{N}()(r[1], ZeroBundle{N}(r[2]))
 end
 
-function (this::∂☆{N})(::ZeroBundle{N, typeof(Base.indexed_iterate)}, t::TaylorBundle{N, <:Tuple}, i::ATB{N}, st1::ATB{N}, st::ATB{N}...) where {N}
+function (this::∂☆{N})(::AbstractZeroBundle{N, typeof(Base.indexed_iterate)}, t::TaylorBundle{N, <:Tuple}, i::ATB{N}, st1::ATB{N}, st::ATB{N}...) where {N}
     r = Base.indexed_iterate(destructure(t), primal(i), primal(st1), map(primal, st)...)
     ∂vararg{N}()(r[1], ZeroBundle{N}(r[2]))
 end
 
-function (this::∂☆{N})(::ZeroBundle{N, typeof(Base.indexed_iterate)}, t::TangentBundle{N, <:Tuple}, i::ATB{N}, st::ATB{N}...) where {N}
+function (this::∂☆{N})(::AbstractZeroBundle{N, typeof(Base.indexed_iterate)}, t::TangentBundle{N, <:Tuple}, i::ATB{N}, st::ATB{N}...) where {N}
     ∂vararg{N}()(this(ZeroBundle{N}(getfield), t, i), ZeroBundle{N}(primal(i) + 1))
 end
 
-function (this::∂☆{N})(::ZeroBundle{N, typeof(getindex)}, t::TaylorBundle{N, <:Tuple}, i::ZeroBundle) where {N}
+function (this::∂☆{N})(::AbstractZeroBundle{N, typeof(getindex)}, t::TaylorBundle{N, <:Tuple}, i::AbstractZeroBundle) where {N}
     field_ind = primal(i)
     the_partials = ntuple(order_ind->partial(t, order_ind)[field_ind], N)
     TaylorBundle{N}(primal(t)[field_ind], the_partials)
 end
 
-function (this::∂☆{N})(::ZeroBundle{N, typeof(typeof)}, x::ATB{N}) where {N}
+function (this::∂☆{N})(::AbstractZeroBundle{N, typeof(typeof)}, x::ATB{N}) where {N}
     DNEBundle{N}(typeof(primal(x)))
 end
 
-function (this::∂☆{N})(f::ZeroBundle{N, Core.IntrinsicFunction}, args::ATB{N}...) where {N}
+function (this::∂☆{N})(f::AbstractZeroBundle{N, Core.IntrinsicFunction}, args::ATB{N}...) where {N}
     ff = primal(f)
     if ff === Base.not_int
         DNEBundle{N}(ff(map(primal, args)...))

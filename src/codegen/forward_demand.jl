@@ -138,7 +138,7 @@ function forward_diff_uncached!(ir::IRCode, interp::AbstractInterpreter, irsv::I
 
         result = new_frame.result.result
         if isa(result, Const) && result.val === nothing
-            error("DAECompiler thought we had an frule at inference time, but no frule found")
+            error("Diffractor thought we had an frule at inference time, but no frule found")
         end
 
         # Incidence analysis through the rt call

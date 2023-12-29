@@ -15,7 +15,6 @@ struct ∂☆new{N}; end
 function (::∂☆new{1})(B::Type, xs::AbstractTangentBundle{1}...)
     primal_args = map(primal, xs)
     the_primal = _construct(B, primal_args)
-    @info "∂☆new{1}"
     tangent_tup = map(first_partial, xs)
     the_partial = if B<:Tuple
         Tangent{B, typeof(tangent_tup)}(tangent_tup)
@@ -30,7 +29,6 @@ end
 function (::∂☆new{N})(B::Type, xs::AbstractTangentBundle{N}...) where {N}
     primal_args = map(primal, xs)
     the_primal = _construct(B, primal_args)
-    @info "∂☆new{N}"
     the_partials = ntuple(Val{N}()) do ii
         tangent_tup = map(x->partial(x, ii), xs)
         tangent = if B<:Tuple

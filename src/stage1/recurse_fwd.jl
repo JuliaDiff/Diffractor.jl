@@ -15,7 +15,6 @@ struct ∂☆new{N}; end
 function (::∂☆new{1})(B::Type, xs::AbstractTangentBundle{1}...)
     primal_args = map(primal, xs)
     the_primal = _construct(B, primal_args)
-    @info "∂☆new{1}"
     tangent_tup = map(first_partial, xs)
     the_partial = if B<:Tuple
         Tangent{B, typeof(tangent_tup)}(tangent_tup)
@@ -24,13 +23,14 @@ function (::∂☆new{1})(B::Type, xs::AbstractTangentBundle{1}...)
         tangent_nt = NamedTuple{names}(tangent_tup)
         StructuralTangent{B}(tangent_nt)
     end
+    @show typeof(the_partial)
+    #TODO: I think we need https://github.com/JuliaDiff/Diffractor.jl/pull/236/files here
     return TaylorBundle{1, B}(the_primal, (the_partial,))
 end
 
 function (::∂☆new{N})(B::Type, xs::AbstractTangentBundle{N}...) where {N}
     primal_args = map(primal, xs)
     the_primal = _construct(B, primal_args)
-    @info "∂☆new{N}"
     the_partials = ntuple(Val{N}()) do ii
         tangent_tup = map(x->partial(x, ii), xs)
         tangent = if B<:Tuple

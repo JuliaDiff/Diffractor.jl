@@ -70,12 +70,12 @@ function (f::FwdIterate)(arg::ATB{N}, st) where {N}
      primal(∂☆{N}()(ZeroBundle{N}(getindex), r, ZeroBundle{N}(2))))
 end
 
-function (this::∂☆{N})(::ZeroBundle{N, typeof(Core._apply_iterate)}, iterate::ATB{N}, f::ATB{N}, args::ATB{N}...) where {N}
+function (this::∂☆{N})(::AbstractZeroBundle{N, typeof(Core._apply_iterate)}, iterate::ATB{N}, f::ATB{N}, args::ATB{N}...) where {N}
     Core._apply_iterate(FwdIterate(iterate), this, (f,), args...)
 end
 =#
 
-function (this::∂⃖{N})(that::∂☆{M}, ::ZeroBundle{M, typeof(Core._apply_iterate)},
+function (this::∂⃖{N})(that::∂☆{M}, ::AbstractZeroBundle{M, typeof(Core._apply_iterate)},
         iterate, f, args::ATB{M, <:Tuple}...) where {N, M}
     @assert primal(iterate) === Base.iterate
     x, ∂⃖f = Core._apply_iterate(FwdIterate(iterate), this, (that, f), args...)
@@ -83,13 +83,13 @@ function (this::∂⃖{N})(that::∂☆{M}, ::ZeroBundle{M, typeof(Core._apply_i
 end
 
 
-function ChainRules.rrule(∂::∂☆{N}, m::ZeroBundle{N, typeof(map)}, p::ZeroBundle{N, typeof(+)}, A::ATB{N}, B::ATB{N}) where {N}
+function ChainRules.rrule(∂::∂☆{N}, m::AbstractZeroBundle{N, typeof(map)}, p::AbstractZeroBundle{N, typeof(+)}, A::ATB{N}, B::ATB{N}) where {N}
     ∂(m, p, A, B), Δ->(NoTangent(), NoTangent(), NoTangent(), Δ, Δ)
 end
 
 mapev_unbundled(_, js, a) = rebundle(mapev(js, unbundle(a)))
-function (∂⃖ₙ::∂⃖{N})(∂☆ₘ::∂☆{M}, ::ZeroBundle{M, typeof(map)},
-                    f::ZeroBundle{M}, a::ATB{M, <:Array}) where {N, M}
+function (∂⃖ₙ::∂⃖{N})(∂☆ₘ::∂☆{M}, ::AbstractZeroBundle{M, typeof(map)},
+                    f::AbstractZeroBundle{M}, a::ATB{M, <:Array}) where {N, M}
     @assert Base.issingletontype(typeof(primal(f)))
     js = map(primal(a)) do x
         ∂f = ∂☆{N+M}()(ZeroBundle{N+M}(primal(f)),

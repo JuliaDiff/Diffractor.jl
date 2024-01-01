@@ -29,8 +29,7 @@ module stage2_fwd
     myminus2(a, b) = a - b
     self_minus2(a) = myminus2(a, a)
     let self_minus2′ = Diffractor.dontuse_nth_order_forward_stage2(Tuple{typeof(self_minus2), Float64})
-        # This broke some time between 1.10 and 1.11-DEV.10001
-        @test_broken isa(self_minus2′, Core.OpaqueClosure{Tuple{Float64}, Float64})
+        @test isa(self_minus2′, Core.OpaqueClosure{Tuple{Float64}, Float64})
         @test self_minus2′(1.0) == 0.
     end
     ChainRulesCore.@scalar_rule myminus2(x, y) (true, true) # frule for `x - y`

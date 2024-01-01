@@ -23,9 +23,8 @@ function (::∂☆new{1})(B::Type, xs::AbstractTangentBundle{1}...)
         tangent_nt = NamedTuple{names}(tangent_tup)
         StructuralTangent{B}(tangent_nt)
     end
-    @show typeof(the_partial)
-    #TODO: I think we need https://github.com/JuliaDiff/Diffractor.jl/pull/236/files here
-    return TaylorBundle{1, B}(the_primal, (the_partial,))
+    B2 = typeof(the_primal)  # HACK: if the_primal actually has types in it then we want to make sure we get DataType not Type(...)
+    return TaylorBundle{1, B2}(the_primal, (the_partial,))
 end
 
 function (::∂☆new{N})(B::Type, xs::AbstractTangentBundle{N}...) where {N}

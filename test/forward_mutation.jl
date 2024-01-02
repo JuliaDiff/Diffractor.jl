@@ -41,7 +41,7 @@ end
     @test 🐇[TaylorTangentIndex(1)] isa MutableTangent{MDemo1}
     @test 🐇[TaylorTangentIndex(1)].x == 2.0
     @test 🐇[TaylorTangentIndex(2)] isa MutableTangent
-    @test 🐇[TaylorTangentIndex(2)].x == 0.0  # returns 20
+    @test 🐇[TaylorTangentIndex(2)].x == 0.0
 end
 
 @testset "basis struct work: square" begin
@@ -59,11 +59,11 @@ end
     @test first_partial(🐰).x == 20.0
 
     # second derivative
-    🐇 = ∂☆{2}()(ZeroBundle{2}(wrap_and_square), TaylorBundle{2}(1, (1.0, 0.0)))
+    🐇 = ∂☆{2}()(ZeroBundle{2}(wrap_and_square), TaylorBundle{2}(100.0, (1.0, 0.0)))
     @test 🐇[TaylorTangentIndex(1)] isa MutableTangent{MDemo1}
-    @test 🐇[TaylorTangentIndex(1)].x == 20.0
+    @test 🐇[TaylorTangentIndex(1)].x == 200.0
     @test 🐇[TaylorTangentIndex(2)] isa MutableTangent
-    @test 🐇[TaylorTangentIndex(2)].x == 2.0  # returns 20
+    @test 🐇[TaylorTangentIndex(2)].x == 2.0
 end
 
 @testset "closure" begin

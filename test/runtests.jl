@@ -24,6 +24,7 @@ const bwd = Diffractor.PrimeDerivativeBack
     "AbstractDifferentiationTests.jl"
     #"pinn.jl",  # Higher order control flow not yet supported (https://github.com/JuliaDiff/Diffractor.jl/issues/24)
 )
+    @info "testing" file
     include(file)
 end
 

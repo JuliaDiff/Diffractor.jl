@@ -31,7 +31,7 @@ While the best performance is generally achieved by running on Julia nightly due
 
 ## Current Status: Forward-Mode
 Currently, forward-mode is the only fully-functional mode and is now shipping in some closed source products.
-It is in a position to compete with [ForwardDiff.jl](https://github.com/JuliaDiff/TaylorDiff.jl), and with [TaylorDiff.jl](https://github.com/JuliaDiff/TaylorDiff.jl).
+It is in a position to compete with [ForwardDiff.jl](https://github.com/JuliaDiff/ForwardDiff.jl), and with [TaylorDiff.jl](https://github.com/JuliaDiff/TaylorDiff.jl).
 It is not as battle-tested as ForwardDiff.jl, but it has several advantages:
 Primarily, as it is not an operator overloading AD, it frees one from the need to relax type-constants and worry about the types of containers.
 Furthermore, Like TaylorDiff.jl, it supports Taylor series based computation of higher order derviatives.

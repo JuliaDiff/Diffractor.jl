@@ -267,7 +267,7 @@ function forward_diff_no_inf!(ir::IRCode, to_diff::Vector{Pair{SSAValue,Int}};
             @assert isconst(arg)
             return zero_bundle{order}()(getfield(arg.mod, arg.name))
         elseif isa(arg, QuoteNode)
-            return zero_bundle{order}(){order}(arg.value)
+            return zero_bundle{order}()(arg.value)
         end
         @assert !isa(arg, Expr)
         return zero_bundle{order}()(arg)

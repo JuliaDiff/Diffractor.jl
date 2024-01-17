@@ -99,9 +99,14 @@ function Base.getindex(tangent::ExplicitTangent, b::TaylorTangentIndex)
 end
 
 
+
 @eval struct TaylorTangent{C <: Tuple} <: AbstractTangentSpace
     coeffs::C
-    TaylorTangent(coeffs) = $(Expr(:new, :(TaylorTangent{typeof(coeffs)}), :coeffs))
+    function TaylorTangent(coeffs)
+        bad_tangent_type = Union{DataType, Symbol, String, Nothing}  # protect against obvious mistakes
+        any(c->isa(c, bad_tangent_type), coeffs) && throw(DomainError(coeffs, "Nonvector-space partial type"))
+        $(Expr(:new, :(TaylorTangent{typeof(coeffs)}), :coeffs))
+    end
 end
 
 """

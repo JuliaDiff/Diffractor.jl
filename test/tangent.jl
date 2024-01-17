@@ -122,4 +122,12 @@ end
     @test truncate(et, Val(1)) == TaylorTangent((1.0,))
 end
 
+
+@testset "Bad Partial Types" begin
+    @test_throws DomainError TaylorBundle{1}(1.5, (ZeroTangent,))   # mistakenly passing a type rather than a value
+    @test_throws DomainError TaylorBundle{1}(1.5, (:a,))
+    @test_throws DomainError TaylorBundle{1}(1.5, (nothing,))
+    @test_throws DomainError TaylorBundle{1}(1.5, ("x",))
+end
+
 end  # module

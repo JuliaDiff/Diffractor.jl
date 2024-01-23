@@ -160,7 +160,7 @@ function (::∂☆internal{1})(args::AbstractTangentBundle{1}...)
     end
 end
 
-_frule(partials, primals...) = frule(DiffractorRuleConfig(), partials, primals...)
+_frule(partials, primals...) = frule(#== DiffractorRuleConfig(), ==# partials, primals...)
 function _frule(::NTuple{<:Any, AbstractZero}, f, primal_args...)
     # frules are linear in partials, so zero maps to zero, no need to evaluate the frule
     # If all partials are immutable AbstractZero subtyoes we know we don't have to worry about a mutating frule either

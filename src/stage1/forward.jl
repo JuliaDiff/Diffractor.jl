@@ -109,12 +109,20 @@ function shuffle_base(r)
 end
 
 function (::∂☆internal{1})(args::AbstractTangentBundle{1}...)
-    r = frule(DiffractorRuleConfig(), map(first_partial, args), map(primal, args)...)
+    r = _frule(map(first_partial, args), map(primal, args)...)
     if r === nothing
         return ∂☆recurse{1}()(args...)
     else
         return shuffle_base(r)
     end
+end
+
+_frule(partials, primals...) = frule(DiffractorRuleConfig(), partials, primals...)
+function _frule(::NTuple{<:Any, AbstractZero}, f, primal_args...)
+    # frules are linear in partials, so zero maps to zero, no need to evaluate the frule
+    # If all partials are immutable AbstractZero subtyoes we know we don't have to worry about a mutating frule either
+    r = f(primal_args...)
+    return r, zero_tangent(r)
 end
 
 function ChainRulesCore.frule_via_ad(::DiffractorRuleConfig, partials, args...)

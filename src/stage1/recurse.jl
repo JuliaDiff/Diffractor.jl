@@ -4,8 +4,14 @@ using Core.Compiler:
     ReturnNode, SSAValue, SlotNumber, StmtRange,
     bbidxiter, cfg_delete_edge!, cfg_insert_edge!, compute_basic_blocks, complete,
     construct_domtree, construct_ssa!, domsort_ssa!, finish, insert_node!,
-    insert_node_here!, effect_free_and_nothrow, non_dce_finish!, quoted, retrieve_code_info,
+    insert_node_here!, non_dce_finish!, quoted, retrieve_code_info,
     scan_slot_def_use, userefs, SimpleInferenceLattice
+
+if VERSION < v"1.11.0-DEV.1351"
+    using Core.Compiler: effect_free_and_nothrow as removable_if_unused
+else
+    using Core.Compiler: removable_if_unused
+end
 
 using Base.Meta
 

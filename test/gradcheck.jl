@@ -10,6 +10,7 @@
 using Test
 using ChainRulesCore
 using Diffractor
+using Distributed: pmap
 using FiniteDifferences
 using LinearAlgebra
 
@@ -283,23 +284,24 @@ end
         @test jacobicheck(xs -> map(x -> x^2, xs), rand(2,3))
 
         # MethodError: no method matching copy(::Nothing)
-        @test_broken jacobicheck((xss...) -> sum(map((xs...) -> sqrt(sum(xs.^2)), xss...)), [rand(5) for _ in 1:6]...)
+        @test_broken jacobicheck((xss...) -> map((xs...) -> sqrt(sum(xs.^2)), xss...), [rand(5) for _ in 1:6]...)
 
         # MethodError: no method matching copy(::Nothing)
         @test_broken gradcheck(y -> map(x -> x*y, 1:5), 3)
         @test_broken gradient(v -> sum([x for x in v]), [1.1,2.2,3.3]) == ([1, 1, 1],)
     end
 
-    @test_skip @testset "bascis, pmap" begin
-        @test jacobicheck(xs -> sum(pmap(x -> x^2, xs)), rand(2,3))
-        @test jacobicheck((xss...) -> sum(pmap((xs...) -> sqrt(sum(xs.^2)), xss...)), [rand(5) for _ in 1:6]...)
+    @testset "bascis, pmap" begin
+        # BoundsError: attempt to access 0-element Core.Compiler.UnitRange{Int64} at index [0]
+        @test_broken jacobicheck(xs -> pmap(x -> x^2, xs), rand(2,3))
+        @test_broken jacobicheck((xss...) -> pmap((xs...) -> sqrt(sum(xs.^2)), xss...), [rand(5) for _ in 1:6]...)
 
         function foo(y)
             bar = (x) -> x*y
             sum(pmap(bar, 1:5))
         end
-        @test gradtest(foo, 3)
-        @test gradient(v -> sum([x for x in v]), [1.1,2.2,3.3]) == ([1, 1, 1],)
+        # BoundsError: attempt to access 0-element Core.Compiler.UnitRange{Int64} at index [0]
+        @test_broken jacobicheck(y -> pmap(x -> x*y, 1:5), 3)
     end
 
     @testset "Tuple adjoint" begin
@@ -402,4 +404,3 @@ end
 #     end
 #     @test gradcheck(bar, [5.0])
 # end
-

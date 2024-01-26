@@ -10,7 +10,7 @@
 using Test
 using ChainRulesCore
 using Diffractor
-using Distributed: pmap
+using Distributed: CachingPool, pmap, workers
 using FiniteDifferences
 using LinearAlgebra
 
@@ -42,6 +42,8 @@ jacobicheck(f, dims...) = jacobicheck(f, randn.(Float64, dims)...)
 @test jacobicheck(sum, [1,2,3])  # fallback to gradcheck
 @test jacobicheck(identity, (4,5))  # one random matrix
 @test jacobicheck(+, 3, 3)  # two random vectors
+
+isZero(x) = x isa AbstractZero
 
 # Zygote's misnamed hobbit function:
 function pullback(f, x...)
@@ -161,7 +163,7 @@ end
     x = rand(3)
     z = [1, 2, 3, 3]
     y139(x, z) = dot(ones(4), x[z])
-    # Evaluated: ([1.0 0.0 0.0; 1.0 0.0 0.0; 2.0 0.0 0.0], NoTangent()) == ([1, 1, 2], NoTangent())
+    # wrong gradient: Evaluated: ([1.0 0.0 0.0; 1.0 0.0 0.0; 2.0 0.0 0.0], NoTangent()) == ([1, 1, 2], NoTangent())
     @test_broken gradient(y139, x, z) == ([1, 1, 2], NoTangent())
 
     # https://github.com/FluxML/Zygote.jl/issues/376
@@ -348,7 +350,300 @@ end
         @test_broken out, pb = pullback(map, build_foo(5.0), randn(5))
         @test_skip pb(Δ)[2] isa Vector{ZeroTangent}
     end
+
+    # Check that map infers correctly. pmap still doesn't infer.
+    @testset "map inference" begin
+        @testset "$name" for (name, f, ȳ, xs) in [
+            ("unary empty vector", sin, Float64[], (Float64[], )),
+            ("unary vector", sin, randn(3), (randn(3), )),
+            ("unary empty tuple", sin, (), ((), )),
+            ("unary tuple", sin, (randn(), randn()), ((randn(), randn()), )),
+            ("binary empty vector", +, Float64[], (Float64[], Float64[])),
+            ("binary vector", +, randn(2), (randn(2), randn(2))),
+        ]
+            @inferred pullback(map, f, xs...)
+            y, pb = pullback(map, f, xs...)
+            @inferred pb(ȳ)
+        end
+
+        # these are broken
+        @test_skip @testset "$name" for (name, f, ȳ, xs) in [
+            # MethodError: reducing over an empty collection is not allowed; consider supplying `init` to the reducer
+            ("binary empty tuple", +, (), ((), ())),
+            # return type Tuple{NoTangent, Tangent{...}...} does not match inferred
+            # return type Tuple{NoTangent, {Union{NoTangent, Tangent{...}}}}
+            ("binary tuple", +, (randn(), randn()), ((randn(), randn()), (randn(), randn()))),
+        ]
+            @inferred pullback(map, f, xs...)
+            y, pb = pullback(map, f, xs...)
+            @inferred pb(ȳ)
+        end
+    end
+
+    @testset "map and tuples" begin
+        # arrays of tuples, ChainRules's Tangent should not escape
+        # MethodError: no method matching one(::Tuple{Int64, Int64})
+        @test_broken gradient(x -> sum(map(first, x)), [(1,2), (3,4)]) == ([(1.0, nothing), (1.0, nothing)],)
+        T = Tangent{Tuple{Int64, Int64}}
+        @test gradient(x -> sum(first, x), [(1,2), (3,4)]) == (T[T(1.0, ZeroTangent()), T(1.0, ZeroTangent())],)
+    
+        @test gradient(x -> map(+, x, (1,2,3))[1], (4,5,6)) == (Tangent{Tuple{Int,Int,Int}}(1.0, ZeroTangent(), ZeroTangent()),)
+        # MethodError: no method matching copy(::Nothing)
+        @test_broken gradient(x -> map(+, x, [1,2,3])[1], (4,5,6)) == ((1.0, 0.0, 0.0),)
+        @test_broken gradient(x -> map(+, x, (1,2,3))[1], [4,5,6]) == ([1,0,0],)
+    
+        # mismatched lengths, should zip
+        # MethodError: no method matching copy(::Nothing)
+        @test_broken gradient(x -> map(+, x, [1,2,3,99])[1], (4,5,6)) == ((1.0, 0.0, 0.0),)
+        @test_broken gradient(x -> map(+, x, [1,2,3])[1], (4,5,6,99)) == ((1.0, 0.0, 0.0, nothing),)
+    end
+
+    @testset "Alternative Pmap Dispatch" begin
+        cache_and_map(f,xs...) = pmap(f, CachingPool(workers()), xs...; batch_size = 1)
+        # BoundsError: attempt to access 0-element Core.Compiler.UnitRange{Int64} at index [0]
+        @test_broken jacobicheck(xs -> cache_and_map(x -> x^2, xs), rand(2,3))
+        @test_broken jacobicheck((xss...) -> cache_and_map((xs...) -> sqrt(sum(xs.^2)), xss...), [rand(5) for _ in 1:6]...)
+        @test_broken jacobicheck(y -> cache_and_map(x->x*y, 1:5), 3)
+    end
+
+    @testset "Stateful Map" begin
+        s = 0
+        f(x) = (s += x)
+        # Tuple field type cannot be Union{}
+        @test_broken gradient(x -> sum(f.(x)), 1:10) == (10:-1:1,)
+        s = 0
+        # MethodError: no method matching copy(::Nothing)
+        @test_broken gradient(x -> sum(map(f, x)), 1:10) == (10:-1:1,)
+    end
+
+    @testset "vararg map" begin
+        # early stop
+        # MethodError: no method matching length(::InplaceableThunk{...})
+        if VERSION >= v"1.5"
+          # In Julia 1.4 and earlier, map(*,rand(5),[1,2,3]) is a DimensionMismatch
+          @test_broken gradient(x -> sum(map(*,x,[1,2,3])), rand(5)) == ([1,2,3,0,0],)
+        end
+        @test_broken gradient(x -> sum(map(*,x,(1,2,3))), rand(5)) == ([1,2,3,0,0],)
+        @test_broken gradient(x -> sum(map(*,x,[1,2,3])), Tuple(rand(5))) == ((1.0, 2.0, 3.0, nothing, nothing),)
+      
+        # mixed shapes
+        # MethodError: no method matching length(::InplaceableThunk{...})
+        @test_broken gradient((x,y) -> sum(map(*,x,y)), [1,2,3,4], [1 2; 3 4]) == ([1,3,2,4], [1 3; 2 4])
+        @test_broken gradient((x,y) -> sum(map(*,x,y)), [1,2,3], [1 2; 3 4]) == ([1,3,2], [1 3; 2 0])
+        @test_broken gradient((x,y) -> sum(map(*,x,y)), (1,2,3), [1 2; 3 4]) == ((1,3,2), [1 3; 2 0])
+        @test_broken gradient((x,y) -> sum(map(*,x,y)), [1,2,3,4,5], [1 2; 3 4]) == ([1,3,2,4,0], [1 3; 2 4])
+        @test_broken gradient((x,y) -> sum(map(*,x,y)), (1,2,3,4,5), [1 2; 3 4]) == ((1,3,2,4,nothing), [1 3; 2 4])
+    end
+
+    @testset "map: issue 1374" begin
+        # https://github.com/FluxML/Zygote.jl/issues/1374
+        struct Affine1374
+          W
+          b
+        end
+        (m::Affine1374)(x) = [sum(x.*r) for r in eachrow(m.W)] + m.b
+        m = Affine1374(zeros(3,3), zeros(3,1))
+        x = [ 1.0,  2.0,  3.0]
+        y = [-1.0, -2.0, -3.0]
+        l1374(y,ŷ) = sum(abs2.(y - ŷ))/2
+        @test_broken gradient(m -> l1374(y,m(x)), m)[1].W ≈ [1 2 3; 2 4 6; 3 6 9]
+    end
 end
+
+@testset "sort" begin
+    @test jacobicheck(sort, 5)
+    correct = [
+        [2,3,1],
+        [1, 2, 3],
+        [1,2,3],
+        [2,1,3],
+        [1,3,2],
+        [3,2,1]
+    ]
+    for i = 1:3
+        @test gradient(v->sort(v)[i], [3.,1,2])[1][correct[1][i]] == 1
+        @test gradient(v->sort(v)[i], [1.,2,3])[1][correct[2][i]] == 1
+    end
+    for i = 1:3
+        # Rewrite reached intrinsic function bitcast. Missing rule?
+        @test_broken gradient(v->sort(v,by=x->x%10)[i], [11,2,99])[1][correct[3][i]] == 1
+        @test_broken gradient(v->sort(v,by=x->x%10)[i], [2,11,99])[1][correct[4][i]] == 1
+        @test_broken gradient(v->sort(v,rev=true)[i], [3.,1,2])[1][correct[5][i]] == 1
+        @test_broken gradient(v->sort(v,rev=true)[i], [1.,2,3])[1][correct[6][i]] == 1
+    end
+end
+
+@testset "filter" begin
+    @test jacobicheck(xs -> filter(x -> x > 0.5, xs), rand(20))
+
+    @test gradient(x -> sum(log, filter(iseven, x)), 1:10) ==
+        (map(x -> iseven(x) ? 1/x : 0, 1:10),)
+    @test gradient(x -> sum(abs2, im .+ filter(iseven, x)), 1:10) ==
+        (map(x -> iseven(x) ? 2x : 0, 1:10),)
+        # (map(x -> iseven(x) ? 2x+2im : 0, 1:10),)
+end
+
+@testset "maximum" begin
+    @test jacobicheck(maximum, rand(2, 3))
+
+    # MethodError: no method matching copy(::Nothing)
+    @test_broken jacobicheck(x -> maximum(x, dims=1), rand(2, 3))
+    @test_broken jacobicheck(x -> maximum(x, dims=3), rand(2, 3, 4))
+    @test_broken jacobicheck(x -> maximum(x, dims=[1, 2]), rand(2, 3, 4))
+
+    @test gradient(x -> 1 / maximum(x), [1., 2, 3])[1] == [0, 0, -1/9]
+end
+
+@testset "minimum" begin
+    @test jacobicheck(minimum, rand(2, 3))
+
+    # MethodError: no method matching copy(::Nothing)
+    @test_broken jacobicheck(x -> minimum(x, dims=1), rand(2, 3))
+    @test_broken jacobicheck(x -> minimum(x, dims=2), rand(2, 3))
+end
+
+@testset "dropdims" begin  # https://github.com/JuliaDiff/Diffractor.jl/issues/72
+    # TypeError: in typeassert, expected Int64, got a value of type Nothing
+    @test_broken jacobicheck(x -> dropdims(x, dims = 3), rand(2, 2, 1, 2))
+    @test_broken jacobicheck(x -> dropdims(x, dims = (2, 3)), rand(2, 1, 1, 3))
+end
+
+@testset "vcat" begin
+    # Scalar
+    @test gradient((x,y) -> sum(vcat(x,y)), 1,2) == (1,1)
+    @test gradient((x,y) -> sum([x; y; x]), 1,2) == (2,1)
+
+    # Scalar + Vector
+    @test gradient(x -> sum(vcat(x, 1, x)), rand(3)) == ([2,2,2],)
+    @test gradient((x,y) -> sum(vcat(x, y, y)), rand(3), 4) == ([1,1,1], 2)
+
+    # Vector-only.
+    @test jacobicheck(vcat, randn(10))
+    @test jacobicheck(x -> vcat(x, [1,2,3], x), randn(3))
+
+    # Matrix-Vector
+    @test jacobicheck(x-> vcat(x, [1,2,3]), rand(2,1))
+    @test jacobicheck(x-> vcat(x, ones(3,1)), rand(2))
+end
+
+@testset "hcat" begin
+    # Scalar
+    @test gradient((x,y) -> sum(hcat(x,y)), 1,2) == (1,1)
+    @test gradient((x,y) -> sum([x y]), 1,2) == (1,1)
+    @test gradient((a,b,c,d) -> sum(sqrt, [a b;c d]), 1,1,1,4) == (0.5, 0.5, 0.5, 0.25)
+
+    # Vector-only
+    @test jacobicheck(hcat, rand(3))
+    @test jacobicheck(x -> hcat(x, [1,2,3]), rand(3))
+
+    # Matrix-only
+    @test jacobicheck(hcat, rand(3,4))
+    @test jacobicheck(x -> hcat(x, [1 2; 3 4], x), rand(2,2))
+
+    # Matrix-Scalar
+    @test gradient((x,y) -> sum(hcat(x, y)), 1, [2 3 4]) == (1, [1 1 1])
+    @test gradient(x -> sum(hcat(1, x, 2)), transpose([3,4,5]))[1] isa Transpose
+    @test gradient(x -> sum(hcat(1, x, 2)), [3,4,5]')[1] isa Adjoint
+end
+
+@testset "hvcat" begin
+    @test gradient(xs -> hvcat((2,2),xs...)[1,1], [1,2,3,4])[1] == [1,0,0,0]
+    @test gradient(xs -> hvcat((2,2),xs...)[2,1], [1,2,3,4])[1] == [0,0,1,0]
+    @test gradient(xs -> hvcat((2,2),xs...)[1,2], [1,2,3,4])[1] == [0,1,0,0]
+    @test gradient(xs -> hvcat((2,2),xs...)[2,2], [1,2,3,4])[1] == [0,0,0,1]
+    # https://github.com/FluxML/Zygote.jl/issues/513
+    @test gradient(x -> hvcat((2,2),1,2,3,x)[4], 4.0) == (1.0,)
+end
+
+@testset "cat(...; dims = $dim)" for dim in 1:3
+    # Rewrite reached intrinsic function bitcast. Missing rule?
+
+    catdim = (x...) -> cat(x..., dims = dim)
+    @test_broken jacobicheck(catdim, rand(4,1))
+    @test_broken jacobicheck(catdim, rand(5), rand(5,1))
+    @test_broken jacobicheck(catdim, rand(2,5), rand(2,5), rand(2,5)) 
+
+    catdimval = (x...) -> cat(x...; dims = Val(dim))
+    @test_broken jacobicheck(catdimval, rand(5), rand(5))
+    @test_broken jacobicheck(catdimval, rand(2,5), rand(2,5,1))
+
+    # one empty
+    dim == 1 || continue
+    @test_broken jacobicheck(catdim, rand(0,5,3), rand(2,5,3))
+end
+
+@testset "one(s) and zero(s)" begin
+    # should these be ZeroTangent or NoTangent?
+    @test gradient(x->sum(ones(size(x))), randn(5))[1] === NoTangent()
+    @test_broken gradient(x->sum(one(x)), randn(3, 3))[1] === NoTangent()
+    @test gradient(x->sum(zeros(size(x))), randn(7))[1] === NoTangent()
+    @test_broken gradient(x->sum(zero(x)), randn(3))[1] === NoTangent()
+end
+
+@testset "fma and muladd" begin
+    @test gradcheck(x -> fma(x[1], x[2], x[3]), [2.0, 3.0, 5.0])
+    @test gradcheck(x -> muladd(x[1], x[2], x[3]), [2.0, 3.0, 5.0])
+end
+
+@testset "broadcast" begin
+    @test gradient(x -> sum(sin.(x)), Diagonal([0,pi/2,pi]))[1] ≈ [1 0 0; 0 0 0; 0 0 -1]
+
+    # mixing arrays & Ref(array)
+    a = rand(3)
+    b = rand(2,2)
+    @test jacobicheck(x -> sum(diag.((x,) .* a)), b)
+    @test jacobicheck(x -> sum(diag.(Ref(x) .* a)), b)
+    @test jacobicheck(x -> sum(diag.([x] .* a)), b)
+
+    # tests for https://github.com/FluxML/Zygote.jl/issues/724
+    x1 = rand(3, 3)
+    @test gradient(x -> sum(x .== 0.5), x1) |> only |> isZero
+    # MethodError: no method matching copy(::Nothing)
+    @test_broken gradient(x -> sum(x .* (x .== maximum(x, dims=1))), x1)[1] == (x1 .== maximum(x1, dims=1))
+
+    # tests for un-broadcasting *, / via scalar rules
+    @test all(gradient((x,y) -> sum(x .* y), [1,2], 5) .≈ ([5, 5], 3))
+    @test all(gradient((x,y) -> sum(x .* y), 5, [1,2]) .≈ (3, [5, 5]))
+    @test all(gradient((x,y) -> sum(x .* y), [1,2], [3 4 5]) .≈ ([12, 12], [3 3 3]))
+    @test all(gradient((x,y) -> sum(x ./ y), [1,2], 5) .≈ ([0.2, 0.2], -0.12))
+
+    @test_skip begin
+        using SparseArrays  # not loaded at present
+        # https://github.com/FluxML/Zygote.jl/pull/1171
+        sm = sprand(5, 5, 0.5)
+        @test gradient(x -> sum(abs2, Float32.(x)), sm)[1] ≈ gradient(x -> sum(abs2, x), Matrix{Float32}(sm))[1]
+        @test_broken gradient(x -> real(sum(ComplexF32.(x) .+ 1 .+ im)), sm)[1] isa SparseMatrixCSC{Float64}  # MethodError: no method matching zero(::Type{Any}), in ProjectTo(xs::SparseMatrixCSC{Any, Int64})
+    end
+
+    # https://github.com/FluxML/Zygote.jl/issues/1178
+    function f1179(x)
+        fs = Ref.(x)
+        getindex.(fs)
+    end
+    # wrong gradient: Evaluated: ([1.0, 1.0],) == ([2.0, 2.0],)
+    @test_broken gradient(sum∘f1179, ones(2)) == ([2.0, 2.0],)  # MethodError: no method matching one(::Base.RefValue{Float64})
+end
+
+@testset "array +,-" begin
+    A, B = randn(3, 4, 5), randn(3, 4, 5)
+    @test jacobicheck(+, B)
+    @test jacobicheck(+, A, B)
+    # wrong gradient
+    @test_broken jacobicheck(+, A, B, A)
+    @test jacobicheck(-, A)
+    # in typeassert, expected Int64, got a value of type Nothing
+    @test_broken jacobicheck(-, A, B)
+end
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -375,6 +670,21 @@ end
 
 # FIXME: complex numbers; put somewhere
 @test gradcheck((a,b)->sum(reim(acosh(complex(a[1], b[1])))), [-2.0], [1.0])
+#@testset "$f(::AbstractArray)" for f in (real, conj, imag)
+#    rng, N = MersenneTwister(123456), 3
+#    Ts = (Float64, ComplexF64)
+#    @testset "$f(::Array{$IT})" for IT in Ts
+#      A = randn(IT, N, N)
+#      y, back = Zygote.pullback(f, A)
+#      y2, back2 = Zygote.pullback(x->f.(x), A)
+#      @test y == y2
+#      @testset "back(::Array{$BT})" for BT in Ts
+#        ȳ = randn(BT, N, N)
+#        @test back(ȳ)[1] == back2(ȳ)[1]
+#      end
+#    end
+#end
+
 
 # FIXME: misc tests
 @test jacobicheck(x -> x', rand(5))

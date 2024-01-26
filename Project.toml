@@ -36,4 +36,4 @@ Symbolics = "0c5d862f-8b57-4792-8d23-62f2024744c7"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["ForwardDiff", "LinearAlgebra", "Random", "Symbolics", "Test"]
+test = ["ForwardDiff", "LinearAlgebra", "Random", "Symbolics", "Test", "FiniteDifferences"]

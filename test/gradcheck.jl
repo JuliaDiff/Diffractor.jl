@@ -11,7 +11,6 @@ module gradcheck_tests
 using Test
 using ChainRulesCore
 using Diffractor
-using Diffractor: var"'"
 using Distributed: CachingPool, pmap, workers
 using FiniteDifferences
 using LinearAlgebra
@@ -75,6 +74,8 @@ end
 end
 
 @testset "jacobian" begin
+    using LinearAlgebra: var"'"
+    @test jacobicheck(x -> x', rand(5))
     @test jacobicheck((x, W, b) -> identity.(W*x .+ b), 5, (2,5), 2)
     @test jacobicheck((x, W, b) -> identity.(W*x .+ b), (5,3), (2,5), 2)
 

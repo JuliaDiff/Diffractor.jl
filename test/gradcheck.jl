@@ -1,3 +1,4 @@
+module gradcheck_tests
 # This file contains a selection of tests from Zygote's "gradcheck.jl",
 # dealing with Base and standard library functions. Many of these use rules
 # which have their own more exhaustive tests in ChainRules.
@@ -10,6 +11,7 @@
 using Test
 using ChainRulesCore
 using Diffractor
+using Diffractor: var"'"
 using Distributed: CachingPool, pmap, workers
 using FiniteDifferences
 using LinearAlgebra
@@ -633,4 +635,6 @@ end
     @test jacobicheck(-, A)
     # in typeassert, expected Int64, got a value of type Nothing
     @test_broken jacobicheck(-, A, B)
+end
+
 end

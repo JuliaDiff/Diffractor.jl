@@ -47,7 +47,7 @@ jacobicheck(f, dims...) = jacobicheck(f, randn.(Float64, dims)...)
 isZero(x) = x isa AbstractZero
 
 # Zygote's misnamed hobbit function:
-function pullback(f, x...)
+function value_and_pullback(f, x...)
     y, b = Diffractor.∂⃖{1}()(f, x...)
     back(dy) = map(unthunk, Base.tail(b(dy)))
     y, back
@@ -171,7 +171,7 @@ end
 
     # https://github.com/FluxML/Zygote.jl/issues/376
 
-    _, back = pullback(x->x[1]*im, randn(2))
+    _, back = value_and_pullback(x->x[1]*im, randn(2))
     @test back(1.0)[1] == real([-im, 0]) == [0, 0]
 
     # _droplike
@@ -187,10 +187,10 @@ end
     @test_broken gradient(x -> sum(Float32[1, x] .+ x), 4) == (3.0f0,)
 
     # Ensure that nothings work with numeric types.
-    _, back = pullback(getindex, randn(4), [1])
+    _, back = value_and_pullback(getindex, randn(4), [1])
     @test back([ZeroTangent()]) == (zeros(4), NoTangent())
     # Ensure that nothings work with non-numeric types.
-    _, back = pullback(getindex, [randn(2) for _ in 1:3], [1])
+    _, back = value_and_pullback(getindex, [randn(2) for _ in 1:3], [1])
     @test back([ZeroTangent()]) == (NoTangent(), NoTangent())
 end
 
@@ -246,7 +246,7 @@ end
     @test jacobicheck(x -> permutedims(x, [3,1,2]), rand(4,5,6))
     @test jacobicheck(x -> PermutedDimsArray(x, (3,1,2)), rand(4,5,6))
     let
-      y, back = pullback(permutedims, randn(3))
+      y, back = value_and_pullback(permutedims, randn(3))
       @test first(back(randn(1, 3))) isa Vector
     end
 end
@@ -311,24 +311,24 @@ end
 
     @testset "Tuple adjoint" begin
         x = randn(3)
-        _, pb = pullback(x -> map(abs2, x), x)
+        _, pb = value_and_pullback(x -> map(abs2, x), x)
         Δy = randn(3)
         @test first(pb((Δy..., ))) ≈ first(pb(Δy))
     end
 
     @testset "empty tuples" begin
-        out, pb = pullback(map, -, ())
+        out, pb = value_and_pullback(map, -, ())
         @test pb(out) === (NoTangent(), NoTangent())
 
-        out, pb = pullback(map, +, (), ())
-        # MethodError: reducing over an empty collection is not allowed, ChainRules.var"#map_pullback#1234"{typeof(+), Tuple{Tuple{}, Tuple{}},
+        out, pb = value_and_pullback(map, +, (), ())
+        # MethodError: reducing over an empty collection is not allowed, ChainRules.var"#map_value_and_pullback#1234"{typeof(+), Tuple{Tuple{}, Tuple{}},
         @test_broken pb(()) === (ZeroTangent(), ZeroTangent(), ZeroTangent())
 
         function build_foo(z)
             foo(x) = x * z
             return foo
         end
-        out, pb = pullback(map, build_foo(5.0), ())
+        out, pb = value_and_pullback(map, build_foo(5.0), ())
         @test pb(()) === (NoTangent(), NoTangent())
     end
 
@@ -336,11 +336,11 @@ end
         Δ = fill(ZeroTangent(), 5)
 
         # Unary stateless
-        out, pb = pullback(map, -, randn(5))
+        out, pb = value_and_pullback(map, -, randn(5))
         @test pb(Δ)[2] isa Vector{ZeroTangent}
 
         # Binary stateless
-        out, pb = pullback(map, +, randn(5), randn(5))
+        out, pb = value_and_pullback(map, +, randn(5), randn(5))
         @test pb(Δ)[2] isa Vector{ZeroTangent}
         @test pb(Δ)[3] isa Vector{ZeroTangent}
 
@@ -350,7 +350,7 @@ end
             return foo
         end
         # AssertionError: Base.issingletontype(typeof(f))
-        @test_broken out, pb = pullback(map, build_foo(5.0), randn(5))
+        @test_broken out, pb = value_and_pullback(map, build_foo(5.0), randn(5))
         @test_skip pb(Δ)[2] isa Vector{ZeroTangent}
     end
 
@@ -364,8 +364,8 @@ end
             ("binary empty vector", +, Float64[], (Float64[], Float64[])),
             ("binary vector", +, randn(2), (randn(2), randn(2))),
         ]
-            @inferred pullback(map, f, xs...)
-            y, pb = pullback(map, f, xs...)
+            @inferred value_and_pullback(map, f, xs...)
+            y, pb = value_and_pullback(map, f, xs...)
             @inferred pb(ȳ)
         end
 
@@ -377,8 +377,8 @@ end
             # return type Tuple{NoTangent, {Union{NoTangent, Tangent{...}}}}
             ("binary tuple", +, (randn(), randn()), ((randn(), randn()), (randn(), randn()))),
         ]
-            @inferred pullback(map, f, xs...)
-            y, pb = pullback(map, f, xs...)
+            @inferred value_and_pullback(map, f, xs...)
+            y, pb = value_and_pullback(map, f, xs...)
             @inferred pb(ȳ)
         end
     end

@@ -46,7 +46,6 @@ jacobicheck(f, dims...) = jacobicheck(f, randn.(Float64, dims)...)
 
 isZero(x) = x isa AbstractZero
 
-# Zygote's misnamed hobbit function:
 function value_and_pullback(f, x...)
     y, b = Diffractor.∂⃖{1}()(f, x...)
     back(dy) = map(unthunk, Base.tail(b(dy)))

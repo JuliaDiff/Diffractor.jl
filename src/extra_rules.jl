@@ -172,7 +172,6 @@ function ChainRules.rrule(::DiffractorRuleConfig, ::Type{SArray{S, T, N, L}}, x:
 end
 
 function ChainRules.frule((_, ∂x), ::Type{SArray{S, T, N, L}}, x::NTuple{L,T}) where {S, T, N, L}
-    #TODO: we really shouldn't actually see the isa(∂x, AbstractZero) case since the frule should be called then
     Δx = SArray{S, T, N, L}(ChainRulesCore.backing(∂x))
     SArray{S, T, N, L}(x), Δx
 end

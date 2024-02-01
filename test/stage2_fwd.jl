@@ -7,7 +7,7 @@ module stage2_fwd
     end
     let sin′′ = Diffractor.dontuse_nth_order_forward_stage2(Tuple{typeof(mysin), Float64}, 2)
         # This broke some time between 1.10 and 1.11-DEV.10001
-        @test_broken isa(sin′′, Core.OpaqueClosure{Tuple{Float64}, Float64})
+        @test isa(sin′′, Core.OpaqueClosure{Tuple{Float64}, Float64}) broken=VERSION>=v"1.11-"
         @test sin′′(1.0) == -sin(1.0)
     end
 
@@ -16,27 +16,26 @@ module stage2_fwd
     ChainRulesCore.@scalar_rule myminus(x, y) (true, -1)
     let self_minus′ = Diffractor.dontuse_nth_order_forward_stage2(Tuple{typeof(self_minus), Float64})
         # This broke some time between 1.10 and 1.11-DEV.10001
-        @test_broken isa(self_minus′, Core.OpaqueClosure{Tuple{Float64}, Float64})
+        @test isa(self_minus′, Core.OpaqueClosure{Tuple{Float64}, Float64}) broken=VERSION>=v"1.11-"
         @test self_minus′(1.0) == 0.
     end
     ChainRulesCore.@scalar_rule myminus(x, y) (true, true) # frule for `x - y`
     let self_minus′ = Diffractor.dontuse_nth_order_forward_stage2(Tuple{typeof(self_minus), Float64})
         # This broke some time between 1.10 and 1.11-DEV.10001
-        @test_broken isa(self_minus′, Core.OpaqueClosure{Tuple{Float64}, Float64})
+        @test isa(self_minus′, Core.OpaqueClosure{Tuple{Float64}, Float64}) broken=VERSION>=v"1.11-"
         @test self_minus′(1.0) == 2.
     end
 
     myminus2(a, b) = a - b
     self_minus2(a) = myminus2(a, a)
     let self_minus2′ = Diffractor.dontuse_nth_order_forward_stage2(Tuple{typeof(self_minus2), Float64})
-        # This broke some time between 1.10 and 1.11-DEV.10001
-        @test_broken isa(self_minus2′, Core.OpaqueClosure{Tuple{Float64}, Float64})
+        @test isa(self_minus2′, Core.OpaqueClosure{Tuple{Float64}, Float64}) broken=VERSION>=v"1.11-"
         @test self_minus2′(1.0) == 0.
     end
     ChainRulesCore.@scalar_rule myminus2(x, y) (true, true) # frule for `x - y`
     let self_minus2′ = Diffractor.dontuse_nth_order_forward_stage2(Tuple{typeof(self_minus2), Float64})
         # This broke some time between 1.10 and 1.11-DEV.10001
-        @test_broken isa(self_minus2′, Core.OpaqueClosure{Tuple{Float64}, Float64})
+        @test isa(self_minus2′, Core.OpaqueClosure{Tuple{Float64}, Float64}) broken=VERSION>=v"1.11-"
         @test self_minus2′(1.0) == 2.
     end
 

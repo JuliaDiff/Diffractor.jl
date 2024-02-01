@@ -9,7 +9,7 @@ end
 
 n_getfield(∂ₙ::∂☆{N}, b::ATB{N}, x::Union{Symbol, Int}) where {N} = ∂ₙ(ZeroBundle{N}(getfield), b, ZeroBundle{N}(x))
 
-function (∂ₙ::∂☆{N})(zc::ZeroBundle{N, typeof(copy)},
+function (∂ₙ::∂☆{N})(zc::AbstractZeroBundle{N, typeof(copy)},
                      bc::ATB{N, <:Broadcasted}) where {N}
   bc = ∂ₙ(ZeroBundle{N}(Broadcast.flatten), bc)
   args = n_getfield(∂ₙ, bc, :args)

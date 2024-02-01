@@ -264,12 +264,12 @@ function forward_diff_no_inf!(ir::IRCode, to_diff::Vector{Pair{SSAValue,Int}};
             return transform!(ir, arg, order, maparg)
         elseif isa(arg, GlobalRef)
             @assert isconst(arg)
-            return ZeroBundle{order}(getfield(arg.mod, arg.name))
+            return zero_bundle{order}()(getfield(arg.mod, arg.name))
         elseif isa(arg, QuoteNode)
-            return ZeroBundle{order}(arg.value)
+            return zero_bundle{order}()(arg.value)
         end
         @assert !isa(arg, Expr)
-        return ZeroBundle{order}(arg)
+        return zero_bundle{order}()(arg)
     end
 
     for (ssa, (order, custom)) in enumerate(ssa_orders)
@@ -309,7 +309,7 @@ function forward_diff_no_inf!(ir::IRCode, to_diff::Vector{Pair{SSAValue,Int}};
                     stmt = insert_node!(ir, ssa, NewInstruction(inst))
                 end
 
-                replace_call!(ir, SSAValue(ssa), Expr(:call, ZeroBundle{order}, stmt))
+                replace_call!(ir, SSAValue(ssa), Expr(:call, zero_bundle{order}(), stmt))
             elseif isa(stmt, SSAValue) || isa(stmt, QuoteNode)
                 inst[:inst] = maparg(stmt, SSAValue(ssa), order)
                 inst[:type] = Any
@@ -329,7 +329,7 @@ function forward_diff_no_inf!(ir::IRCode, to_diff::Vector{Pair{SSAValue,Int}};
                 inst[:type] = Any
                 inst[:flag] |= CC.IR_FLAG_REFINED
             else
-                val = ZeroBundle{order}(inst[:inst])
+                val = zero_bundle{order}()(inst[:inst])
                 inst[:inst] = val
                 inst[:type] = Const(val)
             end
@@ -362,6 +362,6 @@ function forward_diff!(interp::ADInterpreter, ir::IRCode, src::CodeInfo, mi::Met
     rt = CC._ir_abstract_constant_propagation(interp, irsv)
 
     ir = compact!(ir)
-
+    
     return ir
 end

@@ -15,31 +15,31 @@ struct ∂☆new{N}; end
 function (::∂☆new{1})(B::Type, xs::AbstractTangentBundle{1}...)
     primal_args = map(primal, xs)
     the_primal = _construct(B, primal_args)
-
     tangent_tup = map(first_partial, xs)
     the_partial = if B<:Tuple
         Tangent{B, typeof(tangent_tup)}(tangent_tup)
     else
         names = fieldnames(B)
         tangent_nt = NamedTuple{names}(tangent_tup)
-        Tangent{B, typeof(tangent_nt)}(tangent_nt)
+        StructuralTangent{B}(tangent_nt)
     end
-    return TaylorBundle{1, B}(the_primal, (the_partial,))
+    B2 = typeof(the_primal)  # HACK: if the_primal actually has types in it then we want to make sure we get DataType not Type(...)
+    return TaylorBundle{1, B2}(the_primal, (the_partial,))
 end
 
 function (::∂☆new{N})(B::Type, xs::AbstractTangentBundle{N}...) where {N}
     primal_args = map(primal, xs)
     the_primal = _construct(B, primal_args)
-        
     the_partials = ntuple(Val{N}()) do ii
-        iith_order_type = ii==1 ? B : Any  # the type of the higher order tangents isn't worth tracking
         tangent_tup = map(x->partial(x, ii), xs)
         tangent = if B<:Tuple
-            Tangent{iith_order_type, typeof(tangent_tup)}(tangent_tup)
+            Tangent{B, typeof(tangent_tup)}(tangent_tup)
         else
+            # No matter the order we use `StructuralTangent{B}` for the partial
+            # It follows all required properties of the tangent to the n-1th order tangent
             names = fieldnames(B)
             tangent_nt = NamedTuple{names}(tangent_tup)
-            Tangent{iith_order_type, typeof(tangent_nt)}(tangent_nt)
+            StructuralTangent{B}(tangent_nt)
         end
         return tangent
     end
@@ -50,7 +50,7 @@ _construct(::Type{B}, args) where B<:Tuple = B(args)
 # Hack for making things that do not have public constructors constructable:
 @generated _construct(B::Type, args) = Expr(:splatnew, :B, :args)
 
-@generated (::∂☆new{N})(B::Type) where {N} = return :(ZeroBundle{$N}($(Expr(:new, :B))))
+@generated (::∂☆new{N})(B::Type) where {N} = return :(zero_bundle{$N}()($(Expr(:new, :B))))
 
 # Sometimes we don't know whether or not we need to the ZeroBundle when doing
 # the transform, so this can happen - allow it for now.

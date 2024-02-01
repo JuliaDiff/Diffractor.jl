@@ -35,8 +35,8 @@ function (::∂☆new{N})(B::Type, xs::AbstractTangentBundle{N}...) where {N}
         tangent = if B<:Tuple
             Tangent{B, typeof(tangent_tup)}(tangent_tup)
         else
-            # It is a little dubious using StructuralTangent{B} for >1st order, but it is isomorphic.
-            # Just watch out for order mixing bugs.
+            # No matter the order we use `StructuralTangent{B}` for the partial
+            # It follows all required properties of the tangent to the n-1th order tangent
             names = fieldnames(B)
             tangent_nt = NamedTuple{names}(tangent_tup)
             StructuralTangent{B}(tangent_nt)

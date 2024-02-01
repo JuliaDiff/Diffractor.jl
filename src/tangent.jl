@@ -427,7 +427,8 @@ Creates a bundle with a zero tangent.
 """
 struct zero_bundle{N} end
 function (::zero_bundle{N})(primal) where N
-    if zero_tangent(primal)  isa AbstractZero
+    # We still use a Uniform bundle e.g. if primal has NoTangent
+    if zero_tangent(primal) isa AbstractZero
         return UniformBundle{N}(primal, zero_tangent(primal) )
     else
         # Note: it is important that zero_tangent(primal) is called in ntuple

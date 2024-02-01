@@ -616,14 +616,14 @@ function diffract_ir!(ir, ci, meth, sparams::Core.SimpleVector, nargs::Int, N::I
                     end
                 end
                 tup = terminator_insert_node!(
-                    effect_free_and_nothrow(NewInstruction(Expr(:call, tuple, rev[orig_bb_ranges[active_bb]]...), Any, Int32(0))))
+                    removable_if_unused(NewInstruction(Expr(:call, tuple, rev[orig_bb_ranges[active_bb]]...), Any, Int32(0))))
                 for succ in succs
                     preds = cfg.blocks[succ].preds
                     if length(preds) == 1
                         val = tup
                     else
                         selector = findfirst(==(active_bb), preds)
-                        val = insert_node_here!(compact, effect_free_and_nothrow(NewInstruction(Expr(:call, tuple, selector, tup), Any, Int32(0))), true)
+                        val = insert_node_here!(compact, removable_if_unused(NewInstruction(Expr(:call, tuple, selector, tup), Any, Int32(0))), true)
                     end
                     pn = phi_nodes[succ]
                     push!(pn.edges, active_bb)

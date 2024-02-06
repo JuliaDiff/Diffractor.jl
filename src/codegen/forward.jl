@@ -4,7 +4,7 @@ function fwd_transform(ci, args...)
     return newci
 end
 
-function fwd_transform!(ci, mi, nargs, N)
+function fwd_transform!(ci, mi, nargs, N, E)
     new_code = Any[]
     new_codelocs = Any[]
     ssa_mapping = Int[]
@@ -25,7 +25,7 @@ function fwd_transform!(ci, mi, nargs, N)
             args = map(stmt.args) do stmt
                 emit!(mapstmt!(stmt))
             end
-            return Expr(:call, ∂☆{N}(), args...)
+            return Expr(:call, ∂☆{N, E}(), args...)
         elseif isexpr(stmt, :new)
             args = map(stmt.args) do stmt
                 emit!(mapstmt!(stmt))
@@ -35,7 +35,7 @@ function fwd_transform!(ci, mi, nargs, N)
             args = map(stmt.args) do stmt
                 emit!(mapstmt!(stmt))
             end
-            return Expr(:call, Core._apply_iterate, FwdIterate(DNEBundle{N}(iterate)), ∂☆new{N}(), emit!(Expr(:call, tuple, args[1])), args[2:end]...)
+            return Expr(:call, Core._apply_iterate, FwdIterate{E}(DNEBundle{N}(iterate)), ∂☆new{N}(), emit!(Expr(:call, tuple, args[1])), args[2:end]...)
         elseif isa(stmt, SSAValue)
             return SSAValue(ssa_mapping[stmt.id])
         elseif isa(stmt, Core.SlotNumber)

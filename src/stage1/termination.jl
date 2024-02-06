@@ -63,6 +63,12 @@ for (;method) in Base._methods_by_ftype(Tuple{Diffractor.∂☆internal{N}, Vara
     end
 end
 
+for (;method) in Base._methods_by_ftype(Tuple{Diffractor.∂☆internal{N, E}, Vararg{Any}} where {N, E}, nothing, -1, get_world_counter())
+    method.recursion_relation = function (method1, method2, parent_sig, new_sig)
+        return true
+    end
+end
+
 for (;method) in Base._methods_by_ftype(Tuple{Diffractor.∂☆{N}, Vararg{Any}} where {N}, nothing, -1, get_world_counter())
     method.recursion_relation = function (method1, method2, parent_sig, new_sig)
         return true

@@ -43,12 +43,12 @@ function shuffle_down_frule(∂☆p, my_frule, args...)
     ∂☆p(my_frule, map(shuffle_down, args)...)
 end
 
-function (this::∂⃖{N})(::∂☆internal{M}, args::AbstractTangentBundle{1}...) where {N, M}
+function (this::∂⃖{N})(::∂☆internal{M}, args::AbstractTangentBundle{1}...) where {N, M, E}
     r = this(∂☆shuffle{N}(), args...)
     if primal(r) === nothing
         return this(∂☆recurse{N}(), args...)
     else
-        z, ∂z = this(shuffle_up, r)
+        z, ∂z = this(v->shuffle_up(v, Val(false)), r)  # never taylor_or_bust for mixed mode
         return z, ∂⃖composeOdd{1, c_order(N)}(∂r, ∂z)
     end
 end

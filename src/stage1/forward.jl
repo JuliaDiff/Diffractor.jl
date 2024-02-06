@@ -126,7 +126,7 @@ function _frule(::NTuple{<:Any, AbstractZero}, f, primal_args...)
 end
 
 function ChainRulesCore.frule_via_ad(::DiffractorRuleConfig, partials, args...)
-    bundles = map((p,a) -> ExplicitTangentBundle{1}(a, (p,)), partials, args)
+    bundles = map(bundle, partials, args)
     result = ∂☆internal{1}()(bundles...)
     primal(result), first_partial(result)
 end

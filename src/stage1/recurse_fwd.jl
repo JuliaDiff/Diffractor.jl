@@ -78,7 +78,7 @@ function fwd_transform(ci::CodeInfo, args...)
     return newci
 end
 
-function fwd_transform!(ci::CodeInfo, mi::MethodInstance, nargs::Int, N::Int)
+function fwd_transform!(ci::CodeInfo, mi::MethodInstance, nargs::Int, N::Int, E)
     new_code = Any[]
     @static if VERSION ≥ v"1.12.0-DEV.173"
         debuginfo = Core.Compiler.DebugInfoStream(mi, ci.debuginfo, length(ci.code))
@@ -112,7 +112,7 @@ function fwd_transform!(ci::CodeInfo, mi::MethodInstance, nargs::Int, N::Int)
             args = map(stmt.args) do stmt
                 emit!(mapstmt!(stmt))
             end
-            return Expr(:call, ∂☆{N}(), args...)
+            return Expr(:call, ∂☆{N, E}(), args...)
         elseif isexpr(stmt, :new)
             args = map(stmt.args) do stmt
                 emit!(mapstmt!(stmt))
@@ -122,7 +122,7 @@ function fwd_transform!(ci::CodeInfo, mi::MethodInstance, nargs::Int, N::Int)
             args = map(stmt.args) do stmt
                 emit!(mapstmt!(stmt))
             end
-            return Expr(:call, Core._apply_iterate, FwdIterate(DNEBundle{N}(iterate)), ∂☆new{N}(), emit!(Expr(:call, tuple, args[1])), args[2:end]...)
+            return Expr(:call, Core._apply_iterate, FwdIterate{E}(DNEBundle{N}(iterate)), ∂☆new{N}(), emit!(Expr(:call, tuple, args[1])), args[2:end]...)
         elseif isa(stmt, SSAValue)
             return SSAValue(ssa_mapping[stmt.id])
         elseif isa(stmt, Core.SlotNumber)

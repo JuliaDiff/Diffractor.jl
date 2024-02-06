@@ -33,38 +33,68 @@ function shuffle_down(b::TaylorBundle{N, B}) where {N, B}
         ntuple(_sdown, N-1))
 end
 
-@noinline check_taylor(z₁, z₂) = @assert(z₁ == z₂,  "$z₁ == $z₂")
+struct TaylorRequired
+    order
+    z₁
+    z₂
+end
+function Base.showerror(io::IO, err)
+    order_str1 = order_str(err.order)
+    print(io, "In Eras mode all higher order derivatives must be taylor, but encountered one where the taylor requirement z₁ == z₂ was not met.")
+    println(is, "derivative on $order_str1 path: z₁ = ", err.z₁)
+    println(is, "$order_str1 on the derivative path: z₂ = ", err.z₂)
+end
 
-function shuffle_up(r::TaylorBundle{1, Tuple{B1,B2}}) where {B1,B2}
+function order_str(order::Integer)
+    @assert order>=0
+    if order == 0
+        "primal"
+    elseif order == 1
+        "derivative"
+    elseif order == 2
+        "2nd derivative"
+    elseif order == 3
+        "3rd derivative"
+    else
+        "$(order)th derivative"
+    end
+end
+
+"finds the lowerest order derivative that is not taylor compatible, or returns -1 if all compatible"
+@noinline function find_taylor_incompatibility(r::TaylorBundle{N, Tuple{B1,B2}}) where {N, B1,B2}
+    partial(r, 1)[1] == primal(r)[2] || return 0
+    for i in 1:(N-1)
+        partial(r, i+1)[1] == partial(r, i)[2] || return i
+    end
+    return -1  # all compatible
+end
+
+function taylor_failure_values(r::TaylorBundle{<:Any, Tuple{Any,Any}}, fail_order)
+    fail_order == 0 && return partial(r,1)[1], primal(r)[2]
+    return partial(r, i+1)[1], partial(r, i)[2]
+end
+
+function shuffle_up(r::TaylorBundle{1, Tuple{B1,B2}}, ::Val{taylor_or_bust}) where {B1,B2, taylor_or_bust}
     z₀ = primal(r)[1]
     z₁ = partial(r, 1)[1]
     z₂ = primal(r)[2]
     z₁₂ = partial(r, 1)[2]
-    if true
-        check_taylor(z₁, z₂)
+
+    taylor_fail_order = find_taylor_incompatibility(r)
+    if  taylor_fail_order < 0
         return TaylorBundle{2}(z₀, (z₁, z₁₂))
+    elseif taylor_or_bust
+        @assert taylor_fail_order == 0  # can't be higher
+        throw(TaylorRequired(taylor_fail_order, z₁, z₂))
     else
         return ExplicitTangentBundle{2}(z₀, (z₁, z₂, z₁₂))
     end
 end
 
-function taylor_compatible(a::ATB{N}, b::ATB{N}) where {N}
-    primal(b) === a[TaylorTangentIndex(1)] || return false
-    return all(1:(N-1)) do i
-        b[TaylorTangentIndex(i)] === a[TaylorTangentIndex(i+1)]
-    end
-end
-
-function taylor_compatible(r::TaylorBundle{N, Tuple{B1,B2}}) where {N, B1,B2}
-    partial(r, 1)[1] == primal(r)[2] || return false
-    return all(1:N-1) do i
-        partial(r, i+1)[1] == partial(r, i)[2]
-    end
-end
-function shuffle_up(r::TaylorBundle{N, Tuple{B1,B2}}) where {N, B1,B2}
+function shuffle_up(r::TaylorBundle{N, Tuple{B1,B2}}, ::Val{taylor_or_bust}) where {N, B1,B2, taylor_or_bust}
     the_primal = primal(r)[1]
-    if true
-        @assert taylor_compatible(r)
+    taylor_fail_order = find_taylor_incompatibility(r)
+    if taylor_fail_order(r) < 0
         the_partials = ntuple(N+1) do i
             if i <= N
                 partial(r, i)[1]  # == `partial(r,i-1)[2]` (except first which is primal(r)[2])
@@ -73,6 +103,9 @@ function shuffle_up(r::TaylorBundle{N, Tuple{B1,B2}}) where {N, B1,B2}
             end
         end
         return TaylorBundle{N+1}(the_primal, the_partials)
+    elseif taylor_or_bust
+        @assert taylor_fail_order < N
+        throw(TaylorRequired(taylor_fail_order, taylor_failure_values(r, taylor_fail_order)...))
     else
         #XXX: am dubious of the correctness of this
         a_partials = ntuple(i->partial(r, i)[1], N)
@@ -83,7 +116,7 @@ function shuffle_up(r::TaylorBundle{N, Tuple{B1,B2}}) where {N, B1,B2}
 end
 
 
-function shuffle_up(r::UniformBundle{N, B, U}) where {N, B, U}
+function shuffle_up(r::UniformBundle{N, B, U}, _::Val) where {N, B, U}
     (a, b) = primal(r)
     if r.tangent.val === b
         u = b
@@ -94,7 +127,7 @@ function shuffle_up(r::UniformBundle{N, B, U}) where {N, B, U}
     end
     UniformBundle{N+1}(a, u)
 end
-@ChainRulesCore.non_differentiable shuffle_up(r::UniformBundle)
+@ChainRulesCore.non_differentiable shuffle_up(r::UniformBundle, ::Val)
 
 
 function shuffle_up_bundle(r::Diffractor.TangentBundle{1, B}) where {B<:ATB{1}}
@@ -124,9 +157,6 @@ function shuffle_up_bundle(r::UniformBundle{1, <:UniformBundle{1, B, U}}) where 
     return UniformBundle{2, B, U}(primal(primal(r)))
 end
 
-function shuffle_down_bundle(b::ExplicitTangentBundle{N, B}) where {N, B}
-    error("TODO")
-end
 
 function shuffle_down_bundle(b::TaylorBundle{2, B}) where {B}
     z₀ = primal(b)
@@ -135,8 +165,10 @@ function shuffle_down_bundle(b::TaylorBundle{2, B}) where {B}
     TaylorBundle{1}(TaylorBundle{1}(z₀, (z₁,)), (TaylorBundle{1}(z₁, (z₁₂,)),))
 end
 
-struct ∂☆internal{N}; end
-struct ∂☆recurse{N}; end
+#N order, this should be a positive Int
+#E eras mode, this controls if we should Error if it isn't Taylor. This should be a Bool
+struct ∂☆internal{N, E}; end
+struct ∂☆recurse{N, E}; end
 struct ∂☆shuffle{N}; end
 
 function shuffle_base(r)
@@ -151,17 +183,19 @@ function shuffle_base(r)
     end
 end
 
-function (::∂☆internal{1})(args::AbstractTangentBundle{1}...)
-    r = _frule(map(first_partial, args), map(primal, args)...)
+function (::∂☆internal{1, E})(args::AbstractTangentBundle{1}...) where E
+    r = _frule(Val{E}(), map(first_partial, args), map(primal, args)...)
     if r === nothing
-        return ∂☆recurse{1}()(args...)
+        return ∂☆recurse{1, E}()(args...)
     else
         return shuffle_base(r)
     end
 end
 
-_frule(partials, primals...) = frule(#== DiffractorRuleConfig(), ==# partials, primals...)
-function _frule(::NTuple{<:Any, AbstractZero}, f, primal_args...)
+# TODO: workout why enabling calling back into AD in Eras mode causes type instability
+_frule(::Val{true}, partials, primals...) = frule(partials, primals...)
+_frule(::Val{false}, partials, primals...) = frule(DiffractorRuleConfig(), partials, primals...)
+function _frule(::Any, ::NTuple{<:Any, AbstractZero}, f, primal_args...)
     # frules are linear in partials, so zero maps to zero, no need to evaluate the frule
     # If all partials are immutable AbstractZero subtyoes we know we don't have to worry about a mutating frule either
     r = f(primal_args...)
@@ -169,8 +203,8 @@ function _frule(::NTuple{<:Any, AbstractZero}, f, primal_args...)
 end
 
 function ChainRulesCore.frule_via_ad(::DiffractorRuleConfig, partials, args...)
-    bundles = map(bundle, args, partials)
-    result = ∂☆internal{1}()(bundles...)
+    bundles = map(bundle, partials, args)
+    result = ∂☆internal{1,false}()(bundles...)
     primal(result), first_partial(result)
 end
 
@@ -194,21 +228,21 @@ function (::∂☆internal{1})(f::AbstractZeroBundle{1}, args::AbstractZeroBundl
     return zero_bundle{1}()(f_v(args_v...))
 end
 
-function (::∂☆internal{N})(args::AbstractTangentBundle{N}...) where {N}
+function (::∂☆internal{N, E})(args::AbstractTangentBundle{N}...) where {N, E}
     r = ∂☆shuffle{N}()(args...)
     if primal(r) === nothing
-        return ∂☆recurse{N}()(args...)
+        return ∂☆recurse{N, E}()(args...)
     else
-        return shuffle_up(r)
+        return shuffle_up(r, Val{E}())
     end
 end
 
 # TODO: Generalize to N,M
-@inline function (::∂☆{1})(rec::AbstractZeroBundle{1, ∂☆recurse{1}}, args::ATB{1}...)
-    return shuffle_down_bundle(∂☆recurse{2}()(map(shuffle_up_bundle, args)...))
+@inline function (::∂☆{1,E})(rec::AbstractZeroBundle{1, ∂☆recurse{1, E}}, args::ATB{1}...) where E
+    return shuffle_down_bundle(∂☆recurse{2,E}()(map(shuffle_up_bundle, args)...))
 end
 
-(::∂☆{N})(args::AbstractTangentBundle{N}...) where {N} = ∂☆internal{N}()(args...)
+(::∂☆{N,E})(args::AbstractTangentBundle{N}...) where {N} = ∂☆internal{N,E}()(args...)
 
 # Special case rules for performance
 @Base.constprop :aggressive function (::∂☆{N})(f::ATB{N, typeof(getfield)}, x::TangentBundle{N}, s::AbstractTangentBundle{N}) where {N}
@@ -252,22 +286,23 @@ function (::∂☆{N})(f::ATB{N, typeof(tuple)}, args::AbstractZeroBundle{N}...)
     ZeroBundle{N}(map(primal, args))  # special fast case
 end
 
-struct FwdMap{N, T<:AbstractTangentBundle{N}}
+struct FwdMap{N, E, T<:AbstractTangentBundle{N}}
     f::T
 end
-(f::FwdMap{N})(args::AbstractTangentBundle{N}...) where {N} = ∂☆{N}()(f.f, args...)
+FwdMap{E}(f::T) where {N, E, T<:AbstractTangentBundle{N}} = FwdMap{N,E,T}(f)
+(f::FwdMap{N,E})(args::AbstractTangentBundle{N}...) where {N,E} = ∂☆{N,E}()(f.f, args...)
 
-function (::∂☆{N})(::AbstractZeroBundle{N, typeof(map)}, f::ATB{N}, tup::TaylorBundle{N, <:Tuple}) where {N}
-    ∂vararg{N}()(map(FwdMap(f), destructure(tup))...)
+function (::∂☆{N,E})(::AbstractZeroBundle{N, typeof(map)}, f::ATB{N}, tup::TaylorBundle{N, <:Tuple}) where {N,E}
+    ∂vararg{N}()(map(FwdMap{E}(f), destructure(tup))...)
 end
 
-function (::∂☆{N})(::AbstractZeroBundle{N, typeof(map)}, f::ATB{N}, args::ATB{N, <:AbstractArray}...) where {N}
+function (::∂☆{N,E})(::AbstractZeroBundle{N, typeof(map)}, f::ATB{N}, args::ATB{N, <:AbstractArray}...) where {N,E}
     # TODO: This could do an inplace map! to avoid the extra rebundling
-    rebundle(map(FwdMap(f), map(unbundle, args)...))
+    rebundle(map(FwdMap{E}(f), map(unbundle, args)...))
 end
 
-function (::∂☆{N})(::AbstractZeroBundle{N, typeof(map)}, f::ATB{N}, args::ATB{N}...) where {N}
-    ∂☆recurse{N}()(ZeroBundle{N, typeof(map)}(map), f, args...)
+function (::∂☆{N,E})(::AbstractZeroBundle{N, typeof(map)}, f::ATB{N}, args::ATB{N}...) where {N, E}
+    ∂☆recurse{N,E}()(ZeroBundle{N, typeof(map)}(map), f, args...)
 end
 
 
@@ -279,28 +314,28 @@ function (::∂☆{N})(f::AbstractZeroBundle{N, typeof(Core.ifelse)}, arg::ATB{N
     Core.ifelse(arg.primal, args...)
 end
 
-struct FwdIterate{N, T<:AbstractTangentBundle{N}}
+struct FwdIterate{N, E, T<:AbstractTangentBundle{N}}
     f::T
 end
-function (f::FwdIterate)(arg::ATB{N}) where {N}
-    r = ∂☆{N}()(f.f, arg)
+FwdIterate{E}(f::T) where {N, E, T<:AbstractTangentBundle{N}} = FwdIterate{N,E,T}(f)
+function (f::FwdIterate{N,E})(arg::ATB{N}) where {N,E}
+    r = ∂☆{N,E}()(f.f, arg)
+    # `primal(r) === nothing` would work, but doesn't create `Conditional` in inference
+    isa(r, ATB{N, Nothing}) && return nothing
+    (∂☆{N,E}()(ZeroBundle{N}(getindex), r, ZeroBundle{N}(1)),
+     primal(∂☆{N,E}()(ZeroBundle{N}(getindex), r, ZeroBundle{N}(2))))
+end
+@Base.constprop :aggressive function (f::FwdIterate{N,E})(arg::ATB{N}, st) where {N,E}
+    r = ∂☆{N,E}()(f.f, arg, ZeroBundle{N}(st))
     # `primal(r) === nothing` would work, but doesn't create `Conditional` in inference
     isa(r, ATB{N, Nothing}) && return nothing
     (∂☆{N}()(ZeroBundle{N}(getindex), r, ZeroBundle{N}(1)),
-     primal(∂☆{N}()(ZeroBundle{N}(getindex), r, ZeroBundle{N}(2))))
-end
-@Base.constprop :aggressive function (f::FwdIterate)(arg::ATB{N}, st) where {N}
-    r = ∂☆{N}()(f.f, arg, ZeroBundle{N}(st))
-    # `primal(r) === nothing` would work, but doesn't create `Conditional` in inference
-    isa(r, ATB{N, Nothing}) && return nothing
-    (∂☆{N}()(ZeroBundle{N}(getindex), r, ZeroBundle{N}(1)),
-     primal(∂☆{N}()(ZeroBundle{N}(getindex), r, ZeroBundle{N}(2))))
+     primal(∂☆{N,E}()(ZeroBundle{N}(getindex), r, ZeroBundle{N}(2))))
 end
 
-function (this::∂☆{N})(::AbstractZeroBundle{N, typeof(Core._apply_iterate)}, iterate::ATB{N}, f::ATB{N}, args::ATB{N}...) where {N}
-    Core._apply_iterate(FwdIterate(iterate), this, (f,), args...)
+function (this::∂☆{N,E})(::AbstractZeroBundle{N, typeof(Core._apply_iterate)}, iterate::ATB{N}, f::ATB{N}, args::ATB{N}...) where {N,E}
+    Core._apply_iterate(FwdIterate{E}(iterate), this, (f,), args...)
 end
-
 
 function (this::∂☆{N})(::AbstractZeroBundle{N, typeof(iterate)}, t::TaylorBundle{N, <:Tuple}) where {N}
     r = iterate(destructure(t))

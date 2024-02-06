@@ -169,6 +169,7 @@ end
 #E eras mode, this controls if we should Error if it isn't Taylor. This should be a Bool
 struct ∂☆internal{N, E}; end
 struct ∂☆recurse{N, E}; end
+∂☆recurse{N}() where N = ∂☆recurse{N,false}
 struct ∂☆shuffle{N}; end
 
 function shuffle_base(r)

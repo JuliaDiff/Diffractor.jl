@@ -1,6 +1,6 @@
-function fwd_transform(ci, args...)
+function fwd_transform(ci, mi, nargs, N, E)
     newci = copy(ci)
-    fwd_transform!(newci, args...)
+    fwd_transform!(newci, mi, nargs, N, E)
     return newci
 end
 

@@ -39,14 +39,9 @@ function forward_diff!(ir::IRCode, interp::AbstractInterpreter, irsv::IRInterpre
     return Δssa
 end
 function forward_diff!(ir::IRCode, interp::AbstractInterpreter, irsv::IRInterpretationState,
-                       val::Union{Integer, AbstractFloat}, order::Int;
+                       val, order::Int;
                        custom_diff!, diff_cache)
-    return zero(val)
-end
-function forward_diff!(ir::IRCode, interp::AbstractInterpreter, irsv::IRInterpretationState,
-                       @nospecialize(arg), order::Int;
-                       custom_diff!, diff_cache)
-    return ChainRulesCore.NoTangent()
+    return ChainRulesCore.zero_tangent(val)
 end
 function forward_diff!(ir::IRCode, interp::AbstractInterpreter, irsv::IRInterpretationState,
                        arg::Argument, order::Int;

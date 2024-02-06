@@ -144,29 +144,15 @@ end
 
     imat = [1 2; 3 4]
     @test jacobicheck(x -> x[:, imat], (3, 4))
-
-    # incorrect gradient
-    # julia> gradient(sum ∘ x->x[:,[1,2,2]], x)[1]
-    # 3×4 Matrix{Float64}:
-    # 1.0  1.0  0.0  0.0
-    # 1.0  1.0  0.0  0.0
-    # 1.0  1.0  0.0  0.0
-    # while it should be
-    # 3×4 Matrix{Float64}:
-    # 1.0  2.0  0.0  0.0
-    # 1.0  2.0  0.0  0.0
-    # 1.0  2.0  0.0  0.0
-    @test_broken jacobicheck(x -> x[:, [1, 2, 2]], (3, 4))
-    # same here
+    @test jacobicheck(x -> x[:, [1, 2, 2]], (3, 4))
     irep = [1 2; 2 2]
-    @test_broken jacobicheck(x -> x[1, irep], (3, 4))
+    @test jacobicheck(x -> x[1, irep], (3, 4))
 
     # https://github.com/invenia/Nabla.jl/issues/139
     x = rand(3)
     z = [1, 2, 3, 3]
     y139(x, z) = dot(ones(4), x[z])
-    # wrong gradient: Evaluated: ([1.0 0.0 0.0; 1.0 0.0 0.0; 2.0 0.0 0.0], NoTangent()) == ([1, 1, 2], NoTangent())
-    @test_broken gradient(y139, x, z) == ([1, 1, 2], NoTangent())
+    @test gradient(y139, x, z) == ([1, 1, 2], NoTangent())
 
     # https://github.com/FluxML/Zygote.jl/issues/376
 

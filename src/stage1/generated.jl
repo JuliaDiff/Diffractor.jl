@@ -320,7 +320,7 @@ function (::∂⃖{N})(::typeof(Base.getindex), a::Array{<:Number}, inds...) whe
             (@Base.constprop :aggressive Δ->begin
                 Δ isa AbstractZero && return (NoTangent(), Δ, map(Returns(Δ), inds)...)
                 BB = zero(a)
-                BB[inds...] = unthunk(Δ)
+                view(BB, inds...) .+= unthunk(Δ)
                 (NoTangent(), BB, map(x->NoTangent(), inds)...)
             end),
             (@Base.constprop :aggressive (_, Δ, _)->begin

@@ -60,7 +60,7 @@ function fwd_transform!(ci, mi, nargs, N)
             # version.
             return nothing
         elseif isexpr(stmt, :isdefined)
-            return Expr(:call, ZeroBundle{N}, emit!(stmt))
+            return Expr(:call, zero_bundle{N}(), emit!(stmt))
         # Always disable `@inbounds`, as we don't actually know if the AD'd
         # code is truly `@inbounds` or not.
         elseif isexpr(stmt, :boundscheck)

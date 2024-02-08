@@ -320,7 +320,12 @@ function (::∂⃖{N})(::typeof(Base.getindex), a::Array{<:Number}, inds...) whe
             (@Base.constprop :aggressive Δ->begin
                 Δ isa AbstractZero && return (NoTangent(), Δ, map(Returns(Δ), inds)...)
                 BB = zero(a)
-                BB[inds...] = unthunk(Δ)
+
+                # view is needed to cover cases with duplicated indices like
+                # gradient(sum ∘ x -> x[:,[1,1,2]], rand(3,4))
+                # https://github.com/JuliaDiff/Diffractor.jl/pull/254#discussion_r1480791644
+                view(BB, inds...) .+= unthunk(Δ)
+
                 (NoTangent(), BB, map(x->NoTangent(), inds)...)
             end),
             (@Base.constprop :aggressive (_, Δ, _)->begin

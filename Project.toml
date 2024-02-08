@@ -28,6 +28,8 @@ StructArrays = "0.6"
 julia = "1.10"
 
 [extras]
+Distributed = "8ba89e20-285c-5b6f-9357-94700520ee1b"
+FiniteDifferences = "26cc04aa-876d-5657-8c51-4c34ba976000"
 ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
@@ -35,4 +37,4 @@ Symbolics = "0c5d862f-8b57-4792-8d23-62f2024744c7"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["ForwardDiff", "LinearAlgebra", "Random", "Symbolics", "Test"]
+test = ["Distributed", "FiniteDifferences", "ForwardDiff", "LinearAlgebra", "Random", "Symbolics", "Test"]

@@ -21,7 +21,8 @@ const bwd = Diffractor.PrimeDerivativeBack
     "forward_mutation.jl",
     "reverse.jl",
     "regression.jl",
-    "AbstractDifferentiationTests.jl"
+    "AbstractDifferentiationTests.jl",
+    "gradcheck.jl"
     #"pinn.jl",  # Higher order control flow not yet supported (https://github.com/JuliaDiff/Diffractor.jl/issues/24)
 )
     @info "testing" file

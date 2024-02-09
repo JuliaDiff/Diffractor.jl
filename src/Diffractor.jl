@@ -7,8 +7,6 @@ export ∂⃖, gradient
 
 const CC = Core.Compiler
 
-const GENERATORS = Expr[]
-
 @static if VERSION ≥ v"1.11.0-DEV.1498"
     import .CC: get_inference_world
     using Base: get_world_counter

@@ -287,11 +287,7 @@ end
 function CC.finish(state::InferenceState, interp::ADInterpreter)
     res = @invoke CC.finish(state::InferenceState, interp::AbstractInterpreter)
     key = CC.any(state.result.overridden_by_const) ? state.result : state.linfo
-    interp.unopt[interp.current_level][key] = Cthulhu.InferredSource(
-        copy(state.src),
-        copy(state.stmt_info),
-        state.ipo_effects,
-        state.result.result)
+    interp.unopt[interp.current_level][key] = Cthulhu.InferredSource(state)
     return res
 end
 

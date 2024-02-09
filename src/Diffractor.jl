@@ -15,6 +15,13 @@ else
     import .CC: get_world_counter, get_world_counter as get_inference_world
 end
 
+@static if VERSION ≥ v"1.11.0-DEV.1498"
+    import .CC: get_inference_world
+    using Base: get_world_counter
+else
+    import .CC: get_world_counter, get_world_counter as get_inference_world
+end
+
 @recompile_invalidations begin
     include("runtime.jl")
     include("interface.jl")

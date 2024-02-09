@@ -117,11 +117,33 @@ function (::∂☆internal{1})(args::AbstractTangentBundle{1}...)
     end
 end
 
-_frule(partials, primals...) = frule(DiffractorRuleConfig(), partials, primals...)
-function _frule(::NTuple{<:Any, AbstractZero}, f, primal_args...)
+# frules with keywords support:
+function (::∂☆internal{1})(kwc::ATB{1, typeof(Core.kwcall)}, kw::ATB{1}, f::ATB{1}, args::ATB{1}...)
+    args_primals = (primal(f), map(primal, args)...)
+    args_partials = (first_partial(f), map(first_partial, args)...)
+    # First check if directly overloading frule for kwcall
+    r = _frule(
+        (first_partial(kwc), first_partial(kw), args_partials...),
+        primal(kwc), primal(kw), args_primals...
+    )
+    if r===nothing
+        # then check if the frule for f accepts keywords
+        # This silently discards tangents of the kw-args
+        # TODO: should we error if they nonzero?
+        r = _frule(args_partials, args_primals...; primal(kw)...)
+    end
+    if r === nothing
+        return ∂☆recurse{1}()(kwc, kw, f, args...)
+    else
+        return shuffle_base(r)
+    end
+end
+
+_frule(partials, primals...; kwargs...) = frule(DiffractorRuleConfig(), partials, primals...; kwargs...)
+function _frule(::NTuple{<:Any, AbstractZero}, f, primal_args...; kwargs...)
     # frules are linear in partials, so zero maps to zero, no need to evaluate the frule
     # If all partials are immutable AbstractZero subtyoes we know we don't have to worry about a mutating frule either
-    r = f(primal_args...)
+    r = f(primal_args...; kwargs...)
     return r, zero_tangent(r)
 end
 

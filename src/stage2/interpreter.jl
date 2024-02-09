@@ -253,7 +253,7 @@ end
 
 CC.InferenceParams(ei::ADInterpreter) = InferenceParams(ei.native_interpreter)
 CC.OptimizationParams(ei::ADInterpreter) = OptimizationParams(ei.native_interpreter)
-CC.get_world_counter(ei::ADInterpreter) = get_world_counter(ei.native_interpreter)
+#=CC.=#get_inference_world(ei::ADInterpreter) = get_inference_world(ei.native_interpreter)
 CC.get_inference_cache(ei::ADInterpreter) = get_inference_cache(ei.native_interpreter)
 
 # No need to do any locking since we're not putting our results into the runtime cache
@@ -325,15 +325,6 @@ function CC.inlining_policy(interp::ADInterpreter,
         mi::MethodInstance, argtypes::Vector{Any})
 end
 
-# TODO remove this overload once https://github.com/JuliaLang/julia/pull/49191 gets merged
-function CC.abstract_call_gf_by_type(interp::ADInterpreter, @nospecialize(f),
-    arginfo::ArgInfo, si::StmtInfo, @nospecialize(atype),
-    sv::IRInterpretationState, max_methods::Int)
-    return @invoke CC.abstract_call_gf_by_type(interp::AbstractInterpreter, f::Any,
-        arginfo::ArgInfo, si::StmtInfo, atype::Any,
-        sv::CC.AbsIntState, max_methods::Int)
-end
-
 #=
 function CC.optimize(interp::ADInterpreter, opt::OptimizationState,
     params::OptimizationParams, caller::InferenceResult)
@@ -360,6 +351,17 @@ end
 CC.finish!(::ADInterpreter, caller::InferenceState) = _finish!(caller.result)
 else
 CC.finish!(::ADInterpreter, caller::InferenceResult) = _finish!(caller)
+end
+
+@static if VERSION ≥ v"1.11.0-DEV.1278"
+function CC.bail_out_const_call(interp::ADInterpreter, result::CC.MethodCallResult,
+                                si::StmtInfo, sv::CC.AbsIntState)
+    if result.rt isa CC.LimitedAccuracy
+        return false
+    end
+    return @invoke CC.bail_out_const_call(interp::AbstractInterpreter, result::CC.MethodCallResult,
+                                          si::StmtInfo, sv::CC.AbsIntState)
+end
 end
 
 function ir2codeinst(ir::IRCode, inst::CodeInstance, ci::CodeInfo)

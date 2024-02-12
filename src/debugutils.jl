@@ -2,7 +2,7 @@ using Core.Compiler: AbstractInterpreter, CodeInstance, MethodInstance, WorldVie
 using InteractiveUtils
 
 function infer_function(interp, tt)
-    world = Core.Compiler.get_world_counter()
+    world = get_world_counter()
 
     # Find all methods that are applicable to these types
     mthds = _methods_by_ftype(tt, -1, world)
@@ -43,12 +43,12 @@ ExtractingInterpreter(;optimize=false) = ExtractingInterpreter(
     optimize
 )
 
-import Core.Compiler: InferenceParams, OptimizationParams, get_world_counter,
+import Core.Compiler: InferenceParams, OptimizationParams, #=get_inference_world,=#
     get_inference_cache, code_cache,
     WorldView, lock_mi_inference, unlock_mi_inference, InferenceState
 InferenceParams(ei::ExtractingInterpreter) = InferenceParams(ei.native_interpreter)
 OptimizationParams(ei::ExtractingInterpreter) = OptimizationParams(ei.native_interpreter)
-get_world_counter(ei::ExtractingInterpreter) = get_world_counter(ei.native_interpreter)
+get_inference_world(ei::ExtractingInterpreter) = get_inference_world(ei.native_interpreter)
 get_inference_cache(ei::ExtractingInterpreter) = get_inference_cache(ei.native_interpreter)
 
 # No need to do any locking since we're not putting our results into the runtime cache

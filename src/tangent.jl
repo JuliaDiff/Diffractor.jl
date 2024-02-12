@@ -418,3 +418,21 @@ end
 function ChainRulesCore.rrule(::typeof(rebundle), atb)
     rebundle(atb), Δ->throw(Δ)
 end
+
+
+"""
+    (::zero_bundle{N})(primal)
+
+Creates a bundle with a zero tangent.
+"""
+struct zero_bundle{N} end
+function (::zero_bundle{N})(primal) where N
+    # We still use a Uniform bundle e.g. if primal has NoTangent
+    if zero_tangent(primal) isa AbstractZero
+        return UniformBundle{N}(primal, zero_tangent(primal) )
+    else
+        # Note: it is important that zero_tangent(primal) is called in ntuple
+        # so it gets distrinct values for each order, so it doesn't alias if mutated.
+        return TaylorBundle{N}(primal, ntuple(_->zero_tangent(primal), N))
+    end
+end

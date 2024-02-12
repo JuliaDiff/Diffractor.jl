@@ -44,7 +44,7 @@ which(Tuple{∂⃖{N}, ∂⃖{1}, Vararg{Any}} where {N}).recursion_relation = f
            isa(Base.unwrap_unionall(new_sig.parameters[1].parameters[1]), Int)
 end
 
-for (;method) in Base._methods_by_ftype(Tuple{Diffractor.∂☆recurse{N}, Vararg{Any}} where {N}, nothing, -1, Base.get_world_counter())
+for (;method) in Base._methods_by_ftype(Tuple{Diffractor.∂☆recurse{N}, Vararg{Any}} where {N}, nothing, -1, get_world_counter())
     method.recursion_relation = function (method1, method2, parent_sig, new_sig)
         # Recursion from a higher to a lower order is always allowed
         parent_order = parent_sig.parameters[1].parameters[1]
@@ -57,13 +57,13 @@ for (;method) in Base._methods_by_ftype(Tuple{Diffractor.∂☆recurse{N}, Varar
     end
 end
 
-for (;method) in Base._methods_by_ftype(Tuple{Diffractor.∂☆internal{N}, Vararg{Any}} where {N}, nothing, -1, Base.get_world_counter())
+for (;method) in Base._methods_by_ftype(Tuple{Diffractor.∂☆internal{N}, Vararg{Any}} where {N}, nothing, -1, get_world_counter())
     method.recursion_relation = function (method1, method2, parent_sig, new_sig)
         return true
     end
 end
 
-for (;method) in Base._methods_by_ftype(Tuple{Diffractor.∂☆{N}, Vararg{Any}} where {N}, nothing, -1, Base.get_world_counter())
+for (;method) in Base._methods_by_ftype(Tuple{Diffractor.∂☆{N}, Vararg{Any}} where {N}, nothing, -1, get_world_counter())
     method.recursion_relation = function (method1, method2, parent_sig, new_sig)
         return true
     end

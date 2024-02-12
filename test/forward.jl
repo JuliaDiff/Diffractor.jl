@@ -161,6 +161,18 @@ end
 end
 
 
+@testset "types in tuples" begin
+    function foo(a)
+        tup = (a, 2a, Int)
+        return tup[2]
+    end
+
+    let var"'" = Diffractor.PrimeDerivativeFwd
+        @test foo'(100.0) == 2.0
+    end
+end
+
+
 @testset "taylor_compatible" begin
     taylor_compatible = Diffractor.taylor_compatible
 

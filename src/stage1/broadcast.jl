@@ -5,7 +5,7 @@ using Base.Broadcast: broadcasted, Broadcasted
 struct FwdBroadcast{N, E, T<:AbstractTangentBundle{N}}
   f::T
 end
-FwdItFwdBroadcastrate{E}(f::T) where {N, E, T<:AbstractTangentBundle{N}} = FwdBroadcast{N,E,T}(f)
+FwdBroadcast{E}(f::T) where {N, E, T<:AbstractTangentBundle{N}} = FwdBroadcast{N,E,T}(f)
 
 (f::FwdBroadcast{N,E})(args::AbstractTangentBundle{N}...) where {N,E} = ∂☆{N,E}()(f.f, args...)
 

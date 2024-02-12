@@ -76,8 +76,8 @@ function Base.show(io::IO, info::FRuleCallInfo)
     print(io, "FRuleCallInfo(", typeof(info.info), ", ", typeof(info.frule_call.info), ")")
 end
 
-function Cthulhu.process_info(interp::AbstractInterpreter, info::FRuleCallInfo, argtypes::Cthulhu.ArgTypes, @nospecialize(rt), optimize::Bool)
-    return Cthulhu.process_info(interp, info.info, argtypes, rt, optimize)
+function Cthulhu.process_info(interp::AbstractInterpreter, info::FRuleCallInfo, argtypes::Cthulhu.ArgTypes, @nospecialize(rt), optimize::Bool, @nospecialize(exct))
+    return Cthulhu.process_info(interp, info.info, argtypes, rt, optimize, exct)
 end
 
 

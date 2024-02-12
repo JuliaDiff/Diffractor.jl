@@ -542,7 +542,8 @@ end
         # https://github.com/FluxML/Zygote.jl/pull/1171
         sm = sprand(5, 5, 0.5)
         @test gradient(x -> sum(abs2, Float32.(x)), sm)[1] ≈ gradient(x -> sum(abs2, x), Matrix{Float32}(sm))[1]
-        @test_broken gradient(x -> real(sum(ComplexF32.(x) .+ 1 .+ im)), sm)[1] isa SparseMatrixCSC{Float64}  # MethodError: no method matching zero(::Type{Any}), in ProjectTo(xs::SparseMatrixCSC{Any, Int64})
+        # MethodError: no method matching zero(::Type{Any}), in ProjectTo(xs::SparseMatrixCSC{Any, Int64})
+        @test_broken gradient(x -> real(sum(ComplexF32.(x) .+ 1 .+ im)), sm)[1] isa SparseMatrixCSC{Float64}
     end
 
     # https://github.com/FluxML/Zygote.jl/issues/1178
@@ -551,7 +552,7 @@ end
         getindex.(fs)
     end
     # wrong gradient: Evaluated: ([1.0, 1.0],) == ([2.0, 2.0],)
-    @test_broken gradient(sum∘f1179, ones(2)) == ([2.0, 2.0],)  # MethodError: no method matching one(::Base.RefValue{Float64})
+    @test_broken gradient(sum∘f1179, ones(2)) == ([2.0, 2.0],)
 end
 
 @testset "array +,-" begin
@@ -580,7 +581,7 @@ end
     @test_broken gradient(x -> begin @fastmath sin(x) end, 1) == gradient(x -> sin(x), 1)
     @test_broken gradient(x -> begin @fastmath tanh(x) end, 1) == gradient(x -> tanh(x), 1)
     @test_broken gradient((x, y) -> begin @fastmath x*y end, 3, 2) == gradient((x, y) -> x*y, 3, 2)
-    @test_broken gradient(x -> begin @fastmath real(log(x)) end, 1 + 2im) == gradient(x -> real(log(x)), 1 + 2im) # MethodError: no method matching copy(::Nothing)  from perform_optic_transform(ff::Type{Diffractor.∂⃖recurse{1}}, args::Any)
+    @test_broken gradient(x -> begin @fastmath real(log(x)) end, 1 + 2im) == gradient(x -> real(log(x)), 1 + 2im)
 end
 
 # 1704
@@ -701,5 +702,5 @@ end
     bs = (4.0, 5.0, 6.0)
 
     # MethodError: no method matching copy(::Nothing)
-    @test_broken gradient(zygote1162, as, bs) == ((NoTangent(), 2*as[2], NoTangent()), (NoTangent(), 2*bs[2], NoTangent()))  # MethodError: no method matching copy(::Nothing)
+    @test_broken gradient(zygote1162, as, bs) == ((NoTangent(), 2*as[2], NoTangent()), (NoTangent(), 2*bs[2], NoTangent()))
 end

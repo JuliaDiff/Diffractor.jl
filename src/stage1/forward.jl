@@ -196,11 +196,13 @@ end
 # TODO: workout why enabling calling back into AD in Eras mode causes type instability
 _frule(::Val{true}, partials, primals...) = frule(partials, primals...)
 _frule(::Val{false}, partials, primals...) = frule(DiffractorRuleConfig(), partials, primals...)
-function _frule(::Any, ::NTuple{<:Any, AbstractZero}, f, primal_args...)
-    # frules are linear in partials, so zero maps to zero, no need to evaluate the frule
-    # If all partials are immutable AbstractZero subtyoes we know we don't have to worry about a mutating frule either
-    r = f(primal_args...)
-    return r, zero_tangent(r)
+for V in (false, true)
+    @eval function _frule(::Val{$V}, ::NTuple{<:Any, AbstractZero}, f, primal_args...)
+        # frules are linear in partials, so zero maps to zero, no need to evaluate the frule
+        # If all partials are immutable AbstractZero subtyoes we know we don't have to worry about a mutating frule either
+        r = f(primal_args...)
+        return r, zero_tangent(r)
+    end
 end
 
 function ChainRulesCore.frule_via_ad(::DiffractorRuleConfig, partials, args...)

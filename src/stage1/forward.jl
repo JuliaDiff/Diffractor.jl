@@ -243,7 +243,7 @@ end
     return shuffle_down_bundle(∂☆recurse{2,E}()(map(shuffle_up_bundle, args)...))
 end
 
-(::∂☆{N,E})(args::AbstractTangentBundle{N}...) where {N} = ∂☆internal{N,E}()(args...)
+(::∂☆{N,E})(args::AbstractTangentBundle{N}...) where {N,E} = ∂☆internal{N,E}()(args...)
 
 # Special case rules for performance
 @Base.constprop :aggressive function (::∂☆{N})(f::ATB{N, typeof(getfield)}, x::TangentBundle{N}, s::AbstractTangentBundle{N}) where {N}

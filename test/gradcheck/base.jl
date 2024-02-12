@@ -1,12 +1,3 @@
-module gradcheck_base
-# This file contains a selection of tests from Zygote's "gradcheck.jl",
-# dealing with Base and standard library functions. Many of these use rules
-# which have their own more exhaustive tests in ChainRules.
-
-# Ideally this would be extended to take `gradient` both forward and reverse,
-# and `jacobicheck` including 2nd derivatives, for every testset. But not yet.
-
-
 @testset "power" begin
     @test gradient(x -> x^2, -2) == (-4,) # literal_pow
     @test gradient(x -> x^10, -1.0) == (-10,)
@@ -711,6 +702,4 @@ end
 
     # MethodError: no method matching copy(::Nothing)
     @test_broken gradient(zygote1162, as, bs) == ((NoTangent(), 2*as[2], NoTangent()), (NoTangent(), 2*bs[2], NoTangent()))  # MethodError: no method matching copy(::Nothing)
-end
-
 end

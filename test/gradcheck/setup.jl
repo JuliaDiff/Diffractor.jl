@@ -1,3 +1,14 @@
+module gradcheck_tests
+
+# This file contains a selection of tests from Zygote's "gradcheck.jl",
+# dealing with Base and standard library functions. Many of these use rules
+# which have their own more exhaustive tests in ChainRules.
+
+# Tests for packages (Distances, LogExpFunctions, AbstractFFTs, FillArrays) are not included.
+
+# Ideally this would be extended to take `gradient` both forward and reverse,
+# and `jacobicheck` including 2nd derivatives, for every testset. But not yet.
+
 using Test
 using Random
 using ChainRulesCore
@@ -44,4 +55,6 @@ function value_and_pullback(f, x...)
 end
 
 
-# Tests for packages (Distances, LogExpFunctions, AbstractFFTs, FillArrays) are not included.
+include("base.jl")
+
+end

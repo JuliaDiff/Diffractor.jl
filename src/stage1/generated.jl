@@ -206,20 +206,20 @@ function (::∂⃖{N})(f::Core.IntrinsicFunction, args...) where {N}
 end
 
 # The static parameter on `f` disables the compileable_sig heuristic
-function (::∂⃖{N})(f::T, args...) where {T, N}
+function (::∂⃖{N})(f::T, args...; kwargs...) where {T, N}
     if N == 1
         # Base case (inlined to avoid ambiguities with manually specified
         # higher order rules)
-        z = rrule(DiffractorRuleConfig(), f, args...)
+        z = rrule(DiffractorRuleConfig(), f, args...; kwargs...)
         if z === nothing
-            return ∂⃖recurse{1}()(f, args...)
+            return ∂⃖recurse{1}()(f, args...; kwargs...)
         end
         return z
     else
         ∂⃖p = ∂⃖{N-1}()
-        @destruct z, z̄ = ∂⃖p(rrule, f, args...)
+        @destruct z, z̄ = ∂⃖p(rrule, f, args...; kwargs...)
         if z === nothing
-            return ∂⃖recurse{N}()(f, args...)
+            return ∂⃖recurse{N}()(f, args...; kwargs...)
         else
             return ∂⃖rrule{N}()(z, z̄)
         end
@@ -243,6 +243,10 @@ struct KwFunc{T,S}
     end
 end
 (kw::KwFunc)(args...) = kw.kwf(args...)
+
+function ChainRulesCore.rrule(::typeof(Core.kwcall), kwargs, f, args...)
+    rrule(KwFunc(f), kwargs, f, args...)
+end
 
 function ChainRulesCore.rrule(::typeof(Core.kwfunc), f)
     KwFunc(f), Δ->(NoTangent(), Δ)

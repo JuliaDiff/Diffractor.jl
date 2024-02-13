@@ -43,7 +43,7 @@ function shuffle_down_frule(∂☆p, my_frule, args...)
     ∂☆p(my_frule, map(shuffle_down, args)...)
 end
 
-function (this::∂⃖{N})(::∂☆internal{M}, args::AbstractTangentBundle{1}...) where {N, M, E}
+function (this::∂⃖{N})(::∂☆internal{M}, args::AbstractTangentBundle{1}...) where {N, M}
     r = this(∂☆shuffle{N}(), args...)
     if primal(r) === nothing
         return this(∂☆recurse{N}(), args...)

@@ -38,7 +38,7 @@ struct TaylorRequired
     z₁
     z₂
 end
-function Base.showerror(io::IO, err)
+function Base.showerror(io::IO, err::TaylorRequired)
     order_str1 = order_str(err.order)
     print(io, "In Eras mode all higher order derivatives must be taylor, but encountered one where the taylor requirement z₁ == z₂ was not met.")
     println(is, "derivative on $order_str1 path: z₁ = ", err.z₁)

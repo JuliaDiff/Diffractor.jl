@@ -173,40 +173,27 @@ end
 end
 
 
-@testset "taylor_compatible" begin
-    taylor_compatible = Diffractor.taylor_compatible
-
-    @test taylor_compatible(
-        TaylorBundle{1}(10.0, (20.0,)),
-        TaylorBundle{1}(20.0, (30.0,))
-    )
-    @test !taylor_compatible(
-        TaylorBundle{1}(10.0, (20.0,)),
-        TaylorBundle{1}(21.0, (30.0,))
-    )
-    @test taylor_compatible(
-        TaylorBundle{2}(10.0, (20.0, 30.)),
-        TaylorBundle{2}(20.0, (30.0, 40.))
-    )
-    @test !taylor_compatible(
-        TaylorBundle{2}(10.0, (20.0, 30.0)),
-        TaylorBundle{2}(20.0, (31.0, 40.0))
-    )
-
-
+@testset "find_taylor_incompatibility" begin
+    find_taylor_incompatibility = Diffractor.find_taylor_incompatibility
     tuptan(args...) = Tangent{typeof(args)}(args...)
-    @test taylor_compatible(
+    
+    @test find_taylor_incompatibility(
         TaylorBundle{1}((10.0, 20.0), (tuptan(20.0, 30.0),)),
-    )
-    @test taylor_compatible(
+    ) == -1
+    @test find_taylor_incompatibility(
         TaylorBundle{2}((10.0, 20.0), (tuptan(20.0, 30.0),tuptan(30.0, 40.0))),
-    )
-    @test !taylor_compatible(
+    ) == -1
+
+    @test find_taylor_incompatibility(
         TaylorBundle{1}((10.0, 20.0), (tuptan(21.0, 30.0),)),
-    )
-    @test !taylor_compatible(
-        TaylorBundle{2}((10.0, 20.0), (tuptan(20.0, 31.0),tuptan(30.0, 40.0))),
-    )
+    ) == 0
+
+    @test find_taylor_incompatibility(
+        TaylorBundle{2}((10.0, 20.0), (tuptan(21.0, 30.0), tuptan(30.0, 40.0))),
+    ) == 0
+    @test find_taylor_incompatibility(
+        TaylorBundle{2}((10.0, 20.0), (tuptan(20.0, 31.0), tuptan(30.0, 40.0))),
+    ) == 1
 end
 
 end  # module

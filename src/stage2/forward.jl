@@ -19,7 +19,7 @@ end
 
 # Engineering entry point for the 2nd-order forward AD functionality. This is
 # unlikely to be the actual interface. For now, it is used for testing.
-function dontuse_nth_order_forward_stage2(tt::Type, order::Int=1)
+function dontuse_nth_order_forward_stage2(tt::Type, order::Int=1; eras_mode = false)
     interp = ADInterpreter(; forward=true, backward=false)
     match = Base._which(tt)
     frame = Core.Compiler.typeinf_frame(interp, match.method, match.spec_types, match.sparams, #=run_optimizer=#true)
@@ -82,7 +82,7 @@ function dontuse_nth_order_forward_stage2(tt::Type, order::Int=1)
         end
     end
 
-    ir = forward_diff!(interp, ir, src, mi, vals; visit_custom!, transform!)
+    ir = forward_diff!(interp, ir, src, mi, vals; visit_custom!, transform!, eras_mode)
 
     return OpaqueClosure(ir)
 end

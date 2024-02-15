@@ -40,13 +40,13 @@ function forward_diff!(ir::IRCode, interp::AbstractInterpreter, irsv::IRInterpre
 end
 function forward_diff!(ir::IRCode, interp::AbstractInterpreter, irsv::IRInterpretationState,
                        val, order::Int;
-                       custom_diff!, diff_cache)
+                       custom_diff!, diff_cache, eras_mode)
     return ChainRulesCore.zero_tangent(val)
 end
 function forward_diff!(ir::IRCode, interp::AbstractInterpreter, irsv::IRInterpretationState,
                        arg::Argument, order::Int;
-                       custom_diff!, diff_cache)
-    recurse(x) = forward_diff!(ir, interp, irsv, x; custom_diff!, diff_cache)
+                       custom_diff!, diff_cache, eras_mode)
+    recurse(x) = forward_diff!(ir, interp, irsv, x; custom_diff!, diff_cache, eras_mode)
     val = custom_diff!(ir, SSAValue(0), arg, recurse)
     if val !== nothing
         return val
@@ -56,9 +56,9 @@ end
 
 function forward_diff_uncached!(ir::IRCode, interp::AbstractInterpreter, irsv::IRInterpretationState,
                                 ssa::SSAValue, inst::Core.Compiler.Instruction, order::Int;
-                                custom_diff!, diff_cache)
+                                custom_diff!, diff_cache, eras_mode)
     stmt = inst[:inst]
-    recurse(x) = forward_diff!(ir, interp, irsv, x, order; custom_diff!, diff_cache)
+    recurse(x) = forward_diff!(ir, interp, irsv, x, order; custom_diff!, diff_cache, eras_mode)
     if (val = custom_diff!(ir, ssa, stmt, recurse)) !== nothing
         return val
     elseif isa(stmt, PiNode)
@@ -212,8 +212,10 @@ Internal method which generates the code for forward mode diffentiation
 		decides if the custom `transform!` should be applied to a `stmt` or not
 		Default: `false` for all statements
  - `transform!(ir::IRCode, ssa::SSAValue, order::Int)` mutates `ir` to do a custom tranformation.
+ - `eras_mode`: determines if to error if not all derivatives are taylor
 """
 function forward_diff_no_inf!(ir::IRCode, to_diff::Vector{Pair{SSAValue,Int}};
+                              eras_mode = false,
                               visit_custom! = (@nospecialize args...)->false,
                               transform! = (@nospecialize args...)->error())
     # Step 1: For each SSAValue in the IR, keep track of the differentiation order needed
@@ -286,12 +288,12 @@ function forward_diff_no_inf!(ir::IRCode, to_diff::Vector{Pair{SSAValue,Int}};
                 newargs = map(stmt.args[2:end]) do @nospecialize arg
                     maparg(arg, SSAValue(ssa), order)
                 end
-                replace_call!(ir, SSAValue(ssa), Expr(:call, ∂☆{order}(), newargs...))
+                replace_call!(ir, SSAValue(ssa), Expr(:call, ∂☆{order, eras_mode}(), newargs...))
             elseif isexpr(stmt, :call) || isexpr(stmt, :new)
                 newargs = map(stmt.args) do @nospecialize arg
                     maparg(arg, SSAValue(ssa), order)
                 end
-                f = isexpr(stmt, :call) ? ∂☆{order}() : ∂☆new{order}()
+                f = isexpr(stmt, :call) ? ∂☆{order, eras_mode}() : ∂☆new{order, eras_mode}()
                 replace_call!(ir, SSAValue(ssa), Expr(:call, f, newargs...))
             elseif isa(stmt, PiNode)
                 # TODO: New PiNode that discriminates based on primal?

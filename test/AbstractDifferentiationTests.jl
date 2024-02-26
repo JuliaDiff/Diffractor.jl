@@ -1,3 +1,5 @@
+module AbstractDifferentiationTests
+
 using AbstractDifferentiation, Diffractor, Test, LinearAlgebra, ChainRulesCore
 import AbstractDifferentiation as AD
 backend = Diffractor.DiffractorForwardBackend()
@@ -36,36 +38,37 @@ include(joinpath(pathof(AbstractDifferentiation), "..", "..", "test", "test_util
     @testset for backend in backends
         @test backend isa AD.AbstractForwardMode
 
-        @testset "Derivative" begin #setfield!(::Core.Box, ::Symbol, ::Float64)
-            @test_broken test_derivatives(backend)
+        @testset "Derivative" begin 
+            test_derivatives(backend)
         end
-        @testset "Gradient" begin #Diffractor.TangentBundle{1, Float64, Diffractor.TaylorTangent{Tuple{Float64}}}(::Float64, ::Tuple{Float64})
+        @testset "Gradient" begin # no method matching size(::ZeroTangent)
             @test_broken test_gradients(backend)
         end
         @testset "Jacobian" begin #setfield!(::Core.Box, ::Symbol, ::Vector{Float64})
-            @test_broken test_jacobians(backend)
+            test_jacobians(backend)
         end
-        @testset "Hessian" begin #setindex!(::ChainRulesCore.ZeroTangent, ::Float64, ::Int64)
+        @testset "Hessian" begin # no method matching (Diffractor.TangentBundle{…} where P)(::Tuple{…}, ::Tuple{…})
             @test_broken test_hessians(backend)
         end
-        @testset "jvp" begin #setfield!(::Core.Box, ::Symbol, ::Vector{Float64})
-            @test_broken test_jvp(backend; vaugmented=true)
+        @testset "jvp" begin # Expression: pf1[1] isa Vector{Float64}
+            @test_broken false # test_jvp(backend; vaugmented=true)
         end
-        @testset "j′vp" begin #setfield!(::Core.Box, ::Symbol, ::Vector{Float64})
-            @test_broken test_j′vp(backend)
+        @testset "j′vp" begin # no method matching *(::Diffractor.PrimeDerivativeBack{1, Diagonal{Bool, Vector{Bool}}}, ::Vector{Float64})
+            @test_broken false #test_j′vp(backend)
         end
         @testset "Lazy Derivative" begin
             test_lazy_derivatives(backend)
         end
-        @testset "Lazy Gradient" begin #Diffractor.TangentBundle{1, Float64, Diffractor.TaylorTangent{Tuple{Float64}}}(::Float64, ::Tuple{Float64})
+        @testset "Lazy Gradient" begin #MethodError: no method matching size(::ZeroTangent) 
             @test_broken test_lazy_gradients(backend)
         end
-        @testset "Lazy Jacobian" begin #MethodError: no method matching *(::Diffractor.PrimeDerivativeBack{1, Diagonal{Bool, Vector{Bool}}}, ::Vector{Float64})
-            @test_broken test_lazy_jacobians(backend; vaugmented=true)
+        @testset "Lazy Jacobian" begin # no method matching *(::Diffractor.PrimeDerivativeBack{1, Diagonal{Bool, Vector{Bool}}}, ::Vector{Float64})
+            @test_broken false #test_lazy_jacobians(backend)
         end
-        @testset "Lazy Hessian" begin # everything everywhere all at once is broken
-            @test_broken test_lazy_hessians(backend)
+        @testset "Lazy Hessian" begin # ERROR: MethodError: no method matching *(::Vector{Float64}, ::Diffractor.PrimeDerivativeBack{1, Vector{Float64}})
+            @test_broken false #test_lazy_hessians(backend)
         end
     end
 end
 
+end #module AbstractDifferentiationTests

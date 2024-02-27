@@ -172,6 +172,27 @@ end
     end
 end
 
+@testset "binops of mixed number types" begin
+    # We have had issues with mixed number types before
+    struct StoreHalfed <: Number
+        val::Float64
+        StoreHalfed(x) = new(x/2)
+    end
+    Base.:-(x::StoreHalfed, y::Number) = 2*x.val - y
+    Base.:+(x::StoreHalfed, y::Number) = 2*x.val + y
+    
+    sub_sh(a) = StoreHalfed(a) - 10*a
+    add_sh(a) = StoreHalfed(a) + 10*a
+    let var"'" = Diffractor.PrimeDerivativeFwd
+        @test add_sh'(100.0) == 11.0
+        @test add_sh''(100.0) == 0.0
+
+        @test sub_sh'(100.0) == -9.0
+        @test sub_sh''(100.0) == 0.0
+    end
+end
+
+
 
 @testset "taylor_compatible" begin
     taylor_compatible = Diffractor.taylor_compatible

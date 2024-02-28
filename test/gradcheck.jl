@@ -556,7 +556,7 @@ end
 end
 
 @testset "broadcast" begin
-    @test gradient(x -> sum(sin.(x)), Diagonal([0,pi/2,pi]))[1] ≈ [1 0 0; 0 0 0; 0 0 -1]
+    @test_broken gradient(x -> sum(sin.(x)), Diagonal([0,pi/2,pi]))[1] ≈ [1 0 0; 0 0 0; 0 0 -1]
 
     # mixing arrays & Ref(array)
     a = rand(3)

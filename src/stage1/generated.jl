@@ -206,13 +206,32 @@ function (::∂⃖{N})(f::Core.IntrinsicFunction, args...) where {N}
 end
 
 # The static parameter on `f` disables the compileable_sig heuristic
-function (::∂⃖{N})(f::T, args...; kwargs...) where {T, N}
+function (::∂⃖{N})(f::T, args...) where {T, N}
     if N == 1
         # Base case (inlined to avoid ambiguities with manually specified
         # higher order rules)
-        z = rrule(DiffractorRuleConfig(), f, args...; kwargs...)
+        z = rrule(DiffractorRuleConfig(), f, args...)
         if z === nothing
-            return ∂⃖recurse{1}()(f, args...; kwargs...)
+            return ∂⃖recurse{1}()(f, args...)
+        end
+        return z
+    else
+        ∂⃖p = ∂⃖{N-1}()
+        @destruct z, z̄ = ∂⃖p(rrule, f, args...)
+        if z === nothing
+            return ∂⃖recurse{N}()(f, args...)
+        else
+            return ∂⃖rrule{N}()(z, z̄)
+        end
+    end
+end
+function (::∂⃖{N})(::typeof(Core.kwcall), kwargs, f::T, args...) where {T, N}
+    if N == 1
+        # Base case (inlined to avoid ambiguities with manually specified
+        # higher order rules)
+        z = rrule(DiffractorRuleConfig(), KwFunc(f), kwargs, f, args...)
+        if z === nothing
+            return ∂⃖recurse{1}()(f, args..., kwargs...)
         end
         return z
     else

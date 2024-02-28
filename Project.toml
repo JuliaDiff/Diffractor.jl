@@ -1,7 +1,7 @@
 name = "Diffractor"
 uuid = "9f5e2b26-1114-432f-b630-d3fe2085c51c"
 authors = ["Keno Fischer <keno@juliacomputing.com> and contributors"]
-version = "0.2.4"
+version = "0.2.5"
 
 [deps]
 AbstractDifferentiation = "c29ec348-61ec-40c8-8164-b8c60e9d9f3d"
@@ -16,11 +16,11 @@ StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 StructArrays = "09ab397b-f2b6-538f-b94a-2f83cf4a842a"
 
 [compat]
-AbstractDifferentiation = "0.5"
+AbstractDifferentiation = "0.5, 0.6"
 ChainRules = "1.44.6"
 ChainRulesCore = "1.20"
 Combinatorics = "1"
-Cthulhu = "2.9.6"
+Cthulhu = "2.10.1"
 OffsetArrays = "1"
 PrecompileTools = "1"
 StaticArrays = "1"

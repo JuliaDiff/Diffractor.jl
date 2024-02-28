@@ -3,6 +3,7 @@
 *.jl.*.cov
 *.jl.mem
 Manifest.toml
+Manifest-v*.*.toml
 docs/build
 docs/site
 .idea/*

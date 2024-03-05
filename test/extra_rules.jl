@@ -16,7 +16,7 @@ using Test
     end
 
     @testset "convertable type" begin
-        x = (10, 20.0, 30.0)
+        x::Tuple{Int, Float64, Float64} = (10, 20.0, 30.0)
         ẋ = zero_tangent(x)
         y, ẏ = frule((NoTangent(), ẋ), StaticArraysCore.SVector{3, Float64}, x)
         # all are float

@@ -287,7 +287,7 @@ end
 
 function (this::∂☆{N})(f::AbstractZeroBundle{N, Core.IntrinsicFunction}, args::ATB{N}...) where {N}
     ff = primal(f)
-    if ff === Base.not_int
+    if ff in (Base.not_int, Base.ne_float)
         DNEBundle{N}(ff(map(primal, args)...))
     else
         error("Missing rule for intrinsic function $ff")

@@ -14,6 +14,7 @@ const bwd = Diffractor.PrimeDerivativeBack
 @testset verbose=true "Diffractor.jl" begin  # overall testset, ensures all tests run
 
 @testset "$file" for file in (
+    "extra_rules.jl"
     "stage2_fwd.jl",
     "tangent.jl",
     "forward_diff_no_inf.jl",

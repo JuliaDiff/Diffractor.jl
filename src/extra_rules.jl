@@ -179,8 +179,14 @@ end
 Base.view(t::Tangent{T}, inds) where T<:SVector = view(T(ChainRulesCore.backing(t.data)), inds)
 Base.getindex(t::Tangent{<:SVector, <:NamedTuple}, ind::Int) = ChainRulesCore.backing(t.data)[ind]
 
-function ChainRules.frule((_, ∂x), ::Type{SArray{S, T, N, L}}, x::NTuple{L,Any}) where {S, T, N, L}
-    SArray{S, T, N, L}(x), SArray{S}(∂x)
+function ChainRules.frule(
+    (_, ∂x)::Tuple{Any, Tangent{TUP}},
+    ::Type{SArray{S, T, N, L}},
+    x::TUP,
+) where {L, TUP<:NTuple{L, Number}, S, T<:Number, N}
+    y = SArray{S, T, N, L}(x)
+    ∂y = SArray{S, T, N, L}(ChainRulesCore.backing(∂x))
+    return y, ∂y
 end
 
 @ChainRulesCore.non_differentiable StaticArrays.promote_tuple_eltype(T)

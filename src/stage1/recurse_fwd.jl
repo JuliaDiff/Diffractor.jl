@@ -13,6 +13,7 @@ struct ∂☆new{N}; end
 # we split out the 1st order derivative as a special case for performance
 # but the nth order case does also work for this
 function (::∂☆new{1})(B::Type, xs::AbstractTangentBundle{1}...)
+    @info "∂☆new{1}" B supertype(B) typeof(xs)
     primal_args = map(primal, xs)
     the_primal = _construct(B, primal_args)
     tangent_tup = map(first_partial, xs)
@@ -23,8 +24,9 @@ function (::∂☆new{1})(B::Type, xs::AbstractTangentBundle{1}...)
         tangent_nt = NamedTuple{names}(tangent_tup)
         StructuralTangent{B}(tangent_nt)
     end
+    the_final_partial = maybe_construct_natural_tangent(B, the_partial)
     B2 = typeof(the_primal)  # HACK: if the_primal actually has types in it then we want to make sure we get DataType not Type(...)
-    return TaylorBundle{1, B2}(the_primal, (the_partial,))
+    return TaylorBundle{1, B2}(the_primal, (the_final_partial,))
 end
 
 function (::∂☆new{N})(B::Type, xs::AbstractTangentBundle{N}...) where {N}
@@ -41,7 +43,8 @@ function (::∂☆new{N})(B::Type, xs::AbstractTangentBundle{N}...) where {N}
             tangent_nt = NamedTuple{names}(tangent_tup)
             StructuralTangent{B}(tangent_nt)
         end
-        return tangent
+
+        return maybe_construct_natural_tangent(B, tangent)
     end
     return TaylorBundle{N, B}(the_primal, the_partials)
 end
@@ -49,6 +52,28 @@ end
 _construct(::Type{B}, args) where B<:Tuple = B(args)
 # Hack for making things that do not have public constructors constructable:
 @generated _construct(B::Type, args) = Expr(:splatnew, :B, :args)
+
+
+maybe_construct_natural_tangent(::Type, structural_tangent) = structural_tangent
+for BaseSpaceType in (Number, AbstractArray{<:Number})
+    @eval function maybe_construct_natural_tangent(::Type{B}, structural_tangent) where B<:$BaseSpaceType
+        try
+            # TODO: should this use `_construct` ?
+            # TODO: is this right?
+            unwrap_tup(x::Tangent{<:Tuple}) = ChainRulesCore.backing(x)
+            unwrap_tup(x) = x
+            field_tangents = map(unwrap_tup, structural_tangent)
+            B(field_tangents...)
+        catch       
+            error(
+                "`struct` types that subtype `$($BaseSpaceType)` are generally expected to provide default constructors (one arg per field), and to be usable as their own tangent type.\n" *
+                "If they are not please overload the frule for the constructor: `ChainRulesCore.frule((_, dargs...), ::Type{$B}, args...)` " * 
+                "and make it return whatever tangent type you want. But be warned this is off the beaten track. Here be dragons 🐉"
+            )
+        end
+    end
+end
+
 
 @generated (::∂☆new{N})(B::Type) where {N} = return :(zero_bundle{$N}()($(Expr(:new, :B))))
 

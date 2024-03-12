@@ -30,16 +30,16 @@ end
 # TODO: It's a bit embarassing that we need to write these out, but currently the
 # compiler is not strong enough to automatically lift the frule. Let's hope we
 # can delete these in the near future.
-function (∂☆ₙ::∂☆{N})(fb::AbstractZeroBundle{N, typeof(+)}, a::TaylorBundle{N}, b::TaylorBundle{N}) where {N}
+function (∂☆ₙ::∂☆{N})(fb::AbstractZeroBundle{N, typeof(+)}, a::TaylorBundle{N, T}, b::TaylorBundle{N, T}) where {N, T}
     TaylorBundle{N}(primal(a) + primal(b),
         map(+, a.tangent.coeffs, b.tangent.coeffs))
 end
 
-function (∂☆ₙ::∂☆{N})(fb::AbstractZeroBundle{N, typeof(+)}, a::TaylorBundle{N}, b::AbstractZeroBundle{N}) where {N}
+function (∂☆ₙ::∂☆{N})(fb::AbstractZeroBundle{N, typeof(+)}, a::TaylorBundle{N, T}, b::AbstractZeroBundle{N, T}) where {N, T}
     TaylorBundle{N}(primal(a) + primal(b), a.tangent.coeffs)
 end
 
-function (∂☆ₙ::∂☆{N})(fb::AbstractZeroBundle{N, typeof(-)}, a::TaylorBundle{N}, b::TaylorBundle{N}) where {N}
+function (∂☆ₙ::∂☆{N})(fb::AbstractZeroBundle{N, typeof(-)}, a::TaylorBundle{N, T}, b::TaylorBundle{N, T}) where {N, T}
     TaylorBundle{N}(primal(a) - primal(b),
         map(-, a.tangent.coeffs, b.tangent.coeffs))
 end

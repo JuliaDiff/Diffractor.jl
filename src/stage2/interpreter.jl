@@ -219,10 +219,10 @@ function Cthulhu.navigate(curs::ADCursor, callsite::Cthulhu.Callsite)
     return ADCursor(curs.level, Cthulhu.get_mi(callsite))
 end
 
-function Cthulhu.process_info(interp::ADInterpreter, @nospecialize(info::CC.CallInfo), argtypes::Cthulhu.ArgTypes, @nospecialize(rt), optimize::Bool)
+function Cthulhu.process_info(interp::ADInterpreter, @nospecialize(info::CC.CallInfo), argtypes::Cthulhu.ArgTypes, @nospecialize(rt), optimize::Bool, @nospecialize(exct))
     if isa(info, RecurseInfo)
         newargtypes = argtypes[2:end]
-        callinfos = Cthulhu.process_info(interp, info.info, newargtypes, Cthulhu.unwrapType(widenconst(rt)), optimize)
+        callinfos = Cthulhu.process_info(interp, info.info, newargtypes, Cthulhu.unwrapType(widenconst(rt)), optimize, exct)
         if length(callinfos) == 1
             vmi = only(callinfos)
         else
@@ -234,7 +234,7 @@ function Cthulhu.process_info(interp::ADInterpreter, @nospecialize(info::CC.Call
         return Any[RecurseCallInfo(vmi)]
     elseif isa(info, RRuleInfo)
         newargtypes = [Const(rrule); argtypes[2:end]]
-        callinfos = Cthulhu.process_info(interp, info.info, newargtypes, Cthulhu.unwrapType(widenconst(rt)), optimize)
+        callinfos = Cthulhu.process_info(interp, info.info, newargtypes, Cthulhu.unwrapType(widenconst(rt)), optimize, exct)
         if length(callinfos) == 1
             vmi = only(callinfos)
         else

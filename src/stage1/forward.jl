@@ -285,6 +285,12 @@ function (this::∂☆{N})(::AbstractZeroBundle{N, typeof(typeof)}, x::ATB{N}) w
     DNEBundle{N}(typeof(primal(x)))
 end
 
+
+function (this::∂☆{N})(f::AbstractZeroBundle{N, Core.IntrinsicFunction}, args::AbstractZeroBundle{N}...) where {N}
+    ff=primal(f)
+    return (zero_bundle{N}())(ff(map(primal, args)...))
+end
+
 function (this::∂☆{N})(f::AbstractZeroBundle{N, Core.IntrinsicFunction}, args::ATB{N}...) where {N}
     ff = primal(f)
     if ff in (Base.not_int, Base.ne_float)

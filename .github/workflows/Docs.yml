@@ -1,0 +1,53 @@
+name: Docs
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+    tags:
+      - '*'
+  workflow_dispatch:
+
+jobs:
+  build_terminology_latex:
+    name: Build Terminology LaTeX
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Git repository
+        uses: actions/checkout@v4
+      - name: Compile LaTeX document
+        uses: xu-cheng/texlive-action/full@v1
+        with:
+          run: |
+            cd docs/terminology
+            latexmk -pdf -shell-escape terminology.tex
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: terminology
+          path: docs/terminology/terminology.pdf
+  docs:
+    name: Documenter build
+    runs-on: ubuntu-latest
+    needs: build_terminology_latex
+    steps:
+      - uses: actions/checkout@v4
+      - uses: julia-actions/setup-julia@v1
+        with:
+          version: '^1.10.0-0'
+      - name: Download Terminology
+        uses: actions/download-artifact@v4
+        with:
+          name: terminology
+          path: docs/src/
+      - name: Build Docs
+        run: |
+          julia --project=docs -e '
+            using Pkg
+            Pkg.develop(PackageSpec(path=pwd()))
+            Pkg.instantiate()
+            include("docs/make.jl")'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DOCUMENTER_KEY: ${{ secrets.DOCUMENTER_KEY }}

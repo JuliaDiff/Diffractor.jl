@@ -1,4 +1,5 @@
 name: CI
+
 on:
   schedule:
     - cron: '0 6 * * *'  # Daily at 6 AM UTC (2 AM EST)
@@ -6,8 +7,10 @@ on:
   push:
     branches:
       - main
-    tags: '*'
+    tags:
+      - '*'
   workflow_dispatch:
+
 jobs:
   test:
     name: Julia ${{ matrix.version }} - ${{ matrix.os }} - ${{ matrix.arch }} - ${{ github.event_name }}
@@ -15,15 +18,31 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        version:
-          - '1.10'
-          - 'nightly'
-        os:
-          - ubuntu-latest
-          - macOS-latest
-          # FIXME - windows-latest
-        arch:
-          - x64
+        include:
+          - version: '1' # current stable
+            os: ubuntu-latest
+            arch: x64
+            allow_failure: false
+          - version: '1.11-nightly' # next release
+            os: ubuntu-latest
+            arch: x64
+            allow_failure: true
+          - version: 'nightly' # dev channel
+            os: ubuntu-latest
+            arch: x64
+            allow_failure: true
+          - version: '1.10.0' # minimum supported version
+            os: ubuntu-latest
+            arch: x64
+            allow_failure: false
+          - version: '1' # x64 macOS
+            os: macos-latest
+            arch: x64
+            allow_failure: false
+          - version: '1' # x64 windows
+            os: windows-latest
+            arch: x64
+            allow_failure: false
     steps:
       - uses: actions/checkout@v4
       - uses: julia-actions/setup-julia@v1
@@ -46,46 +65,3 @@ jobs:
       - uses: codecov/codecov-action@v1
         with:
           file: lcov.info
-
-  build_terminology_latex:
-    name: Build Terminology LaTeX
-    runs-on: ubuntu-latest
-    steps:
-      - name: Set up Git repository
-        uses: actions/checkout@v4
-      - name: Compile LaTeX document
-        uses: xu-cheng/texlive-action/full@v1
-        with:
-          run: |
-            cd docs/terminology
-            latexmk -pdf -shell-escape terminology.tex
-      - name: Upload Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: terminology
-          path: docs/terminology/terminology.pdf
-
-  docs:
-    name: Documentation
-    runs-on: ubuntu-latest
-    needs: build_terminology_latex
-    steps:
-      - uses: actions/checkout@v4
-      - uses: julia-actions/setup-julia@v1
-        with:
-          version: 'nightly'
-      - name: Download Terminology
-        uses: actions/download-artifact@v4
-        with:
-          name: terminology
-          path: docs/src/
-      - name: Build Docs
-        run: |
-          julia --project=docs -e '
-            using Pkg
-            Pkg.develop(PackageSpec(path=pwd()))
-            Pkg.instantiate()
-            include("docs/make.jl")'
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          DOCUMENTER_KEY: ${{ secrets.DOCUMENTER_KEY }}

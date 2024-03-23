@@ -1,7 +1,6 @@
 using Core.IR
 using Core.Compiler:
-    BasicBlock, CallInfo, CFG, IRCode, IncrementalCompact, Instruction, NewInstruction,
-    NoCallInfo, OldSSAValue, StmtRange,
+    BasicBlock, CFG, IRCode, IncrementalCompact, Instruction, NewInstruction, NoCallInfo, StmtRange,
     bbidxiter, cfg_delete_edge!, cfg_insert_edge!, compute_basic_blocks, complete,
     construct_domtree, construct_ssa!, domsort_ssa!, finish, insert_node!,
     insert_node_here!, non_dce_finish!, quoted, retrieve_code_info,
@@ -255,13 +254,15 @@ function sptypes(sparams)
     VarState[Core.Compiler.VarState.(sparams, false)...]
 end
 
-function optic_transform(ci, args...)
+function optic_transform(ci::CodeInfo, args...)
     newci = copy(ci)
     optic_transform!(newci, args...)
     return newci
 end
 
-function optic_transform!(ci, mi, nargs, N)
+const SSAFlagType = @static VERSION ≥ v"1.11.0-DEV.377" ? UInt32 : UInt8
+
+function optic_transform!(ci::CodeInfo, mi::MethodInstance, nargs::Int, N::Int)
     code = ci.code
     sparams = mi.sparam_vals
 
@@ -270,11 +271,20 @@ function optic_transform!(ci, mi, nargs, N)
     ci.slotflags = UInt8[0x00, 0x00, ci.slotflags...]
     ci.slottypes = ci.slottypes === nothing ? Any[Any for _ in 1:length(ci.slotflags)] : Any[Any, Any, ci.slottypes...]
 
+    type = Any[]
+    info = CallInfo[NoCallInfo() for i = 1:length(code)]
+    flag = SSAFlagType[zero(SSAFlagType) for i = 1:length(code)]
+    argtypes = Any[Any for i = 1:2]
     meta = Expr[]
-    ir = IRCode(Core.Compiler.InstructionStream(code, Any[],
-        CallInfo[NoCallInfo() for i = 1:length(code)],
-        ci.codelocs, UInt8[0 for i = 1:length(code)]), cfg, Core.LineInfoNode[ci.linetable...],
-        Any[Any for i = 1:2], meta, sptypes(sparams))
+    @static if VERSION ≥ v"1.12.0-DEV.173"
+        debuginfo = Core.Compiler.DebugInfoStream(mi, ci.debuginfo, length(code))
+        stmts = Core.Compiler.InstructionStream(code, type, info, debuginfo.codelocs, flag)
+        ir = IRCode(stmts, cfg, debuginfo, argtypes, meta, sptypes(sparams))
+    else
+        linetable = Core.LineInfoNode[ci.linetable...]
+        stmts = Core.Compiler.InstructionStream(code, type, info, ci.codelocs, flag)
+        ir = IRCode(stmts, cfg, debuginfo, argtypes, meta, sptypes(sparams))
+    end
 
     # SSA conversion
     meth = mi.def::Method
@@ -300,7 +310,7 @@ function optic_transform!(ci, mi, nargs, N)
     Core.Compiler.replace_code_newstyle!(ci, ir)
 
     ci.ssavaluetypes = length(ci.code)
-    ci.ssaflags = UInt8[0x00 for i=1:length(ci.code)]
+    ci.ssaflags = SSAFlagType[zero(SSAFlagType) for i=1:length(ci.code)]
     ci.method_for_inference_limit_heuristics = meth
     ci.edges = MethodInstance[mi]
 

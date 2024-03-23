@@ -1,4 +1,4 @@
-using Core.Compiler: CodeInfo, CallInfo, CallMeta
+using Core.Compiler: CallInfo, CallMeta
 import Core.Compiler: widenconst
 
 struct CompClosure; opaque; end # TODO: Is this a YAKC?

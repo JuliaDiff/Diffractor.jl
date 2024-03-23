@@ -1,11 +1,12 @@
 module Diffractor
 
+export ∂⃖, gradient
+
 using StructArrays
 using PrecompileTools
 
-export ∂⃖, gradient
-
 const CC = Core.Compiler
+using Core.IR
 
 @static if VERSION ≥ v"1.11.0-DEV.1498"
     import .CC: get_inference_world
@@ -33,7 +34,6 @@ end
     include("stage2/tfuncs.jl")
     include("stage2/forward.jl")
 
-    include("codegen/forward.jl")
     include("analysis/forward.jl")
     include("codegen/forward_demand.jl")
     include("codegen/reverse.jl")

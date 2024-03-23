@@ -287,3 +287,16 @@ function ChainRulesCore.frule((_, ȯbj, _, ẋ), ::typeof(setproperty!), obj::M
     ẏ = setproperty!(ȯbj, field, ẋ)
     return y, ẏ
 end
+
+# https://github.com/JuliaDiff/ChainRulesCore.jl/issues/607
+Base.:(==)(x::Number, ::ZeroTangent) = iszero(x)
+Base.:(==)(::ZeroTangent, x::Number) = iszero(x)
+Base.hash(x::ZeroTangent, h::UInt64) = hash(0, h)
+
+# should this be in ChainRules/ChainRulesCore?
+# Avoid making nested backings, a Tangent is already a valid Tangent for a Tangent, 
+# or a valid second order Tangent for the primal
+function ChainRulesCore.frule((_, ẋ), T::Type{<:Tangent}, x)
+    ẋ::Tangent
+    return T(x), ẋ
+end

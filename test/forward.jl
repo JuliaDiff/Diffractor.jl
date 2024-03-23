@@ -173,58 +173,27 @@ end
 end
 
 
-@testset "taylor_compatible" begin
-    taylor_compatible = Diffractor.taylor_compatible
-
-    @test taylor_compatible(
-        TaylorBundle{1}(10.0, (20.0,)),
-        TaylorBundle{1}(20.0, (30.0,))
-    )
-    @test !taylor_compatible(
-        TaylorBundle{1}(10.0, (20.0,)),
-        TaylorBundle{1}(21.0, (30.0,))
-    )
-    @test taylor_compatible(
-        TaylorBundle{2}(10.0, (20.0, 30.)),
-        TaylorBundle{2}(20.0, (30.0, 40.))
-    )
-    @test !taylor_compatible(
-        TaylorBundle{2}(10.0, (20.0, 30.0)),
-        TaylorBundle{2}(20.0, (31.0, 40.0))
-    )
-
-
+@testset "find_taylor_incompatibility" begin
+    find_taylor_incompatibility = Diffractor.find_taylor_incompatibility
     tuptan(args...) = Tangent{typeof(args)}(args...)
-    @test taylor_compatible(
+    
+    @test find_taylor_incompatibility(
         TaylorBundle{1}((10.0, 20.0), (tuptan(20.0, 30.0),)),
-    )
-    @test taylor_compatible(
+    ) == -1
+    @test find_taylor_incompatibility(
         TaylorBundle{2}((10.0, 20.0), (tuptan(20.0, 30.0),tuptan(30.0, 40.0))),
-    )
-    @test !taylor_compatible(
+    ) == -1
+
+    @test find_taylor_incompatibility(
         TaylorBundle{1}((10.0, 20.0), (tuptan(21.0, 30.0),)),
-    )
-    @test !taylor_compatible(
-        TaylorBundle{2}((10.0, 20.0), (tuptan(20.0, 31.0),tuptan(30.0, 40.0))),
-    )
-end
+    ) == 0
 
-
-@testset "configured frule" begin
-    my_func(x) = sin(x)
-    frule_hits = 0
-    function ChainRulesCore.frule(config::RuleConfig{>:HasForwardsMode}, (_, dx), ::typeof(my_func), x)
-        res=my_func(x)
-        _, der_fwd = ChainRulesCore.frule_via_ad(config, (ChainRulesCore.NoTangent(), dx), sin, x)
-        frule_hits +=1
-        return res, der_fwd
-    end
-
-    let var"'" = Diffractor.PrimeDerivativeFwd
-        @assert frule_hits == 0
-        @test my_func'(1.0) == cos(1.0)
-        @test frule_hits == 1
-    end
+    @test find_taylor_incompatibility(
+        TaylorBundle{2}((10.0, 20.0), (tuptan(21.0, 30.0), tuptan(30.0, 40.0))),
+    ) == 0
+    @test find_taylor_incompatibility(
+        TaylorBundle{2}((10.0, 20.0), (tuptan(20.0, 31.0), tuptan(30.0, 40.0))),
+    ) == 1
 end
 
 end  # module

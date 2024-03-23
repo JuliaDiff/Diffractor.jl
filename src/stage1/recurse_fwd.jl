@@ -1,4 +1,3 @@
-struct ∂☆recurse{N}; end
 
 struct ∂vararg{N}; end
 
@@ -74,7 +73,7 @@ function ∂☆builtin((f_bundle, args...))
 end
 
 function perform_fwd_transform(world::UInt, source::LineNumberNode,
-                               @nospecialize(ff::Type{∂☆recurse{N}}), @nospecialize(args)) where {N}
+                               @nospecialize(ff::Type{∂☆recurse{N,E}}), @nospecialize(args)) where {N,E}
     if all(x->x <: ZeroBundle, args)
         return generate_lambda_ex(world, source,
             Core.svec(:ff, :args), Core.svec(), :(∂☆passthrough(args)))
@@ -97,7 +96,7 @@ function perform_fwd_transform(world::UInt, source::LineNumberNode,
     mi = Core.Compiler.specialize_method(match)
     ci = Core.Compiler.retrieve_code_info(mi, world)
 
-    return fwd_transform(ci, mi, length(args)-1, N)
+    return fwd_transform(ci, mi, length(args)-1, N, E)
 end
 
 @eval function (ff::∂☆recurse)(args...)

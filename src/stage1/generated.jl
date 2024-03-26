@@ -225,6 +225,25 @@ function (::∂⃖{N})(f::T, args...) where {T, N}
         end
     end
 end
+function (::∂⃖{N})(::typeof(Core.kwcall), kwargs, f::T, args...) where {T, N}
+    if N == 1
+        # Base case (inlined to avoid ambiguities with manually specified
+        # higher order rules)
+        z = rrule(DiffractorRuleConfig(), KwFunc(f), kwargs, f, args...)
+        if z === nothing
+            return ∂⃖recurse{1}()(f, args..., kwargs...)
+        end
+        return z
+    else
+        ∂⃖p = ∂⃖{N-1}()
+        @destruct z, z̄ = ∂⃖p(rrule, f, args...; kwargs...)
+        if z === nothing
+            return ∂⃖recurse{N}()(f, args...; kwargs...)
+        else
+            return ∂⃖rrule{N}()(z, z̄)
+        end
+    end
+end
 
 function ChainRulesCore.rrule_via_ad(::DiffractorRuleConfig, f::T, args...) where {T}
     Tuple{Any, Any}(∂⃖{1}()(f, args...))
@@ -243,6 +262,10 @@ struct KwFunc{T,S}
     end
 end
 (kw::KwFunc)(args...) = kw.kwf(args...)
+
+function ChainRulesCore.rrule(::typeof(Core.kwcall), kwargs, f, args...)
+    rrule(KwFunc(f), kwargs, f, args...)
+end
 
 function ChainRulesCore.rrule(::typeof(Core.kwfunc), f)
     KwFunc(f), Δ->(NoTangent(), Δ)

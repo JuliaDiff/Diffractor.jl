@@ -1,61 +1,3 @@
-module gradcheck_tests
-# This file contains a selection of tests from Zygote's "gradcheck.jl",
-# dealing with Base and standard library functions. Many of these use rules
-# which have their own more exhaustive tests in ChainRules.
-
-# Tests for packages (Distances, LogExpFunctions, AbstractFFTs, FillArrays) are not included.
-
-# Ideally this would be extended to take `gradient` both forward and reverse,
-# and `jacobicheck` including 2nd derivatives, for every testset. But not yet.
-
-using Test
-using ChainRulesCore
-using Diffractor
-using Distributed: CachingPool, pmap, workers
-using FiniteDifferences
-using LinearAlgebra
-
-#####
-##### Zygote/test/gradcheck.jl : setup
-#####
-
-n_grad(f, x::Real) = (central_fdm(5,1)(f,x),)
-n_grad(f, x::AbstractArray{<:Real}) = FiniteDifferences.grad(central_fdm(5,1), f, float(x))
-n_grad(f, xs::Vararg{Any,N}) where {N} = ntuple(N) do i
-    n_grad(x -> f(ntuple(j -> j==i ? x : xs[j], N)...), xs[i])[1]
-end
-
-# check gradients via finite differencing
-function gradcheck(f, xs::AbstractArray...)
-    gs = unthunk.(gradient(f, xs...))
-    all(isapprox.(gs, n_grad(f, xs...), rtol=1e-5, atol=1e-5))
-end
-gradcheck(f, dims...) = gradcheck(f, rand.(Float64, dims)...)
-# @test gradcheck(sqrt, 3.14)  # given number
-@test gradcheck(sum, randn(10))  # given array
-@test gradcheck(dot, randn(3), rand(3))  # given multiple vectors
-@test gradcheck(dot, 3, 3)  # given multiple random vectors
-
-jacobicheck(f, xs::AbstractArray...) = f(xs...) isa Number ? gradcheck(f, xs...) : 
-    gradcheck((xs...) -> sum(sin, f(xs...)), xs...)
-jacobicheck(f, dims...) = jacobicheck(f, randn.(Float64, dims)...)
-@test jacobicheck(identity, [1,2,3])  # one given array
-@test jacobicheck(sum, [1,2,3])  # fallback to gradcheck
-@test jacobicheck(identity, (4,5))  # one random matrix
-@test jacobicheck(+, 3, 3)  # two random vectors
-
-isZero(x) = x isa AbstractZero
-
-function value_and_pullback(f, x...)
-    y, b = Diffractor.∂⃖{1}()(f, x...)
-    back(dy) = map(unthunk, Base.tail(b(dy)))
-    y, back
-end
-
-#####
-##### Zygote/test/gradcheck.jl : Base
-#####
-
 @testset "power" begin
     @test gradient(x -> x^2, -2) == (-4,) # literal_pow
     @test gradient(x -> x^10, -1.0) == (-10,)
@@ -600,7 +542,8 @@ end
         # https://github.com/FluxML/Zygote.jl/pull/1171
         sm = sprand(5, 5, 0.5)
         @test gradient(x -> sum(abs2, Float32.(x)), sm)[1] ≈ gradient(x -> sum(abs2, x), Matrix{Float32}(sm))[1]
-        @test_broken gradient(x -> real(sum(ComplexF32.(x) .+ 1 .+ im)), sm)[1] isa SparseMatrixCSC{Float64}  # MethodError: no method matching zero(::Type{Any}), in ProjectTo(xs::SparseMatrixCSC{Any, Int64})
+        # MethodError: no method matching zero(::Type{Any}), in ProjectTo(xs::SparseMatrixCSC{Any, Int64})
+        @test_broken gradient(x -> real(sum(ComplexF32.(x) .+ 1 .+ im)), sm)[1] isa SparseMatrixCSC{Float64}
     end
 
     # https://github.com/FluxML/Zygote.jl/issues/1178
@@ -609,7 +552,7 @@ end
         getindex.(fs)
     end
     # wrong gradient: Evaluated: ([1.0, 1.0],) == ([2.0, 2.0],)
-    @test_broken gradient(sum∘f1179, ones(2)) == ([2.0, 2.0],)  # MethodError: no method matching one(::Base.RefValue{Float64})
+    @test_broken gradient(sum∘f1179, ones(2)) == ([2.0, 2.0],)
 end
 
 @testset "array +,-" begin
@@ -619,8 +562,145 @@ end
     # wrong gradient
     @test_broken jacobicheck(+, A, B, A)
     @test jacobicheck(-, A)
-    # in typeassert, expected Int64, got a value of type Nothing
-    @test_broken jacobicheck(-, A, B)
+    @test jacobicheck(-, A, B)
 end
 
+# 1666
+@testset "NoTangents" begin
+    # wrong gradient: Evaluated: (ZeroTangent(),) == (NoTangent(),)
+    @test_broken gradient(x->eachindex([10,20,30])[1], 11) == (NoTangent(),)
+
+    @test gradient(x -> findfirst(ismissing, x), [1, missing]) == (NoTangent(),)
+    @test gradient(x -> findlast(ismissing, x), [1, missing]) == (NoTangent(),)
+    @test gradient(x -> findall(ismissing, x)[1], [1, missing]) == (NoTangent(),)
+end
+
+# 1683
+@testset "fastmath" begin
+    # ERROR: MethodError: no method matching copy(::Nothing)
+    @test_broken gradient(x -> begin @fastmath sin(x) end, 1) == gradient(x -> sin(x), 1)
+    @test_broken gradient(x -> begin @fastmath tanh(x) end, 1) == gradient(x -> tanh(x), 1)
+    @test_broken gradient((x, y) -> begin @fastmath x*y end, 3, 2) == gradient((x, y) -> x*y, 3, 2)
+    @test_broken gradient(x -> begin @fastmath real(log(x)) end, 1 + 2im) == gradient(x -> real(log(x)), 1 + 2im)
+end
+
+# 1704
+@testset "rand" begin
+    @test gradient(x -> rand(), 1) == (ZeroTangent(),)
+    @test gradient(x -> sum(rand(4)), 1) == (ZeroTangent(),)
+    @test gradient(x -> sum(rand(Float32, (1,1))), 1) == (ZeroTangent(),)
+    @test gradient(x -> sum(randn(Float32, 1,1)), 1) == (ZeroTangent(),)
+    @test gradient(x -> sum(randexp(Float32, (1,1))), 1) == (ZeroTangent(),)
+
+    rng = Random.default_rng()
+    @test gradient(x -> sum(rand(rng, 4)), 1) == (ZeroTangent(),)
+    @test gradient(x -> sum(rand(rng, Float32, 1,1)), 1) == (ZeroTangent(),)
+    @test gradient(x -> sum(randn(rng, Float32, (1,1))), 1) == (ZeroTangent(),)
+    @test gradient(x -> sum(randexp(rng, Float32, 1,1)), 1) == (ZeroTangent(),)
+end
+
+# 1737
+@testset "broadcasted($op, Array, Bool)" for op in (+,-,*)
+    @testset "with $bool and sizes $s" for s in ((4,), (2,3)), bool in (true,false)
+        r = rand(Int8, s) .+ 0.0
+        z = fill(bool, s) .+ 0.0
+
+        fun(args...) = value_and_pullback((x, y) -> sum(op.(x,y)), args...)[1]
+        gfun(args...) = gradient((x, y) -> sum(op.(x,y)), args...)
+
+        @test fun(r, z) == fun(r, bool)
+        @test gfun(r, bool) == (gfun(r, z)[1], NoTangent())
+
+        @test fun(z, r) == fun(bool, r)
+        @test gfun(bool, r) == (NoTangent(), gfun(z, r)[2])
+    end
+end
+
+@testset "misc issues" begin
+
+    # https://github.com/FluxML/Zygote.jl/issues/957
+    @test gradcheck(x -> prod(Base.Fix1(+, 1), x), randn(10))
+    @test gradcheck(x -> prod(Base.Fix2(+, 1), x), randn(10))
+
+    # https://github.com/FluxML/Zygote.jl/issues/996
+    @test gradient(x->sum(x .+ rand.()), rand(3)) == (ones(3),)
+
+    # https://github.com/FluxML/Zygote.jl/pull/660
+    function example660(x,N)
+        ax = axes(x)
+        extraAxe = ax[2+N:end]
+        filledLoc = fill(1, N)
+        return x[:, filledLoc..., extraAxe...]
+    end
+    y, back = value_and_pullback(example660, randn(5,3,4,3), 2)
+    @test back(zero(y) .= 1)[1] isa Array{Float64,4}
+    @test back(zero(y) .= 1)[2] |> isZero
+
+    # https://github.com/JuliaDiff/ChainRulesCore.jl/issues/440
+    f440(x,y) = sum(sum, [[x[i],y[i]] for i=1:length(x)])
+    g440(x,y) = sum(sum, [(x[i],y[i]) for i=1:length(x)])
+    # MethodError: no method matching copy(::Nothing)
+    @test_broken gradient(f440, rand(3), rand(3)) == ([1.0, 1.0, 1.0], [1.0, 1.0, 1.0])
+    @test_broken gradient(g440, rand(3), rand(3)) == ([1.0, 1.0, 1.0], [1.0, 1.0, 1.0])
+
+@test_skip begin
+
+    # https://github.com/FluxML/Zygote.jl/issues/804
+    # Comprehension is used.
+    io = IOBuffer()
+    s = 0.0
+    gs = gradient([1.0, 2.0]) do xs   # UndefVarError: s not defined -> Rewrite reached intrinsic function bitcast. Missing rule?
+        sum([(print(io, x); s += x; s * x) for x in xs])
+    end
+    @test String(take!(io)) == "1.02.0"
+    @test s == 3.0
+    @test gs == ([4.0, 5.0],)
+
+    # Comprehension is not used.
+    io = IOBuffer()
+    s = 0.0
+    gs = gradient([1.0, 2.0]) do xs
+        sum([(print(io, x); s += x; s * x) for x in xs])
+        0.0
+    end
+    @test String(take!(io)) == "1.02.0"
+    @test s == 3.0
+    @test gs == (nothing,)
+
+    # Comprehension is empty and not used.
+    io = IOBuffer()
+    s = 0.0
+    gs = gradient([]) do xs
+        [(print(io, x); s += x; s * x) for x in xs]
+        0.0
+    end
+    @test String(take!(io)) == ""
+    @test s == 0.0
+    @test gs == (nothing,)
+
+end # skip
+
+end
+
+@testset "Zygote #1184" begin
+   n, d = 3, 2
+   x = [randn(d) for _ in 1:n]
+
+   g1184(x) = sum.((sin,), x)
+   h1184(x) = sum(abs2, g1184(x))
+   @test gradient(h1184, x)[1] isa typeof(x)
+end
+
+@testset "Zygote #1162" begin
+    function zygote1162(as, bs)
+        results = [f1162(a, b) for (a, b) in zip(as, bs)]
+        return results[2][1] + results[2][2]
+    end
+    f1162(a, b) = [a^2, b^2]
+
+    as = (1.0, 2.0, 3.0)
+    bs = (4.0, 5.0, 6.0)
+
+    # MethodError: no method matching copy(::Nothing)
+    @test_broken gradient(zygote1162, as, bs) == ((NoTangent(), 2*as[2], NoTangent()), (NoTangent(), 2*bs[2], NoTangent()))
 end

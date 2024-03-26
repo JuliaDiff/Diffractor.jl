@@ -48,4 +48,4 @@ end
     include("AbstractDifferentiation.jl")
 end
 
-end
+end # module Diffractor

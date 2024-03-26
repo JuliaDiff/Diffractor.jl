@@ -283,7 +283,7 @@ function optic_transform!(ci::CodeInfo, mi::MethodInstance, nargs::Int, N::Int)
     else
         linetable = Core.LineInfoNode[ci.linetable...]
         stmts = Core.Compiler.InstructionStream(code, type, info, ci.codelocs, flag)
-        ir = IRCode(stmts, cfg, debuginfo, argtypes, meta, sptypes(sparams))
+        ir = IRCode(stmts, cfg, linetable, argtypes, meta, sptypes(sparams))
     end
 
     # SSA conversion

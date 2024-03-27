@@ -1,5 +1,5 @@
-# Utilities that should probably go into Core.Compiler
-using Core.Compiler: IRCode, CFG, BasicBlock, BBIdxIter
+# Utilities that should probably go into CC
+using .CC: IRCode, CFG, BasicBlock, BBIdxIter
 
 function Base.push!(cfg::CFG, bb::BasicBlock)
     @assert cfg.blocks[end].stmts.stop+1 == bb.stmts.start
@@ -8,38 +8,40 @@ function Base.push!(cfg::CFG, bb::BasicBlock)
 end
 
 if VERSION < v"1.11.0-DEV.258"
-    Base.getindex(ir::IRCode, ssa::SSAValue) = Core.Compiler.getindex(ir, ssa)
+    Base.getindex(ir::IRCode, ssa::SSAValue) = CC.getindex(ir, ssa)
 end
 
-Base.copy(ir::IRCode) = Core.Compiler.copy(ir)
+Base.copy(ir::IRCode) = CC.copy(ir)
 
-Core.Compiler.NewInstruction(@nospecialize node) =
+CC.NewInstruction(@nospecialize node) =
     NewInstruction(node, Any, CC.NoCallInfo(), nothing, CC.IR_FLAG_REFINED)
 
-Base.setproperty!(x::Core.Compiler.Instruction, f::Symbol, v) =
-    Core.Compiler.setindex!(x, v, f)
+Base.setproperty!(x::CC.Instruction, f::Symbol, v) = CC.setindex!(x, v, f)
 
-Base.getproperty(x::Core.Compiler.Instruction, f::Symbol) =
-    Core.Compiler.getindex(x, f)
+Base.getproperty(x::CC.Instruction, f::Symbol) = CC.getindex(x, f)
 
 function Base.setindex!(ir::IRCode, ni::NewInstruction, i::Int)
     stmt = ir.stmts[i]
     stmt.inst = ni.stmt
     stmt.type = ni.type
     stmt.flag = something(ni.flag, 0)  # fixes 1.9?
-    stmt.line = something(ni.line, 0)
+    @static if VERSION ≥ v"1.12.0-DEV.173"
+        stmt.line = something(ni.line, CC.NoLineUpdate)
+    else
+        stmt.line = something(ni.line, 0)
+    end
     return ni
 end
 
 function Base.push!(ir::IRCode, ni::NewInstruction)
     # TODO: This should be a check in insert_node!
     @assert length(ir.new_nodes.stmts) == 0
-    @static if isdefined(Core.Compiler, :add!)
+    @static if isdefined(CC, :add!)
         # Julia 1.7 & 1.8
-        ir[Core.Compiler.add!(ir.stmts)] = ni
+        ir[CC.add!(ir.stmts)] = ni
     else
         # Re-named in https://github.com/JuliaLang/julia/pull/47051
-        ir[Core.Compiler.add_new_idx!(ir.stmts)] = ni
+        ir[CC.add_new_idx!(ir.stmts)] = ni
     end
     ir
 end
@@ -54,8 +56,8 @@ function Base.iterate(it::Iterators.Reverse{BBIdxIter},
     return (bb, idx - 1), (bb, idx - 1)
 end
 
-Base.lastindex(x::Core.Compiler.InstructionStream) =
-    Core.Compiler.length(x)
+Base.lastindex(x::CC.InstructionStream) =
+    CC.length(x)
 
 """
     find_end_of_phi_block(ir::IRCode, start_search_idx::Int)

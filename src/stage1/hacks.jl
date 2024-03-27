@@ -1,6 +1,7 @@
 # Updated copy of the same code in Base, but with bugs fixed
-using Core.Compiler: count_added_node!, NewSSAValue, add_pending!,
-    StmtRange, BasicBlock
+using Core.Compiler:
+    NewSSAValue, OldSSAValue, StmtRange, BasicBlock,
+    count_added_node!, add_pending!
 
 # Re-named in https://github.com/JuliaLang/julia/pull/47051
 const add! = Core.Compiler.add_inst!

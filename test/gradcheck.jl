@@ -36,7 +36,7 @@ gradcheck(f, dims...) = gradcheck(f, rand.(Float64, dims)...)
 @test gradcheck(dot, randn(3), rand(3))  # given multiple vectors
 @test gradcheck(dot, 3, 3)  # given multiple random vectors
 
-jacobicheck(f, xs::AbstractArray...) = f(xs...) isa Number ? gradcheck(f, xs...) : 
+jacobicheck(f, xs::AbstractArray...) = f(xs...) isa Number ? gradcheck(f, xs...) :
     gradcheck((xs...) -> sum(sin, f(xs...)), xs...)
 jacobicheck(f, dims...) = jacobicheck(f, randn.(Float64, dims)...)
 @test jacobicheck(identity, [1,2,3])  # one given array
@@ -104,26 +104,26 @@ end
     @test_broken jacobicheck(x -> sum(x, dims = (2, 3)), (3,4,5))
     @test_broken jacobicheck(x -> sum(abs2, x; dims=1), randn(4, 3, 2))
     @test_broken gradcheck(X -> sum(sum(x -> x^2, X; dims=1)), randn(10)) # issue #681
-  
+
     # Non-differentiable sum of booleans
     @test gradient(sum, [true, false, true]) == (NoTangent(),)
     @test gradient(x->sum(x .== 0.0), [1.2, 0.2, 0.0, -1.1, 100.0]) == (NoTangent(),)
-  
+
     # https://github.com/FluxML/Zygote.jl/issues/314
     @test gradient((x,y) -> sum(yi -> yi*x, y), 1, [1,1]) == (2, [1, 1])
     @test gradient((x,y) -> prod(yi -> yi*x, y), 1, [1,1]) == (2, [1, 1])
-  
+
     # AssertionError: Base.issingletontype(typeof(f))
     @test_broken gradient((x,y) -> sum(map(yi -> yi*x, y)), 1, [1,1]) == (2, [1, 1])
     @test_broken gradient((x,y) -> prod(map(yi -> yi*x, y)), 1, [1,1]) == (2, [1, 1])
-  
+
     @test gradcheck(x -> prod(x), (3,4))
     @test gradient(x -> prod(x), (1,2,3))[1] == (6,3,2)
 
     # MethodError: no method matching copy(::Nothing)
     @test_broken jacobicheck(x -> prod(x, dims = (2, 3)), (3,4,5))
 end
-  
+
 @testset "cumsum" begin
     @test jacobicheck(x -> cumsum(x), (4,))
 
@@ -263,7 +263,7 @@ end
 @testset "circshift" begin
     for D in 1:5
         x0 = zeros(ntuple(d->5, D))
-        g = gradient(x -> x[1], x0)[1] 
+        g = gradient(x -> x[1], x0)[1]
         shift = ntuple(_ -> rand(-5:5), D)
         @test gradient(x -> circshift(x, shift)[1], x0)[1] == circshift(g, map(-, shift))
     end
@@ -374,12 +374,12 @@ end
         @test_broken gradient(x -> sum(map(first, x)), [(1,2), (3,4)]) == ([(1.0, nothing), (1.0, nothing)],)
         T = Tangent{Tuple{Int64, Int64}}
         @test gradient(x -> sum(first, x), [(1,2), (3,4)]) == (T[T(1.0, ZeroTangent()), T(1.0, ZeroTangent())],)
-    
+
         @test gradient(x -> map(+, x, (1,2,3))[1], (4,5,6)) == (Tangent{Tuple{Int,Int,Int}}(1.0, ZeroTangent(), ZeroTangent()),)
         # MethodError: no method matching copy(::Nothing)
         @test_broken gradient(x -> map(+, x, [1,2,3])[1], (4,5,6)) == ((1.0, 0.0, 0.0),)
         @test_broken gradient(x -> map(+, x, (1,2,3))[1], [4,5,6]) == ([1,0,0],)
-    
+
         # mismatched lengths, should zip
         # MethodError: no method matching copy(::Nothing)
         @test_broken gradient(x -> map(+, x, [1,2,3,99])[1], (4,5,6)) == ((1.0, 0.0, 0.0),)
@@ -413,7 +413,7 @@ end
         end
         @test_broken gradient(x -> sum(map(*,x,(1,2,3))), rand(5)) == ([1,2,3,0,0],)
         @test_broken gradient(x -> sum(map(*,x,[1,2,3])), Tuple(rand(5))) == ((1.0, 2.0, 3.0, nothing, nothing),)
-      
+
         # mixed shapes
         # MethodError: no method matching length(::InplaceableThunk{...})
         @test_broken gradient((x,y) -> sum(map(*,x,y)), [1,2,3,4], [1 2; 3 4]) == ([1,3,2,4], [1 3; 2 4])
@@ -549,7 +549,7 @@ end
     catdim = (x...) -> cat(x..., dims = dim)
     @test_broken jacobicheck(catdim, rand(4,1))
     @test_broken jacobicheck(catdim, rand(5), rand(5,1))
-    @test_broken jacobicheck(catdim, rand(2,5), rand(2,5), rand(2,5)) 
+    @test_broken jacobicheck(catdim, rand(2,5), rand(2,5), rand(2,5))
 
     catdimval = (x...) -> cat(x...; dims = Val(dim))
     @test_broken jacobicheck(catdimval, rand(5), rand(5))
@@ -620,7 +620,7 @@ end
     @test_broken jacobicheck(+, A, B, A)
     @test jacobicheck(-, A)
     # in typeassert, expected Int64, got a value of type Nothing
-    @test_broken jacobicheck(-, A, B)
+    @test jacobicheck(-, A, B)
 end
 
 end

@@ -1,16 +1,24 @@
 # Codegen shared by both stage1 and stage2
 
-function make_opaque_closure(interp, typ, name, meth_nargs::Int, isva, lno, cis, revs...)
+function make_opaque_closure(interp, typ, name, meth_nargs::Int, isva, lno, ci, revs...)
     if interp !== nothing
-        cis.inferred = true
-        ocm = ccall(:jl_new_opaque_closure_from_code_info, Any, (Any, Any, Any, Any, Any, Cint, Any, Cint, Cint, Any),
-            typ, Union{}, cis.rettype, @__MODULE__, cis, lno.line, lno.file, meth_nargs, isva, ()).source
-        return Expr(:new_opaque_closure, typ, Union{}, Any,
-            ocm, revs...)
+        @static if VERSION ≥ v"1.12.0-DEV.15"
+            rettype = Any # ci.rettype # TODO revisit
+        else
+            ci.inferred = true
+            rettype = ci.rettype
+        end
+        @static if VERSION ≥ v"1.12.0-DEV.15"
+            ocm = Core.OpaqueClosure(ci; rettype, nargs=meth_nargs, isva, sig=typ).source
+        else
+            ocm = ccall(:jl_new_opaque_closure_from_code_info, Any, (Any, Any, Any, Any, Any, Cint, Any, Cint, Cint, Any),
+                typ, Union{}, rettype, @__MODULE__, ci, lno.line, lno.file, meth_nargs, isva, ()).source
+        end
+        return Expr(:new_opaque_closure, typ, Union{}, Any, ocm, revs...)
     else
         oc_nargs = Int64(meth_nargs)
         Expr(:new_opaque_closure, typ, Union{}, Any,
-            Expr(:opaque_closure_method, name, oc_nargs, isva, lno, cis), revs...)
+            Expr(:opaque_closure_method, name, oc_nargs, isva, lno, ci), revs...)
     end
 end
 
@@ -107,8 +115,12 @@ function diffract_ir!(ir, ci, meth, sparams::Core.SimpleVector, nargs::Int, N::I
             opaque_ci.slotnames = [Symbol("#oc#"), ci.slotnames...]
             opaque_ci.slotflags = UInt8[0, ci.slotflags...]
         end
-        opaque_ci.linetable = Core.LineInfoNode[ci.linetable[1]]
-        opaque_ci.inferred = false
+        @static if VERSION ≥ v"1.12.0-DEV.173"
+            opaque_ci.debuginfo = ci.debuginfo
+        else
+            opaque_ci.linetable = Core.LineInfoNode[ci.linetable[1]]
+            opaque_ci.inferred = false
+        end
         opaque_ci
     end
 
@@ -393,11 +405,16 @@ function diffract_ir!(ir, ci, meth, sparams::Core.SimpleVector, nargs::Int, N::I
             code = opaque_ci.code = expand_switch(code, bb_ranges, slot_map)
         end
 
-        opaque_ci.codelocs = Int32[0 for i=1:length(code)]
+        @static if VERSION ≥ v"1.12.0-DEV.173"
+            debuginfo = Core.Compiler.DebugInfoStream(nothing, opaque_ci.debuginfo, length(code))
+            debuginfo.def = :var"N/A"
+            opaque_ci.debuginfo = Core.DebugInfo(debuginfo, length(code))
+        else
+            opaque_ci.codelocs = Int32[0 for i=1:length(code)]
+        end
         opaque_ci.ssavaluetypes = length(code)
-        opaque_ci.ssaflags = UInt8[0 for i=1:length(code)]
+        opaque_ci.ssaflags = SSAFlagType[zero(SSAFlagType) for i=1:length(code)]
     end
-
 
     for nc = 2:2:n_closures
         fwds = Any[nothing for i = 1:length(ir.stmts)]
@@ -475,9 +492,15 @@ function diffract_ir!(ir, ci, meth, sparams::Core.SimpleVector, nargs::Int, N::I
             end
         end
 
-        opaque_ci.codelocs = Int32[0 for i=1:length(code)]
+        @static if VERSION ≥ v"1.12.0-DEV.173"
+            debuginfo = Core.Compiler.DebugInfoStream(nothing, opaque_ci.debuginfo, length(code))
+            debuginfo.def = :var"N/A"
+            opaque_ci.debuginfo = Core.DebugInfo(debuginfo, length(code))
+        else
+            opaque_ci.codelocs = Int32[0 for i=1:length(code)]
+        end
         opaque_ci.ssavaluetypes = length(code)
-        opaque_ci.ssaflags = UInt8[0 for i=1:length(code)]
+        opaque_ci.ssaflags = SSAFlagType[zero(SSAFlagType) for i=1:length(code)]
     end
 
     # TODO: This is absolutely aweful, but the best we can do given the data structures we have

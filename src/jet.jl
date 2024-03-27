@@ -104,7 +104,7 @@ function Base.show(io::IO, j::Jet)
 end
 
 function domain_check(j::Jet, x)
-    if j.a !== x
+    if j.a !== convert(typeof(j.a), x)
         throw(DomainError("Evaluation is only valid at a"))
     end
 end
@@ -153,11 +153,17 @@ function ChainRulesCore.rrule(j::Jet, x)
 end
 
 function ChainRulesCore.rrule(::typeof(map), ::typeof(*), a, b)
-    map(*, a, b), Δ->(NoTangent(), NoTangent(), map(*, Δ, b), map(*, a, Δ))
+    map(*, a, b), Δ->let Δ=unthunk(Δ)
+        isa(Δ, NoTangent) && return (NoTangent(), NoTangent(), NoTangent(), NoTangent())
+        (NoTangent(), NoTangent(), map(*, Δ, b), map(*, a, Δ))
+    end
 end
 
 ChainRulesCore.rrule(::typeof(map), ::typeof(integrate), js::Array{<:Jet}) =
-    map(integrate, js), Δ->(NoTangent(), NoTangent(), map(deriv, Δ))
+    map(integrate, js), Δ->let Δ=unthunk(Δ)
+    isa(Δ, NoTangent) && return (NoTangent(), NoTangent(), NoTangent())
+    (NoTangent(), NoTangent(), map(deriv, Δ))
+    end
 
 struct derivBack
     js
@@ -177,7 +183,10 @@ end
 
 function ChainRulesCore.rrule(::typeof(mapev), js::Array{<:Jet}, xs::AbstractArray)
     mapev(js, xs), let djs=map(deriv, js)
-        Δ->(NoTangent(), NoTangent(), map(*, unthunk(Δ), mapev(djs, xs)))
+        function (Δ)
+            isa(Δ, NoTangent) && return (NoTangent(), NoTangent(), NoTangent())
+            (NoTangent(), NoTangent(), map(*, unthunk(Δ), mapev(djs, xs)))
+        end
     end
 end
 

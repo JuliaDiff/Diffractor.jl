@@ -8,8 +8,12 @@ function make_opaque_closure(interp, typ, name, meth_nargs::Int, isva, lno, ci, 
             ci.inferred = true
             rettype = ci.rettype
         end
-        ocm = ccall(:jl_new_opaque_closure_from_code_info, Any, (Any, Any, Any, Any, Any, Cint, Any, Cint, Cint, Any),
-            typ, Union{}, rettype, @__MODULE__, ci, lno.line, lno.file, meth_nargs, isva, ()).source
+        @static if VERSION ≥ v"1.12.0-DEV.15"
+            ocm = Core.OpaqueClosure(ci; rettype, nargs=meth_nargs, isva, sig=typ).source
+        else
+            ocm = ccall(:jl_new_opaque_closure_from_code_info, Any, (Any, Any, Any, Any, Any, Cint, Any, Cint, Cint, Any),
+                typ, Union{}, rettype, @__MODULE__, ci, lno.line, lno.file, meth_nargs, isva, ()).source
+        end
         return Expr(:new_opaque_closure, typ, Union{}, Any, ocm, revs...)
     else
         oc_nargs = Int64(meth_nargs)

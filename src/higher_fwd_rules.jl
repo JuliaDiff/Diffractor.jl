@@ -4,17 +4,17 @@ using Base.Iterators
 
 function njet(::Val{N}, ::typeof(sin), x₀) where {N}
     (s, c) = sincos(x₀)
-    Jet(x₀, s, tuple(take(cycle((c, -s, -c, s)), N)...))
+    Jet(convert(typeof(s), x₀), s, tuple(take(cycle((c, -s, -c, s)), N)...))
 end
 
 function njet(::Val{N}, ::typeof(cos), x₀) where {N}
     (s, c) = sincos(x₀)
-    Jet(x₀, s, tuple(take(cycle((-s, -c, s, c)), N)...))
+    Jet(convert(typeof(s), x₀), s, tuple(take(cycle((-s, -c, s, c)), N)...))
 end
 
 function njet(::Val{N}, ::typeof(exp), x₀) where {N}
     exped = exp(x₀)
-    Jet(x₀, exped, tuple(take(repeated(exped), N)...))
+    Jet(convert(typeof(exped), x₀), exped, tuple(take(repeated(exped), N)...))
 end
 
 jeval(j, x) = j(x)

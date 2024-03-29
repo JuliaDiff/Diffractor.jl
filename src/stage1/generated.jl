@@ -12,6 +12,10 @@ function generate_lambda_ex(world::UInt, source::LineNumberNode,
     return stub(world, source, body)
 end
 
+struct NonTransformableError
+    args
+end
+
 function perform_optic_transform(world::UInt, source::LineNumberNode,
                                  @nospecialize(ff::Type{∂⃖recurse{N}}), @nospecialize(args)) where {N}
     @assert N >= 1
@@ -28,6 +32,17 @@ function perform_optic_transform(world::UInt, source::LineNumberNode,
 
     mi = Core.Compiler.specialize_method(match)
     ci = Core.Compiler.retrieve_code_info(mi, world)
+    if ci === nothing
+        # Failed to retrieve source - likely a generated function that errors.
+        # To aid the user in debugging, run the original call in the forward pass and if that
+        # does not error, do our own error message afterwards.
+        return generate_lambda_ex(world, source,
+            Core.svec(:ff, :args), Core.svec(),
+            quote
+                args[1](args[2:end]...)
+                throw($(NonTransformableError)(args))
+            end)
+    end
 
     return optic_transform(ci, mi, length(args)-1, N)
 end

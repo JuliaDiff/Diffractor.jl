@@ -290,7 +290,7 @@ function forward_diff_no_inf!(ir::IRCode, to_diff::Vector{Pair{SSAValue,Int}};
                 end
                 replace_call!(ir, SSAValue(ssa), Expr(:call, ∂☆{order, eras_mode}(), newargs...))
             elseif isexpr(stmt, :call) || isexpr(stmt, :new)
-                newargs = map(stmt.args) do @nospecialize argq
+                newargs = map(stmt.args) do @nospecialize arg
                     maparg(arg, SSAValue(ssa), order)
                 end
                 f = isexpr(stmt, :call) ? ∂☆{order, eras_mode}() : ∂☆new{order}()

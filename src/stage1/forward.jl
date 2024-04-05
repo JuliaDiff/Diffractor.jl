@@ -309,16 +309,16 @@ end
 struct FwdMap{N, E, T<:AbstractTangentBundle{N}}
     f::T
 end
-FwdMap{E}(f::T) where {N, E, T<:AbstractTangentBundle{N}} = FwdMap{N,E,T}(f)
+FwdMap{N,E}(f::T) where {N, E, T<:AbstractTangentBundle{N}} = FwdMap{N,E,T}(f)
 (f::FwdMap{N,E})(args::AbstractTangentBundle{N}...) where {N,E} = ∂☆{N,E}()(f.f, args...)
 
 function (::∂☆{N,E})(::AbstractZeroBundle{N, typeof(map)}, f::ATB{N}, tup::TaylorBundle{N, <:Tuple}) where {N,E}
-    ∂vararg{N}()(map(FwdMap{E}(f), destructure(tup))...)
+    ∂vararg{N}()(map(FwdMap{N, E}(f), destructure(tup))...)
 end
 
 function (::∂☆{N,E})(::AbstractZeroBundle{N, typeof(map)}, f::ATB{N}, args::ATB{N, <:AbstractArray}...) where {N,E}
     # TODO: This could do an inplace map! to avoid the extra rebundling
-    rebundle(map(FwdMap{E}(f), map(unbundle, args)...))
+    rebundle(map(FwdMap{N,E}(f), map(unbundle, args)...))
 end
 
 function (::∂☆{N,E})(::AbstractZeroBundle{N, typeof(map)}, f::ATB{N}, args::ATB{N}...) where {N, E}

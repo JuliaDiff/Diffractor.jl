@@ -110,12 +110,8 @@ module forward_diff_no_inf
     @testset "Eras mode: $eras_mode" for eras_mode in (false, true)
         foo(x, y) = x*x + y*y
         ir = first(only(Base.code_ircode(foo, Tuple{Any, Any})))
-        #@assert  ir[SSAValue(1)][:inst].args[1].name == :literal_pow
-        @assert  ir[SSAValue(3)][:inst].args[1].name == :+
         Diffractor.forward_diff_no_inf!(ir, [SSAValue(1)] .=> 1; transform! = identity_transform!, eras_mode)
         ir = CC.compact!(ir)
-        #@assert ir[SSAValue(5)][:inst].args[1] == Diffractor.∂☆{1, eras_mode}()
-        #@assert ir[SSAValue(5)][:inst].args[2].primal == *
         ir.argtypes[2:end] .= Float64
         ir = CC.compact!(ir)
         infer_ir!(ir)

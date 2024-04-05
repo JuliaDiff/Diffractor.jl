@@ -221,7 +221,7 @@ for V in (false, true)
 end
 
 function ChainRulesCore.frule_via_ad(::DiffractorRuleConfig, partials, args...)
-    bundles = map(bundle, partials, args)
+    bundles = map(bundle, args, partials)
     result = ∂☆internal{1,false}()(bundles...)
     primal(result), first_partial(result)
 end

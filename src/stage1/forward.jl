@@ -258,7 +258,7 @@ end
 # Converts nested AD into Taylor AD (in Eras mode only)
 # Note: It does not matter if the inner ∂☆recurse was Eras mode or not, only the outer ∂☆.
 # TODO: Generalize to N,M
-@inline function (::∂☆{1,true})(rec::AbstractZeroBundle{1, ∂☆recurse{1}}, args::ATB{1}...)
+@inline function (::∂☆{1,true})(rec::AbstractZeroBundle{1, <:∂☆recurse{1}}, args::ATB{1}...)
     return shuffle_down_bundle(∂☆recurse{2,true}()(map(shuffle_up_bundle, args)...))
 end
 

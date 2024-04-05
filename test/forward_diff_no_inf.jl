@@ -4,6 +4,9 @@ module forward_diff_no_inf
     const CC = Core.Compiler
 
     using Diffractor, Test
+
+    ##################### Helpers:
+
     # this is needed as transform! is *always* called on Arguments regardless of what visit_custom says
     identity_transform!(ir, ssa::SSAValue, order, _) = ir[ssa]
     function identity_transform!(ir, arg::Core.Argument, order, _)
@@ -28,7 +31,23 @@ module forward_diff_no_inf
         (rt, nothrow) = CC._ir_abstract_constant_propagation(interp, irsv)
         return rt
     end
-    
+
+    function isfully_inferred(ir)
+        for stmt in ir.stmts
+            inst = stmt[:inst]
+            if Meta.isexpr(inst, :call) || Meta.isexpr(inst, :invoke)
+                typ = stmt[:type]
+                !isa(typ, Type) && continue  # If not a Type then something even more informed like a Const
+                if isabstracttype(typ) || typ <: Union || typ <: UnionAll
+                    #@error "Not fully inferred" inst typ
+                    return false
+                end
+            end
+        end
+        return true
+    end
+
+    ############################### Actual tests:
    
     @testset "Constructors in forward_diff_no_inf!" begin
         struct Bar148
@@ -88,10 +107,8 @@ module forward_diff_no_inf
         @test f(3.5) == 3.5  # this will segfault if we are not handling phi nodes correctly
     end
 
-    @testset "Eras mode" begin
+    @testset "Eras mode: $eras_mode" for eras_mode in (false, true)
         foo(x, y) = x*x + y*y
-        # Eras mode should make this all inferable
-        eras_mode = true
         ir = first(only(Base.code_ircode(foo, Tuple{Any, Any})))
         #@assert  ir[SSAValue(1)][:inst].args[1].name == :literal_pow
         @assert  ir[SSAValue(3)][:inst].args[1].name == :+
@@ -100,14 +117,23 @@ module forward_diff_no_inf
         #@assert ir[SSAValue(5)][:inst].args[1] == Diffractor.∂☆{1, eras_mode}()
         #@assert ir[SSAValue(5)][:inst].args[2].primal == *
         ir.argtypes[2:end] .= Float64
-        infer_ir!(ir)
-        
-        Diffractor.forward_diff_no_inf!(ir, [SSAValue(3)] .=> 1; transform! = identity_transform!, eras_mode=eras_mode)
-        # TODO actually test things here.
-
-
         ir = CC.compact!(ir)
+        infer_ir!(ir)
         CC.verify_ir(ir)
-        infer_ir!(ir)        
+        @test isfully_inferred(ir)  # passes with and without eras mode
+        
+        Diffractor.forward_diff_no_inf!(ir, [SSAValue(3)] .=> 1; transform! = identity_transform!, eras_mode)      
+        ir = CC.compact!(ir)
+        infer_ir!(ir)
+
+        CC.verify_ir(ir)
+        if eras_mode
+            @test isfully_inferred(ir)
+        else
+            # if this passes outside era mode then this test is wrong
+            @assert !isfully_inferred(ir)
+        end
     end
-end
+
+end  # module
+

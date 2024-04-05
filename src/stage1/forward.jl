@@ -74,47 +74,62 @@ function taylor_failure_values(r::TaylorBundle{<:Any, Tuple{Any,Any}}, fail_orde
     return partial(r, i+1)[1], partial(r, i)[2]
 end
 
-function shuffle_up(r::TaylorBundle{1, Tuple{B1,B2}}, ::Val{taylor_or_bust}) where {B1,B2, taylor_or_bust}
-    z₀ = primal(r)[1]
-    z₁ = partial(r, 1)[1]
-    z₂ = primal(r)[2]
-    z₁₂ = partial(r, 1)[2]
+for taylor_or_bust in (false, true)
+    @eval function shuffle_up(r::TaylorBundle{1, Tuple{B1,B2}}, ::Val{$taylor_or_bust}) where {B1,B2}
+        z₀ = primal(r)[1]
+        z₁ = partial(r, 1)[1]
+        z₂ = primal(r)[2]
+        z₁₂ = partial(r, 1)[2]
 
-    taylor_fail_order = find_taylor_incompatibility(r)
-    if  taylor_fail_order < 0
-        return TaylorBundle{2}(z₀, (z₁, z₁₂))
-    elseif taylor_or_bust
-        @assert taylor_fail_order == 0  # can't be higher
-        throw(TaylorRequired(taylor_fail_order, z₁, z₂))
-    else
-        return ExplicitTangentBundle{2}(z₀, (z₁, z₂, z₁₂))
-    end
-end
-
-function shuffle_up(r::TaylorBundle{N, Tuple{B1,B2}}, ::Val{taylor_or_bust}) where {N, B1,B2, taylor_or_bust}
-    the_primal = primal(r)[1]
-    taylor_fail_order = find_taylor_incompatibility(r)
-    if taylor_fail_order(r) < 0
-        the_partials = ntuple(N+1) do i
-            if i <= N
-                partial(r, i)[1]  # == `partial(r,i-1)[2]` (except first which is primal(r)[2])
-            else  # ii = N+1
-                partial(r, i-1)[2]
-            end
+        taylor_fail_order = find_taylor_incompatibility(r)
+        if  taylor_fail_order < 0
+            return TaylorBundle{2}(z₀, (z₁, z₁₂))
+        else
+            $(
+                if taylor_or_bust
+                    quote
+                        @assert taylor_fail_order == 0  # can't be higher
+                        throw(TaylorRequired(taylor_fail_order, z₁, z₂))
+                    end
+                else
+                    :(return ExplicitTangentBundle{2}(z₀, (z₁, z₂, z₁₂)))
+                end
+            )
         end
-        return TaylorBundle{N+1}(the_primal, the_partials)
-    elseif taylor_or_bust
-        @assert taylor_fail_order < N
-        throw(TaylorRequired(taylor_fail_order, taylor_failure_values(r, taylor_fail_order)...))
-    else
-        #XXX: am dubious of the correctness of this
-        a_partials = ntuple(i->partial(r, i)[1], N)
-        b_partials = ntuple(i->partial(r, i)[2], N)
-        the_partials = (a_partials..., primal_b, b_partials...)
-        return TangentBundle{N+1}(the_primal, the_partials)
+    end
+
+    @eval function shuffle_up(r::TaylorBundle{N, Tuple{B1,B2}}, ::Val{$taylor_or_bust}) where {N, B1,B2}
+        the_primal = primal(r)[1]
+        taylor_fail_order = find_taylor_incompatibility(r)
+        if taylor_fail_order(r) < 0
+            the_partials = ntuple(N+1) do i
+                if i <= N
+                    partial(r, i)[1]  # == `partial(r,i-1)[2]` (except first which is primal(r)[2])
+                else  # ii = N+1
+                    partial(r, i-1)[2]
+                end
+            end
+            return TaylorBundle{N+1}(the_primal, the_partials)
+        else
+            $(
+                if taylor_or_bust
+                    quote
+                        @assert taylor_fail_order < N
+                        throw(TaylorRequired(taylor_fail_order, taylor_failure_values(r, taylor_fail_order)...))
+                    end
+                else
+                    quote
+                        #XXX: am dubious of the correctness of this
+                        a_partials = ntuple(i->partial(r, i)[1], N)
+                        b_partials = ntuple(i->partial(r, i)[2], N)
+                        the_partials = (a_partials..., primal_b, b_partials...)
+                        return TangentBundle{N+1}(the_primal, the_partials)
+                    end
+                end
+            )
+        end
     end
 end
-
 
 function shuffle_up(r::UniformBundle{N, B, U}, _::Val) where {N, B, U}
     (a, b) = primal(r)

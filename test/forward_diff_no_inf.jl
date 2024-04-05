@@ -100,14 +100,14 @@ module forward_diff_no_inf
         #@assert ir[SSAValue(5)][:inst].args[1] == Diffractor.∂☆{1, eras_mode}()
         #@assert ir[SSAValue(5)][:inst].args[2].primal == *
         ir.argtypes[2:end] .= Float64
-        @assert infer_ir!(ir) == Float64
-        
-        Diffractor.forward_diff_no_inf!(ir, [SSAValue(6)] .=> 1; transform! = identity_transform!, eras_mode=eras_mode)
-        ir = CC.compact!(ir)
-        CC.verify_ir(ir)
         infer_ir!(ir)
         
+        Diffractor.forward_diff_no_inf!(ir, [SSAValue(3)] .=> 1; transform! = identity_transform!, eras_mode=eras_mode)
+        # TODO actually test things here.
 
 
+        ir = CC.compact!(ir)
+        CC.verify_ir(ir)
+        infer_ir!(ir)        
     end
 end

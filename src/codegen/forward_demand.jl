@@ -290,10 +290,10 @@ function forward_diff_no_inf!(ir::IRCode, to_diff::Vector{Pair{SSAValue,Int}};
                 end
                 replace_call!(ir, SSAValue(ssa), Expr(:call, ∂☆{order, eras_mode}(), newargs...))
             elseif isexpr(stmt, :call) || isexpr(stmt, :new)
-                newargs = map(stmt.args) do @nospecialize arg
+                newargs = map(stmt.args) do @nospecialize argq
                     maparg(arg, SSAValue(ssa), order)
                 end
-                f = isexpr(stmt, :call) ? ∂☆{order, eras_mode}() : ∂☆new{order, eras_mode}()
+                f = isexpr(stmt, :call) ? ∂☆{order, eras_mode}() : ∂☆new{order}()
                 replace_call!(ir, SSAValue(ssa), Expr(:call, f, newargs...))
             elseif isa(stmt, PiNode)
                 # TODO: New PiNode that discriminates based on primal?

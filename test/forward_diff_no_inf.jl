@@ -1,6 +1,6 @@
 
 module forward_diff_no_inf
-    using Core.Compiler: SSAValue
+    using Core: SSAValue
     const CC = Core.Compiler
 
     using Diffractor, Test
@@ -20,7 +20,14 @@ module forward_diff_no_inf
         mi.specTypes = Tuple{map(CC.widenconst, ir.argtypes)...}
         mi.def = @__MODULE__
 
-        for i in 1:length(ir.stmts)  # For testuing purposes we are going to refine everything
+        for i in 1:length(ir.stmts)
+            inst = ir[SSAValue(i)][:inst]
+            if Meta.isexpr(inst, :code_coverage_effect)
+                # delete these as CC._ir_abstract_constant_propagation doesn't work on them
+                ir[SSAValue(i)][:inst] = nothing
+                ir[SSAValue(i)][:type] = Nothing
+            end
+            # For testing purposes we are going to refine everything else
             ir[SSAValue(i)][:flag] |= CC.IR_FLAG_REFINED
         end
     
@@ -39,12 +46,26 @@ module forward_diff_no_inf
                 typ = stmt[:type]
                 !isa(typ, Type) && continue  # If not a Type then something even more informed like a Const
                 if isabstracttype(typ) || typ <: Union || typ <: UnionAll
-                    #@error "Not fully inferred" inst typ
+#                    @error "Not fully inferred" inst typ
                     return false
                 end
             end
         end
         return true
+    end
+
+    function findfirst_ssa(predicate, ir)
+        for ii in 1:length(ir.stmts)
+            try
+                inst = ir[SSAValue(ii)][:inst]
+                if predicate(inst)
+                    return SSAValue(ii)
+                end
+            catch 
+                # ignore errors so predicate can be simple
+            end
+        end
+        return nothing
     end
 
     ############################### Actual tests:
@@ -108,21 +129,22 @@ module forward_diff_no_inf
     end
 
     #only test this on new enough julia versions as exactly what infers can be fussy, as is running inference manually
-    VERSION >= v"1.12.0-DEV.283"&& @testset "Eras mode: $eras_mode" for eras_mode in (false, true)
+    VERSION >= v"1.12.0-DEV.283" && @testset "Eras mode: $eras_mode" for eras_mode in (false, true)
         foo(x, y) = x*x + y*y
         ir = first(only(Base.code_ircode(foo, Tuple{Any, Any})))
-        Diffractor.forward_diff_no_inf!(ir, [SSAValue(1)] .=> 1; transform! = identity_transform!, eras_mode)
+        mul1_ssa = findfirst_ssa(x->x.args[1].name==:*, ir)
+        Diffractor.forward_diff_no_inf!(ir, [mul1_ssa] .=> 1; transform! = identity_transform!, eras_mode)
         ir = CC.compact!(ir)
         ir.argtypes[2:end] .= Float64
         ir = CC.compact!(ir)
         infer_ir!(ir)
         CC.verify_ir(ir)
         @test isfully_inferred(ir)  # passes with and without eras mode
-        
-        Diffractor.forward_diff_no_inf!(ir, [SSAValue(3)] .=> 1; transform! = identity_transform!, eras_mode)      
+
+        add_ssa = findfirst_ssa(x->x.args[1].name==:+, ir)
+        Diffractor.forward_diff_no_inf!(ir, [add_ssa] .=> 1; transform! = identity_transform!, eras_mode)      
         ir = CC.compact!(ir)
         infer_ir!(ir)
-
         CC.verify_ir(ir)
         if eras_mode
             @test isfully_inferred(ir)
@@ -131,6 +153,5 @@ module forward_diff_no_inf
             @assert !isfully_inferred(ir)
         end
     end
-
 end  # module
 

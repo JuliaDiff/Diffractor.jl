@@ -107,7 +107,8 @@ module forward_diff_no_inf
         @test f(3.5) == 3.5  # this will segfault if we are not handling phi nodes correctly
     end
 
-    @testset "Eras mode: $eras_mode" for eras_mode in (false, true)
+    #only test this on new enough julia versions as exactly what infers can be fussy, as is running inference manually
+    VERSION >= v"1.12.0-DEV.283"&& @testset "Eras mode: $eras_mode" for eras_mode in (false, true)
         foo(x, y) = x*x + y*y
         ir = first(only(Base.code_ircode(foo, Tuple{Any, Any})))
         Diffractor.forward_diff_no_inf!(ir, [SSAValue(1)] .=> 1; transform! = identity_transform!, eras_mode)

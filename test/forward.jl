@@ -1,6 +1,7 @@
 module forward_tests
 using Diffractor
-using Diffractor: TaylorBundle, ZeroBundle, ∂☆
+using Diffractor: TaylorBundle, ZeroBundle, DNEBundle, ∂☆
+using Diffractor: first_partial, primal
 using ChainRules
 using ChainRulesCore
 using ChainRulesCore: ZeroTangent, NoTangent, frule_via_ad, rrule_via_ad
@@ -172,6 +173,32 @@ end
     end
 end
 
+
+@testset "custom number types" begin
+    struct CustomNumber <: Number
+        val::Float64
+    end
+
+    double_and_custom_num(x) = CustomNumber(2.0*x)
+    let var"'" = Diffractor.PrimeDerivativeFwd
+        @test double_and_custom_num'(100.0) == CustomNumber(2.0)
+    end
+end
+
+@testset "custom array type" begin  
+    struct MyLittleStaticVector{N, T} <: AbstractVector{T}
+        val::NTuple{N, T}
+    end
+    Base.size(::MyLittleStaticVector{N}) where N = (N,)
+    Base.getindex(x::MyLittleStaticVector, ii::Int) = x.val[ii]
+    
+    once_twice_three_times(x) = MyLittleStaticVector((x, 2x, 3x))
+    @assert once_twice_three_times(10.0) == MyLittleStaticVector((10.0, 20.0, 30.0))
+    
+    🥯 = ∂☆{1}()(DNEBundle{1}(once_twice_three_times), TaylorBundle{1}(10.0, (1.0,)))
+    @test primal(🥯) = MyLittleStaticVector((10.0, 20.0, 30.0))
+    @test first_partial(🥯) == MyLittleStaticVector((1.0, 2.0, 3.0))
+end
 
 @testset "taylor_compatible" begin
     taylor_compatible = Diffractor.taylor_compatible

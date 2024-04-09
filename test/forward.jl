@@ -227,4 +227,42 @@ end
     end
 end
 
+@testset "frule with kwarg" begin
+    mulby_kw(v; n) = n*v
+    triple(v) = mulby_kw(v; n=3)
+    frule_hits = 0
+    function ChainRulesCore.frule((_, dv), ::typeof(mulby_kw), v; n)
+        y = mulby_kw(v; n)
+        dy = n*dv
+        frule_hits +=1
+        return y, dy
+    end
+
+    let var"'" = Diffractor.PrimeDerivativeFwd
+        @assert frule_hits == 0
+        @test triple'(2.0) == 3.0
+        @test frule_hits == 1
+    end
+
+    mulby_kw2(v; n) = n*v
+    square(v) = mulby_kw2(v; n=v)
+    frule_hits = 0
+    function ChainRulesCore.frule((_, dkw, _, dv), ::typeof(Core.kwcall), kw, ::typeof(mulby_kw2), v)
+        n = kw.n
+        dn = dkw.n
+        y = mulby_kw2(v; n)
+        dy = n*dv + dn*v
+        frule_hits +=1
+        return y, dy
+    end
+
+    let var"'" = Diffractor.PrimeDerivativeFwd
+        @assert frule_hits == 0
+        @test square'(3.0) == 6.0
+        @test frule_hits == 1
+    end
+end
+
 end  # module
+
+

@@ -25,13 +25,28 @@ const ∂⃖¹ = ∂⃖{1}()
 (::Type{∂⃖})(args...) = ∂⃖¹(args...)
 
 """
-    ∂☆{N}
+    ∂☆{N,E}
 
-∂☆{N} is the forward-mode AD functor of order `N`. A call
+∂☆{N} is the forward-mode AD functor of order `N` (An integer). A call
 `(::∂☆{N})(f, args...)` evaluating a function `f: A -> B` is lifted to its
 pushforward on the N-th order tangent bundle `f⋆: Tⁿ A -> Tⁿ B`.
+
+
+!!!advanced "Eras Mode"
+    E (a bool, default false) is for Eras mode. In Eras mode, we are Taylor or bust.
+    Normally if a particular derivative can not be represented as a `TaylorBundle` 
+    we fall back and represent it as a `ExplictTangentBundle`.
+    However, in Eras mode we error if it can't be represented as a TaylorBundle.
+    In general, this is not wanted since it often will break nested AD.
+    But in the cases it doesn't its really fast, since it means we can rewrite nested AD
+    as Taylor-mode AD (plus its more type stable).
+    To be safe in Eras mode, it is sufficient, but not necessary, to be doing nested AD with
+    respect to the same variable. It also works in other cases where (likely by problem construction)
+    ADing with respect to a second variable happens to result in something that can be represented
+    with a `TaylorBundle` also. (You need your different partials to happen to be exactly equal).
 """
-struct ∂☆{N}; end
+struct ∂☆{N, E}; end
+∂☆{N}() where N = ∂☆{N,false}()  # default to not using Era mode
 const ∂☆¹ = ∂☆{1}()
 
 """

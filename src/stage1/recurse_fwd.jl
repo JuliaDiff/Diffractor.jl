@@ -1,4 +1,3 @@
-struct ∂☆recurse{N}; end
 
 struct ∂vararg{N}; end
 
@@ -73,13 +72,13 @@ function ∂☆builtin((f_bundle, args...))
     throw(DomainError(f, "No `ChainRulesCore.frule` found for the built-in function `$sig`"))
 end
 
-function fwd_transform(ci::CodeInfo, args...)
+function fwd_transform(ci, mi, nargs, N, E)
     newci = copy(ci)
-    fwd_transform!(newci, args...)
+    fwd_transform!(newci, mi, nargs, N, E)
     return newci
 end
 
-function fwd_transform!(ci::CodeInfo, mi::MethodInstance, nargs::Int, N::Int)
+function fwd_transform!(ci::CodeInfo, mi::MethodInstance, nargs::Int, N::Int, E)
     new_code = Any[]
     @static if VERSION ≥ v"1.12.0-DEV.173"
         debuginfo = Core.Compiler.DebugInfoStream(mi, ci.debuginfo, length(ci.code))
@@ -113,7 +112,7 @@ function fwd_transform!(ci::CodeInfo, mi::MethodInstance, nargs::Int, N::Int)
             args = map(stmt.args) do stmt
                 emit!(mapstmt!(stmt))
             end
-            return Expr(:call, ∂☆{N}(), args...)
+            return Expr(:call, ∂☆{N, E}(), args...)
         elseif isexpr(stmt, :new)
             args = map(stmt.args) do stmt
                 emit!(mapstmt!(stmt))
@@ -123,7 +122,7 @@ function fwd_transform!(ci::CodeInfo, mi::MethodInstance, nargs::Int, N::Int)
             args = map(stmt.args) do stmt
                 emit!(mapstmt!(stmt))
             end
-            return Expr(:call, Core._apply_iterate, FwdIterate(DNEBundle{N}(iterate)), ∂☆new{N}(), emit!(Expr(:call, tuple, args[1])), args[2:end]...)
+            return Expr(:call, Core._apply_iterate, FwdIterate{E}(DNEBundle{N}(iterate)), ∂☆new{N}(), emit!(Expr(:call, tuple, args[1])), args[2:end]...)
         elseif isa(stmt, SSAValue)
             return SSAValue(ssa_mapping[stmt.id])
         elseif isa(stmt, Core.SlotNumber)
@@ -215,7 +214,7 @@ function fwd_transform!(ci::CodeInfo, mi::MethodInstance, nargs::Int, N::Int)
 end
 
 function perform_fwd_transform(world::UInt, source::LineNumberNode,
-                               @nospecialize(ff::Type{∂☆recurse{N}}), @nospecialize(args)) where {N}
+                               @nospecialize(ff::Type{∂☆recurse{N,E}}), @nospecialize(args)) where {N,E}
     if all(x->x <: ZeroBundle, args)
         return generate_lambda_ex(world, source,
             Core.svec(:ff, :args), Core.svec(), :(∂☆passthrough(args)))
@@ -238,7 +237,7 @@ function perform_fwd_transform(world::UInt, source::LineNumberNode,
     mi = Core.Compiler.specialize_method(match)
     ci = Core.Compiler.retrieve_code_info(mi, world)
 
-    return fwd_transform(ci, mi, length(args)-1, N)
+    return fwd_transform(ci, mi, length(args)-1, N, E)
 end
 
 @eval function (ff::∂☆recurse)(args...)

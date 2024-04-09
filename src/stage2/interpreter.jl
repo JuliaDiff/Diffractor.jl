@@ -15,21 +15,12 @@ Cthulhu.get_cursor(c::ADCursor, cs::Cthulhu.Callsite) = Cthulhu.get_cursor(c, cs
 Cthulhu.get_cursor(c::ADCursor, callinfo) = ADCursor(c.level, Cthulhu.get_mi(callinfo))
 =#
 
-
 struct ADGraph
     code::OffsetVector{Dict{MethodInstance, Any}}
     msgs::Vector{Tuple{Int, MethodInstance, Int, String}}
     entry_mi::MethodInstance
 end
 entrypoint(graph::ADGraph) = ADCursor(0, graph.entry_mi)
-
-#=
-Compiler3.has_codeinfo(graph::ADGraph, cursor::ADCursor) =
-    lastindex(graph.code) >= cursor.level && haskey(graph.code[cursor.level], cursor.mi)
-function Compiler3.get_codeinstance(graph::ADGraph, cursor::ADCursor)
-    return graph.code[cursor.level][cursor.mi]
-end
-=#
 
 using Core: MethodInstance, CodeInstance
 using .CC: AbstractInterpreter, ArgInfo, Effects, InferenceResult, InferenceState,
@@ -275,23 +266,17 @@ CC.may_compress(ei::ADInterpreter) = false
 CC.may_discard_trees(ei::ADInterpreter) = false
 
 function CC.add_remark!(interp::ADInterpreter, sv::InferenceState, msg)
-    key = CC.any(sv.result.overridden_by_const) ? sv.result : sv.linfo
+    key = (@static VERSION ≥ v"1.12.0-DEV.317" ? CC.is_constproped(sv) : CC.any(sv.result.overridden_by_const)) ? sv.result : sv.linfo
     push!(get!(Cthulhu.PC2Remarks, interp.remarks[interp.current_level], key), sv.currpc=>msg)
 end
 
 # TODO: `get_remarks` should get a cursor?
 Cthulhu.get_remarks(interp::ADInterpreter, key::Union{MethodInstance,InferenceResult}) = get(interp.remarks[interp.current_level], key, nothing)
 
-#=
-function CC.const_prop_heuristic(interp::AbstractInterpreter, method::Method, mi::MethodInstance)
-    return true
-end
-=#
-
-function CC.finish(state::InferenceState, interp::ADInterpreter)
-    res = @invoke CC.finish(state::InferenceState, interp::AbstractInterpreter)
-    key = CC.any(state.result.overridden_by_const) ? state.result : state.linfo
-    interp.unopt[interp.current_level][key] = Cthulhu.InferredSource(state)
+function CC.finish(sv::InferenceState, interp::ADInterpreter)
+    res = @invoke CC.finish(sv::InferenceState, interp::AbstractInterpreter)
+    key = (@static VERSION ≥ v"1.12.0-DEV.317" ? CC.is_constproped(sv) : CC.any(sv.result.overridden_by_const)) ? sv.result : sv.linfo
+    interp.unopt[interp.current_level][key] = Cthulhu.InferredSource(sv)
     return res
 end
 

@@ -1,14 +1,14 @@
-partial(x::TangentBundle, i) = partial(getfield(x, :tangent), i)
-partial(x::ExplicitTangent, i) = getfield(getfield(x, :partials), i)
-partial(x::TaylorTangent, i) = getfield(getfield(x, :coeffs), i)
-partial(x::UniformTangent, i) = getfield(x, :val)
-partial(x::AbstractZero, i) = x
+@inline partial(x::TangentBundle, i) = partial(getfield(x, :tangent), i)
+@inline partial(x::ExplicitTangent, i) = getfield(getfield(x, :partials), i)
+@inline partial(x::TaylorTangent, i) = getfield(getfield(x, :coeffs), i)
+@inline partial(x::UniformTangent, i) = getfield(x, :val)
+@inline partial(x::AbstractZero, i) = x
 
 
-primal(x::AbstractTangentBundle) = x.primal
-primal(z::ZeroTangent) = ZeroTangent()
+@inline primal(x::AbstractTangentBundle) = x.primal
+@inline primal(z::ZeroTangent) = ZeroTangent()
 
-first_partial(x) = partial(x, 1)
+@inline first_partial(x) = partial(x, 1)
 
 shuffle_down(b::UniformBundle{N, B, U}) where {N, B, U} =
     UniformBundle{N-1}(UniformBundle{1, B}(b.primal, b.tangent.val),

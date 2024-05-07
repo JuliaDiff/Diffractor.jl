@@ -111,9 +111,17 @@ function diffract_ir!(ir, ci, meth, sparams::Core.SimpleVector, nargs::Int, N::I
         if nc % 2 == 1
             opaque_ci.slotnames = Symbol[Symbol("#self#"), :Δ]
             opaque_ci.slotflags = UInt8[0, 0]
+            if isdefined(Base, :__has_internal_change) && Base.__has_internal_change(v"1.12-alpha", :codeinfonargs)
+                opaque_ci.nargs = 2
+                opaque_ci.isva = false
+            end
         else
             opaque_ci.slotnames = [Symbol("#oc#"), ci.slotnames...]
             opaque_ci.slotflags = UInt8[0, ci.slotflags...]
+            if isdefined(Base, :__has_internal_change) && Base.__has_internal_change(v"1.12-alpha", :codeinfonargs)
+                opaque_ci.nargs = 1 + ci.nargs
+                opaque_ci.isva = ci.isva
+            end
         end
         @static if VERSION ≥ v"1.12.0-DEV.173"
             opaque_ci.debuginfo = ci.debuginfo

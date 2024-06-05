@@ -74,10 +74,7 @@ function CC.abstract_call_gf_by_type(interp::ADInterpreter, @nospecialize(f),
         arginfo::ArgInfo, si::StmtInfo, atype::Any, sv::InferenceState, max_methods::Int)
 
     if interp.forward
-        r = fwd_abstract_call_gf_by_type(interp, f, arginfo, si, sv, ret)
-        if r !== nothing
-            return r
-        end
+        return fwd_abstract_call_gf_by_type(interp, f, arginfo, si, sv, ret)
     end
 
     return ret

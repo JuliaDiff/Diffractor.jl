@@ -11,6 +11,12 @@ if VERSION < v"1.11.0-DEV.258"
     Base.getindex(ir::IRCode, ssa::SSAValue) = CC.getindex(ir, ssa)
 end
 
+if isdefined(CC, :Future)
+    Base.isready(future::CC.Future) = CC.isready(future)
+    Base.getindex(future::CC.Future) = CC.getindex(future)
+    Base.setindex!(future::CC.Future, value) = CC.setindex!(future, value)
+end
+
 Base.copy(ir::IRCode) = CC.copy(ir)
 
 CC.NewInstruction(@nospecialize node) =

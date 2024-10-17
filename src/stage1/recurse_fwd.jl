@@ -209,6 +209,10 @@ function fwd_transform!(ci::CodeInfo, mi::MethodInstance, nargs::Int, N::Int, E)
     ci.ssaflags = UInt8[0 for i=1:length(new_code)]
     ci.method_for_inference_limit_heuristics = meth
     ci.edges = MethodInstance[mi]
+    if hasfield(CodeInfo, :nargs)
+        ci.nargs = 2
+        ci.isva = true
+    end
 
     if isdefined(Base, :__has_internal_change) && Base.__has_internal_change(v"1.12-alpha", :codeinfonargs)
         ci.nargs = 2

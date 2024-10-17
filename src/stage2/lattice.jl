@@ -71,6 +71,9 @@ end
 CC.nsplit_impl(info::FRuleCallInfo) = CC.nsplit(info.info)
 CC.getsplit_impl(info::FRuleCallInfo, idx::Int) = CC.getsplit(info.info, idx)
 CC.getresult_impl(info::FRuleCallInfo, idx::Int) = CC.getresult(info.info, idx)
+if isdefined(CC, :add_uncovered_edges_impl)
+    CC.add_uncovered_edges_impl(edges::Vector{Any}, info::FRuleCallInfo, @nospecialize(atype)) = CC.add_uncovered_edges!(edges, info.info, atype)
+end
 
 function Base.show(io::IO, info::FRuleCallInfo)
     print(io, "FRuleCallInfo(", typeof(info.info), ", ", typeof(info.frule_call.info), ")")

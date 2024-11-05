@@ -66,13 +66,21 @@ end
 struct FRuleCallInfo <: CallInfo
     info::CallInfo
     frule_call::CallMeta
-    FRuleCallInfo(@nospecialize(info::CallInfo), frule_call::CallMeta) = new(info, frule_call)
+    function FRuleCallInfo(@nospecialize(info::CallInfo), frule_call::CallMeta)
+        new(info, frule_call)
+    end
 end
 CC.nsplit_impl(info::FRuleCallInfo) = CC.nsplit(info.info)
 CC.getsplit_impl(info::FRuleCallInfo, idx::Int) = CC.getsplit(info.info, idx)
 CC.getresult_impl(info::FRuleCallInfo, idx::Int) = CC.getresult(info.info, idx)
 if isdefined(CC, :add_uncovered_edges_impl)
     CC.add_uncovered_edges_impl(edges::Vector{Any}, info::FRuleCallInfo, @nospecialize(atype)) = CC.add_uncovered_edges!(edges, info.info, atype)
+end
+if isdefined(CC, :add_edges_impl)
+    function CC.add_edges_impl(edges::Vector{Any}, info::FRuleCallInfo)
+        CC.add_edges!(edges, info.info)
+        CC.add_edges!(edges, info.frule_call.info)
+    end
 end
 
 function Base.show(io::IO, info::FRuleCallInfo)

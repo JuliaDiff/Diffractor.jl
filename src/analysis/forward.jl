@@ -45,13 +45,11 @@ function fwd_abstract_call_gf_by_type(interp::AbstractInterpreter, @nospecialize
         frc = frule_call[]
         pc = primal_call[]
 
-        if frc.rt !== Const(nothing)
-            result[] = CallMeta(pc.rt, pc.exct, pc.effects, FRuleCallInfo(pc.info, frc))
-        else
-            result[] = pc
+        if VERSION < v"1.12.0-DEV.1531" && frc.rt === Const(nothing)
             CC.add_mt_backedge!(sv, frule_mt, frule_atype)
         end
 
+        result[] = CallMeta(pc.rt, pc.exct, pc.effects, FRuleCallInfo(pc.info, frc))
         return true
     end
     (!isready(primal_call) || !make_progress(interp, sv)) && push!(sv.tasks, make_progress)
@@ -89,7 +87,7 @@ function fwd_abstract_call_gf_by_type(interp::AbstractInterpreter, @nospecialize
         @static if VERSION ≥ v"1.11.0-DEV.945"
         return CallMeta(primal_call.rt, primal_call.exct, primal_call.effects, FRuleCallInfo(primal_call.info, frule_call))
         else
-        return CallMeta(primal_call.rt, primal_call.effects, FRuleCallInfo(primal_call.info, frule_call))
+        return CallMeta(primal_call.rt, primal_call.effects, FRuleCallInfo(primal_call.info, frule_call.info))
         end
     else
         CC.add_mt_backedge!(sv, frule_mt, frule_atype)

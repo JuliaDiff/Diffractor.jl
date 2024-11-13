@@ -1,13 +1,14 @@
 name = "Diffractor"
 uuid = "9f5e2b26-1114-432f-b630-d3fe2085c51c"
-authors = ["Keno Fischer <keno@juliacomputing.com> and contributors"]
 version = "0.2.10"
+authors = ["Keno Fischer <keno@juliacomputing.com> and contributors"]
 
 [deps]
 AbstractDifferentiation = "c29ec348-61ec-40c8-8164-b8c60e9d9f3d"
 ChainRules = "082447d4-558c-5d27-93f4-14fc19e9eca2"
 ChainRulesCore = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
 Combinatorics = "861a8166-3701-5b0c-9a16-15d98fcdc6aa"
+Compiler = "807dbc54-b67e-4c79-8afb-eafe4df6f2e1"
 Cthulhu = "f68482b8-f384-11e8-15f7-abe071a5a75f"
 InteractiveUtils = "b77e0a4c-d291-57a0-90e8-8db25a27a240"
 OffsetArrays = "6fe1bfb0-de20-5000-8ca7-80f57d26f881"
@@ -20,6 +21,7 @@ AbstractDifferentiation = "0.5, 0.6"
 ChainRules = "1.44.6"
 ChainRulesCore = "1.20"
 Combinatorics = "1"
+Compiler = "0.0.1"
 Cthulhu = "2.10.1"
 OffsetArrays = "1"
 PrecompileTools = "1"

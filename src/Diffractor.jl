@@ -5,7 +5,12 @@ export ∂⃖, gradient
 using StructArrays
 using PrecompileTools
 
+if VERSION ≥ v"1.12.0-DEV.1581"
+import Compiler
+const CC = Compiler
+else
 const CC = Core.Compiler
+end
 using Core.IR
 
 @static if VERSION ≥ v"1.11.0-DEV.1498"

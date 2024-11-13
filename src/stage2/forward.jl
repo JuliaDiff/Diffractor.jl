@@ -22,7 +22,7 @@ end
 function dontuse_nth_order_forward_stage2(tt::Type, order::Int=1; eras_mode = false)
     interp = ADInterpreter(; forward=true, backward=false)
     match = Base._which(tt)
-    frame = Core.Compiler.typeinf_frame(interp, match.method, match.spec_types, match.sparams, #=run_optimizer=#true)
+    frame = CC.typeinf_frame(interp, match.method, match.spec_types, match.sparams, #=run_optimizer=#true)
     mi = frame.linfo
 
     src = CC.copy(interp.unopt[0][mi].src)

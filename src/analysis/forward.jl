@@ -1,8 +1,8 @@
-using Core.Compiler: StmtInfo, ArgInfo, CallMeta, AbsIntState
+using .CC: StmtInfo, ArgInfo, CallMeta, AbsIntState
 
 if VERSION >= v"1.12.0-DEV.1268"
 
-using Core.Compiler: Future
+using .CC: Future
 
 function fwd_abstract_call_gf_by_type(interp::AbstractInterpreter, @nospecialize(f),
         arginfo::ArgInfo, si::StmtInfo, sv::AbsIntState, primal_call::Future{CallMeta})

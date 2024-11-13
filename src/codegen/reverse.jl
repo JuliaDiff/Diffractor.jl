@@ -414,7 +414,7 @@ function diffract_ir!(ir, ci, meth, sparams::Core.SimpleVector, nargs::Int, N::I
         end
 
         @static if VERSION ≥ v"1.12.0-DEV.173"
-            debuginfo = Core.Compiler.DebugInfoStream(nothing, opaque_ci.debuginfo, length(code))
+            debuginfo = CC.DebugInfoStream(nothing, opaque_ci.debuginfo, length(code))
             debuginfo.def = :var"N/A"
             opaque_ci.debuginfo = Core.DebugInfo(debuginfo, length(code))
         else
@@ -501,7 +501,7 @@ function diffract_ir!(ir, ci, meth, sparams::Core.SimpleVector, nargs::Int, N::I
         end
 
         @static if VERSION ≥ v"1.12.0-DEV.173"
-            debuginfo = Core.Compiler.DebugInfoStream(nothing, opaque_ci.debuginfo, length(code))
+            debuginfo = CC.DebugInfoStream(nothing, opaque_ci.debuginfo, length(code))
             debuginfo.def = :var"N/A"
             opaque_ci.debuginfo = Core.DebugInfo(debuginfo, length(code))
         else
@@ -533,7 +533,7 @@ function diffract_ir!(ir, ci, meth, sparams::Core.SimpleVector, nargs::Int, N::I
     end
 
     if interp !== nothing
-        new_argtypes = Any[Const(∂⃖recurse), tuple_tfunc(Core.Compiler.optimizer_lattice(interp), ir.argtypes[1:nfixedargs])]
+        new_argtypes = Any[Const(∂⃖recurse), tuple_tfunc(CC.optimizer_lattice(interp), ir.argtypes[1:nfixedargs])]
         empty!(ir.argtypes)
         append!(ir.argtypes, new_argtypes)
     end
@@ -672,7 +672,7 @@ function diffract_ir!(ir, ci, meth, sparams::Core.SimpleVector, nargs::Int, N::I
     ir = complete(compact)
     #@show ir
     ir = compact!(ir)
-    Core.Compiler.verify_ir(ir, true, true)
+    CC.verify_ir(ir, true, true)
 
     return ir
 end

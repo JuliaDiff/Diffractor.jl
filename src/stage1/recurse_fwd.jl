@@ -81,7 +81,7 @@ end
 function fwd_transform!(ci::CodeInfo, mi::MethodInstance, nargs::Int, N::Int, E)
     new_code = Any[]
     @static if VERSION ≥ v"1.12.0-DEV.173"
-        debuginfo = Core.Compiler.DebugInfoStream(mi, ci.debuginfo, length(ci.code))
+        debuginfo = CC.DebugInfoStream(mi, ci.debuginfo, length(ci.code))
         new_codelocs = Int32[]
     else
         new_codelocs = Any[]
@@ -243,8 +243,8 @@ function perform_fwd_transform(world::UInt, source::LineNumberNode,
     end
     match = only(mthds)::Core.MethodMatch
 
-    mi = Core.Compiler.specialize_method(match)
-    ci = Core.Compiler.retrieve_code_info(mi, world)
+    mi = CC.specialize_method(match)
+    ci = CC.retrieve_code_info(mi, world)
 
     return fwd_transform(ci, mi, length(args)-1, N, E)
 end

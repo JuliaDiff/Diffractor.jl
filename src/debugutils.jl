@@ -1,4 +1,4 @@
-using Core.Compiler: AbstractInterpreter, CodeInstance, MethodInstance, WorldView, NativeInterpreter
+using .CC: AbstractInterpreter, CodeInstance, MethodInstance, WorldView, NativeInterpreter
 using InteractiveUtils
 
 function infer_function(interp, tt)
@@ -13,23 +13,23 @@ function infer_function(interp, tt)
     mtypes, msp, m = mthds[1]
 
     # Grab the appropriate method instance for these types
-    mi = Core.Compiler.specialize_method(m, mtypes, msp)
+    mi = CC.specialize_method(m, mtypes, msp)
 
     # Construct InferenceResult to hold the result,
-    result = Core.Compiler.InferenceResult(mi)
+    result = CC.InferenceResult(mi)
 
     # Create an InferenceState to begin inference, give it a world that is always newest
-    frame = Core.Compiler.InferenceState(result, #=cached=# true, interp)
+    frame = CC.InferenceState(result, #=cached=# true, interp)
 
     # Run type inference on this frame.  Because the interpreter is embedded
     # within this InferenceResult, we don't need to pass the interpreter in.
-    Core.Compiler.typeinf(interp, frame)
+    CC.typeinf(interp, frame)
 
     # Give the result back
     return (mi, result)
 end
 
-struct ExtractingInterpreter <: Core.Compiler.AbstractInterpreter
+struct ExtractingInterpreter <: CC.AbstractInterpreter
     code::Dict{MethodInstance, CodeInstance}
     native_interpreter::NativeInterpreter
     msgs::Vector{Tuple{MethodInstance, Int, String}}
@@ -43,7 +43,7 @@ ExtractingInterpreter(;optimize=false) = ExtractingInterpreter(
     optimize
 )
 
-import Core.Compiler: InferenceParams, OptimizationParams, #=get_inference_world,=#
+import .CC: InferenceParams, OptimizationParams, #=get_inference_world,=#
     get_inference_cache, code_cache,
     WorldView, lock_mi_inference, unlock_mi_inference, InferenceState
 InferenceParams(ei::ExtractingInterpreter) = InferenceParams(ei.native_interpreter)
@@ -56,18 +56,14 @@ lock_mi_inference(ei::ExtractingInterpreter, mi::MethodInstance) = nothing
 unlock_mi_inference(ei::ExtractingInterpreter, mi::MethodInstance) = nothing
 
 code_cache(ei::ExtractingInterpreter) = ei.code
-Core.Compiler.get(a::Dict, b, c) = Base.get(a,b,c)
-Core.Compiler.get(a::WorldView{<:Dict}, b, c) = Base.get(a.cache,b,c)
-Core.Compiler.haskey(a::Dict, b) = Base.haskey(a, b)
-Core.Compiler.haskey(a::WorldView{<:Dict}, b) =
-    Core.Compiler.haskey(a.cache, b)
-Core.Compiler.setindex!(a::Dict, b, c) = setindex!(a, b, c)
-Core.Compiler.may_optimize(ei::ExtractingInterpreter) = ei.optimize
-Core.Compiler.may_compress(ei::ExtractingInterpreter) = false
-Core.Compiler.may_discard_trees(ei::ExtractingInterpreter) = false
+CC.get(a::WorldView{<:Dict}, b, c) = Base.get(a.cache,b,c)
+CC.haskey(a::WorldView{<:Dict}, b) =
+    CC.haskey(a.cache, b)
+CC.may_optimize(ei::ExtractingInterpreter) = ei.optimize
+CC.may_compress(ei::ExtractingInterpreter) = false
+CC.may_discard_trees(ei::ExtractingInterpreter) = false
 
-function Core.Compiler.add_remark!(ei::ExtractingInterpreter, sv::InferenceState, msg)
-    @show msg
+function CC.add_remark!(ei::ExtractingInterpreter, sv::InferenceState, msg)
     push!(ei.msgs, (sv.linfo, sv.currpc, msg))
 end
 

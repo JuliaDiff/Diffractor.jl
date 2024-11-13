@@ -1,5 +1,5 @@
 using Core.IR
-using Core.Compiler:
+using .CC:
     BasicBlock, CFG, IRCode, IncrementalCompact, Instruction, NewInstruction, NoCallInfo, StmtRange,
     bbidxiter, cfg_delete_edge!, cfg_insert_edge!, compute_basic_blocks, complete,
     construct_domtree, construct_ssa!, domsort_ssa!, finish, insert_node!,
@@ -7,9 +7,9 @@ using Core.Compiler:
     scan_slot_def_use, userefs, SimpleInferenceLattice
 
 if VERSION < v"1.11.0-DEV.1351"
-    using Core.Compiler: effect_free_and_nothrow as removable_if_unused
+    using .CC: effect_free_and_nothrow as removable_if_unused
 else
-    using Core.Compiler: removable_if_unused
+    using .CC: removable_if_unused
 end
 
 using Base.Meta
@@ -93,7 +93,7 @@ function expand_switch(code::Vector{Any}, bb_ranges::Vector{UnitRange{Int}}, slo
     # Now rewrite branch targets back to statement indexing
     for i = 1:length(new_code)
         stmt = new_code[i]
-        stmt = Core.Compiler.renumber_ssa!(stmt, renumber)
+        stmt = CC.renumber_ssa!(stmt, renumber)
         stmt = new_to_regular(stmt)
         if isa(stmt, GotoNode)
             stmt = GotoNode(renumber[first(bb_ranges[stmt.label])].id)
@@ -239,19 +239,9 @@ function split_critical_edges!(ir)
     return ir′
 end
 
-Base.iterate(c::IncrementalCompact, args...) = Core.Compiler.iterate(c, args...)
-Base.iterate(p::Core.Compiler.Pair, args...) = Core.Compiler.iterate(p, args...)
-Base.iterate(urs::Core.Compiler.UseRefIterator, args...) = Core.Compiler.iterate(urs, args...)
-Base.iterate(x::Core.Compiler.BBIdxIter, args...) = Core.Compiler.iterate(x, args...)
-Base.getindex(urs::Core.Compiler.UseRefIterator, args...) = Core.Compiler.getindex(urs, args...)
-Base.getindex(urs::Core.Compiler.UseRef, args...) = Core.Compiler.getindex(urs, args...)
-Base.getindex(c::Core.Compiler.IncrementalCompact, args...) = Core.Compiler.getindex(c, args...)
-Base.setindex!(c::Core.Compiler.IncrementalCompact, args...) = Core.Compiler.setindex!(c, args...)
-Base.setindex!(urs::Core.Compiler.UseRef, args...) = Core.Compiler.setindex!(urs, args...)
-
-import Core.Compiler: VarState
+import .CC: VarState
 function sptypes(sparams)
-    VarState[Core.Compiler.VarState.(sparams, false)...]
+    VarState[CC.VarState.(sparams, false)...]
 end
 
 function optic_transform(ci::CodeInfo, args...)
@@ -277,12 +267,12 @@ function optic_transform!(ci::CodeInfo, mi::MethodInstance, nargs::Int, N::Int)
     argtypes = Any[Any for i = 1:2]
     meta = Expr[]
     @static if VERSION ≥ v"1.12.0-DEV.173"
-        debuginfo = Core.Compiler.DebugInfoStream(mi, ci.debuginfo, length(code))
-        stmts = Core.Compiler.InstructionStream(code, type, info, debuginfo.codelocs, flag)
+        debuginfo = CC.DebugInfoStream(mi, ci.debuginfo, length(code))
+        stmts = CC.InstructionStream(code, type, info, debuginfo.codelocs, flag)
         ir = IRCode(stmts, cfg, debuginfo, argtypes, meta, sptypes(sparams))
     else
         linetable = Core.LineInfoNode[ci.linetable...]
-        stmts = Core.Compiler.InstructionStream(code, type, info, ci.codelocs, flag)
+        stmts = CC.InstructionStream(code, type, info, ci.codelocs, flag)
         ir = IRCode(stmts, cfg, linetable, argtypes, meta, sptypes(sparams))
     end
 
@@ -307,7 +297,7 @@ function optic_transform!(ci::CodeInfo, mi::MethodInstance, nargs::Int, N::Int)
 
     ir = diffract_ir!(ir, ci, meth, sparams, nargs, N)
 
-    Core.Compiler.replace_code_newstyle!(ci, ir)
+    CC.replace_code_newstyle!(ci, ir)
 
     ci.ssavaluetypes = length(ci.code)
     ci.ssaflags = SSAFlagType[zero(SSAFlagType) for i=1:length(ci.code)]

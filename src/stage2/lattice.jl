@@ -1,5 +1,5 @@
-using Core.Compiler: CallInfo, CallMeta
-import Core.Compiler: widenconst
+using .CC: CallInfo, CallMeta
+import .CC: widenconst
 
 struct CompClosure; opaque; end # TODO: Is this a YAKC?
 (::CompClosure)(x) = error("Hello")

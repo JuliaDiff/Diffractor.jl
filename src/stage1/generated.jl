@@ -30,8 +30,8 @@ function perform_optic_transform(world::UInt, source::LineNumberNode,
     end
     match = only(mthds)::Core.MethodMatch
 
-    mi = Core.Compiler.specialize_method(match)
-    ci = Core.Compiler.retrieve_code_info(mi, world)
+    mi = CC.specialize_method(match)
+    ci = CC.retrieve_code_info(mi, world)
     if ci === nothing
         # Failed to retrieve source - likely a generated function that errors.
         # To aid the user in debugging, run the original call in the forward pass and if that

@@ -1,4 +1,4 @@
-using Core.Compiler: IRInterpretationState, construct_postdomtree, PiNode,
+using .CC: IRInterpretationState, construct_postdomtree, PiNode,
     is_known_call, argextype, postdominates, userefs, PhiCNode, UpsilonNode
 
 #=
@@ -55,7 +55,7 @@ function forward_diff!(ir::IRCode, interp::AbstractInterpreter, irsv::IRInterpre
 end
 
 function forward_diff_uncached!(ir::IRCode, interp::AbstractInterpreter, irsv::IRInterpretationState,
-                                ssa::SSAValue, inst::Core.Compiler.Instruction, order::Int;
+                                ssa::SSAValue, inst::CC.Instruction, order::Int;
                                 custom_diff!, diff_cache, eras_mode)
     stmt = inst[:inst]
     recurse(x) = forward_diff!(ir, interp, irsv, x, order; custom_diff!, diff_cache, eras_mode)
@@ -94,12 +94,12 @@ function forward_diff_uncached!(ir::IRCode, interp::AbstractInterpreter, irsv::I
         Δbacking = insert_node!(ir, ssa, NewInstruction(Δtpl, tup_typ))
         newT = argextype(stmt.args[1], ir)
         @assert isa(newT, Const)
-        tup_typ_typ = Core.Compiler.typeof_tfunc(tup_typ)
+        tup_typ_typ = CC.typeof_tfunc(tup_typ)
         if !(newT.val <: Tuple)
-            tup_typ_typ = Core.Compiler.apply_type_tfunc(Const(NamedTuple{fieldnames(newT.val)}), tup_typ_typ)
+            tup_typ_typ = CC.apply_type_tfunc(Const(NamedTuple{fieldnames(newT.val)}), tup_typ_typ)
             Δbacking = insert_node!(ir, ssa, NewInstruction(Expr(:splatnew, widenconst(tup_typ), Δbacking), tup_typ_typ.val))
         end
-        tangentT = Core.Compiler.apply_type_tfunc(Const(ChainRulesCore.Tangent), newT, tup_typ_typ).val
+        tangentT = CC.apply_type_tfunc(Const(ChainRulesCore.Tangent), newT, tup_typ_typ).val
         Δtangent = insert_node!(ir, ssa, NewInstruction(Expr(:new, tangentT, Δbacking), tangentT))
         return Δtangent
     else # general frule handling
@@ -124,7 +124,7 @@ function forward_diff_uncached!(ir::IRCode, interp::AbstractInterpreter, irsv::I
 
         # Now do proper type inference with the known arguments
         interp′ = disable_forward(interp)
-        new_frame = Core.Compiler.typeinf_frame(interp′, new_match.method, new_match.spec_types, new_match.sparams, #=run_optimizer=#true)
+        new_frame = CC.typeinf_frame(interp′, new_match.method, new_match.spec_types, new_match.sparams, #=run_optimizer=#true)
 
         # Create :invoke expression for the newly inferred frule
         frule_mi = CC.EscapeAnalysis.analyze_match(new_match, length(args)+2)

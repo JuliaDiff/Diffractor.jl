@@ -14,7 +14,7 @@ first(methods(Diffractor.∂⃖recurse{1}())).recursion_relation = function(meth
         # TODO: What if method2 is itself a generated function.
         return method2.recursion_relation(method2, nothing, wrapped_parent_sig, wrapped_new_sig)
     end
-    return Core.Compiler.type_more_complex(new_sig, parent_sig, Core.svec(parent_sig), 1, 3, length(method1.sig.parameters)+1)
+    return CC.type_more_complex(new_sig, parent_sig, Core.svec(parent_sig), 1, 3, length(method1.sig.parameters)+1)
 end
 
 first(methods(PrimeDerivativeBack(sin))).recursion_relation = function(method1, method2, parent_sig, new_sig)
@@ -27,7 +27,7 @@ first(methods(PrimeDerivativeBack(sin))).recursion_relation = function(method1, 
     end
     wrapped_parent_sig = Tuple{parent_sig.parameters[2:end]...}
     wrapped_new_sig = Tuple{parent_sig.parameters[2:end]...}
-    return Core.Compiler.type_more_complex(new_sig, parent_sig, Core.svec(parent_sig), 1, 3, length(method1.sig.parameters)+1)
+    return CC.type_more_complex(new_sig, parent_sig, Core.svec(parent_sig), 1, 3, length(method1.sig.parameters)+1)
 end
 
 which(Tuple{∂⃖{N}, T, Vararg{Any}} where {T,N}).recursion_relation = function(_, _, parent_sig, new_sig)

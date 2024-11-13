@@ -255,7 +255,7 @@ end
 
 @ChainRules.non_differentiable Base.:(|)(a::Integer, b::Integer)
 @ChainRules.non_differentiable Base.throw(err)
-@ChainRules.non_differentiable Core.Compiler.return_type(args...)
+@ChainRules.non_differentiable CC.return_type(args...)
 ChainRulesCore.canonicalize(::NoTangent) = NoTangent()
 
 # Disable thunking at higher order (TODO: These should go into ChainRulesCore)
@@ -294,7 +294,7 @@ Base.:(==)(::ZeroTangent, x::Number) = iszero(x)
 Base.hash(x::ZeroTangent, h::UInt64) = hash(0, h)
 
 # should this be in ChainRules/ChainRulesCore?
-# Avoid making nested backings, a Tangent is already a valid Tangent for a Tangent, 
+# Avoid making nested backings, a Tangent is already a valid Tangent for a Tangent,
 # or a valid second order Tangent for the primal
 function ChainRulesCore.frule((_, ẋ), T::Type{<:Tangent}, x)
     ẋ::Tangent

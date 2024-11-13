@@ -1,9 +1,9 @@
 
 module forward_diff_no_inf
     using Core: SSAValue
-    const CC = Core.Compiler
 
     using Diffractor, Test
+    const CC = Diffractor.CC
 
     ##################### Helpers:
 
@@ -30,7 +30,7 @@ module forward_diff_no_inf
             # For testing purposes we are going to refine everything else
             ir[SSAValue(i)][:flag] |= CC.IR_FLAG_REFINED
         end
-    
+
         method_info = CC.MethodInfo(#=propagate_inbounds=#true, nothing)
         min_world = world = (interp).world
         max_world = Diffractor.get_world_counter()
@@ -61,7 +61,7 @@ module forward_diff_no_inf
                 if predicate(inst)
                     return SSAValue(ii)
                 end
-            catch 
+            catch
                 # ignore errors so predicate can be simple
             end
         end
@@ -69,7 +69,7 @@ module forward_diff_no_inf
     end
 
     ############################### Actual tests:
-   
+
     @testset "Constructors in forward_diff_no_inf!" begin
         struct Bar148
             v
@@ -142,7 +142,7 @@ module forward_diff_no_inf
         @test isfully_inferred(ir)  # passes with and without eras mode
 
         add_ssa = findfirst_ssa(x->x.args[1].name==:+, ir)
-        Diffractor.forward_diff_no_inf!(ir, [add_ssa] .=> 1; transform! = identity_transform!, eras_mode)      
+        Diffractor.forward_diff_no_inf!(ir, [add_ssa] .=> 1; transform! = identity_transform!, eras_mode)
         ir = CC.compact!(ir)
         infer_ir!(ir)
         CC.verify_ir(ir)

@@ -273,12 +273,63 @@ end
 # TODO: `get_remarks` should get a cursor?
 Cthulhu.get_remarks(interp::ADInterpreter, key::Union{MethodInstance,InferenceResult}) = get(interp.remarks[interp.current_level], key, nothing)
 
-function CC.finish(sv::InferenceState, interp::ADInterpreter)
-    res = @invoke CC.finish(sv::InferenceState, interp::AbstractInterpreter)
-    key = (@static VERSION ≥ v"1.12.0-DEV.317" ? CC.is_constproped(sv) : CC.any(sv.result.overridden_by_const)) ? sv.result : sv.linfo
-    interp.unopt[interp.current_level][key] = Cthulhu.InferredSource(sv)
+function diffractor_finish(@specialize(finishfunc), state::InferenceState, interp::ADInterpreter)
+    res = @invoke finishfunc(state::InferenceState, interp::AbstractInterpreter)
+    key = (@static VERSION ≥ v"1.12.0-DEV.317" ? CC.is_constproped(state) : CC.any(state.result.overridden_by_const)) ? state.result : state.linfo
+    interp.unopt[interp.current_level][key] = Cthulhu.InferredSource(state)
     return res
 end
+
+@static if VERSION ≥ v"1.12.0-DEV.1823"
+CC.finishinfer!(state::InferenceState, interp::ADInterpreter) = diffractor_finish(CC.finishinfer!, state, interp)
+@static if VERSION ≥ v"1.12.0-DEV.1988"
+function CC.finish!(interp::ADInterpreter, caller::InferenceState, validation_world::UInt)
+    Cthulhu.set_cthulhu_source!(caller.result)
+    return @invoke CC.finish!(interp::AbstractInterpreter, caller::InferenceState, validation_world::UInt)
+end
+else
+function CC.finish!(interp::ADInterpreter, caller::InferenceState)
+    Cthulhu.set_cthulhu_source!(caller.result)
+    return @invoke CC.finish!(interp::AbstractInterpreter, caller::InferenceState)
+end
+end
+
+elseif VERSION ≥ v"1.12.0-DEV.734"
+CC.finishinfer!(state::InferenceState, interp::ADInterpreter) = diffractor_finish(CC.finishinfer!, state, interp)
+function CC.finish!(interp::ADInterpreter, caller::InferenceState;
+                    can_discard_trees::Bool=false)
+    Cthulhu.set_cthulhu_source!(caller.result)
+    return @invoke CC.finish!(interp::AbstractInterpreter, caller::InferenceState;
+                                can_discard_trees)
+end
+
+elseif VERSION ≥ v"1.11.0-DEV.737"
+CC.finish(state::InferenceState, interp::ADInterpreter) = diffractor_finish(CC.finish, state, interp)
+function CC.finish!(interp::ADInterpreter, caller::InferenceState)
+    result = caller.result
+    opt = result.src
+    Cthulhu.set_cthulhu_source!(result)
+    if opt isa CC.OptimizationState
+        CC.ir_to_codeinf!(opt)
+    end
+    return nothing
+end
+function CC.transform_result_for_cache(::ADInterpreter, ::MethodInstance, ::WorldRange,
+                                        result::InferenceResult)
+    return result.src
+end
+
+else # VERSION < v"1.11.0-DEV.737"
+CC.finish(state::InferenceState, interp::ADInterpreter) = diffractor_finish(CC.finish, state, interp)
+function CC.transform_result_for_cache(::ADInterpreter, ::MethodInstance, ::WorldRange,
+                                        result::InferenceResult)
+    return create_cthulhu_source(result.src, result.ipo_effects)
+end
+function CC.finish!(::ADInterpreter, caller::InferenceResult)
+    Cthulhu.set_cthulhu_source(interp, caller)
+end
+
+end # @static if
 
 const StmtFlag = @static VERSION ≥ v"1.11.0-DEV.377" ? UInt32 : UInt8
 function diffractor_inlining_policy(@nospecialize(src), @nospecialize(info::CC.CallInfo),
@@ -303,10 +354,6 @@ function diffractor_inlining_policy(@nospecialize(src), @nospecialize(info::CC.C
 end
 
 @static if VERSION ≥ v"1.12.0-DEV.45"
-function CC.transform_result_for_cache(interp::ADInterpreter,
-    ::MethodInstance, ::WorldRange, result::InferenceResult, ::Bool)
-    return Cthulhu.create_cthulhu_source(result.src, result.ipo_effects)
-end
 function CC.src_inlining_policy(interp::ADInterpreter,
     @nospecialize(src), @nospecialize(info::CC.CallInfo), stmt_flag::StmtFlag)
     ret = diffractor_inlining_policy(src, info, stmt_flag)
@@ -316,10 +363,6 @@ function CC.src_inlining_policy(interp::ADInterpreter,
         src::Any, info::CC.CallInfo, stmt_flag::StmtFlag)
 end
 else
-function CC.transform_result_for_cache(interp::ADInterpreter,
-    linfo::MethodInstance, valid_worlds::WorldRange, result::InferenceResult)
-    return Cthulhu.create_cthulhu_source(result.src, result.ipo_effects)
-end
 function CC.inlining_policy(interp::ADInterpreter,
     @nospecialize(src), @nospecialize(info::CC.CallInfo), stmt_flag::StmtFlag,
     mi::MethodInstance, argtypes::Vector{Any})
@@ -350,17 +393,6 @@ function CC.optimize(interp::ADInterpreter, opt::OptimizationState,
     return CC.finish(interp, opt, params, ir, caller)
 end
 =#
-
-function _finish!(caller::InferenceResult)
-    effects = caller.ipo_effects
-    caller.src = Cthulhu.create_cthulhu_source(caller.src, effects)
-end
-
-@static if VERSION ≥ v"1.11.0-DEV.737"
-CC.finish!(::ADInterpreter, caller::InferenceState) = _finish!(caller.result)
-else
-CC.finish!(::ADInterpreter, caller::InferenceResult) = _finish!(caller)
-end
 
 @static if VERSION ≥ v"1.11.0-DEV.1278"
 function CC.bail_out_const_call(interp::ADInterpreter, result::CC.MethodCallResult,

@@ -34,7 +34,7 @@ function fwd_abstract_call_gf_by_type(interp::AbstractInterpreter, @nospecialize
             # discover what they are. frules should be written in such a way that
             # whether or not they return `nothing`, only depends on the non-tangent arguments
             frule_arginfo = ArgInfo(nothing, frule_argtypes)
-            frule_si = StmtInfo(true)
+            frule_si = StmtInfo(true, false)
             # turn off frule analysis in the frule to avoid cycling
             interp′ = disable_forward(interp)
             frule_call = CC.abstract_call_gf_by_type(interp′,

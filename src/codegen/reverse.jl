@@ -17,7 +17,7 @@ function make_opaque_closure(interp, typ, name, meth_nargs::Int, isva, lno, ci, 
         return Expr(:new_opaque_closure, typ, Union{}, Any, ocm, revs...)
     else
         oc_nargs = Int64(meth_nargs)
-        Expr(:new_opaque_closure, typ, Union{}, Any,
+        Expr(:new_opaque_closure, typ, Union{}, Any, true,
             Expr(:opaque_closure_method, name, oc_nargs, isva, lno, ci), revs...)
     end
 end

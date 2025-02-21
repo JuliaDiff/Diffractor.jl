@@ -83,6 +83,7 @@ module forward_diff_no_inf
         ir = first(only(Base.code_ircode(foo_148, Tuple{Float64})))
         Diffractor.forward_diff_no_inf!(ir, [SSAValue(1) => 1]; transform! = identity_transform!)
         ir2 = CC.compact!(ir)
+        ir2.argtypes[1] = Tuple{}
         f = Core.OpaqueClosure(ir2; do_compile=false)
         @test f(1.0) == Bar148(1.0)  # This would error if we were not handling constructors (%new) right
     end
@@ -100,6 +101,7 @@ module forward_diff_no_inf
         stmt = ir2.stmts[stmt_idx]
         @test stmt[:inst].name == :_coeff
         @test stmt[:type] == Float64
+        ir2.argtypes[1] = Tuple{}
         f = Core.OpaqueClosure(ir2; do_compile=false)
         @test f(3.5) == 28.0
     end
@@ -128,6 +130,7 @@ module forward_diff_no_inf
         Diffractor.forward_diff_no_inf!(ir, diff_ssa .=> 1; transform! = identity_transform!)
         ir2 = CC.compact!(ir)
         CC.verify_ir(ir2)  # This would error if we were not handling nonconst phi nodes correctly (after https://github.com/JuliaLang/julia/pull/50158)
+        ir2.argtypes[1] = Tuple{}
         f = Core.OpaqueClosure(ir2; do_compile=false)
         @test f(3.5) == 3.5  # this will segfault if we are not handling phi nodes correctly
     end
@@ -158,4 +161,3 @@ module forward_diff_no_inf
         end
     end
 end  # module
-

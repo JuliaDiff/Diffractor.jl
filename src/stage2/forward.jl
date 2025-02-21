@@ -82,6 +82,7 @@ function dontuse_nth_order_forward_stage2(tt::Type, order::Int=1; eras_mode = fa
     end
 
     ir = forward_diff!(interp, ir, src, mi, vals; visit_custom!, transform!, eras_mode)
+    ir.argtypes[1] = Tuple{}
 
     return OpaqueClosure(ir)
 end

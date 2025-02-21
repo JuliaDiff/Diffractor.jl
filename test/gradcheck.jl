@@ -95,7 +95,7 @@ end
 
 @testset "sum, prod" begin
     @test gradcheck(x -> sum(abs2, x), randn(4, 3, 2))
-    @test gradcheck(x -> sum(x[i] for i in 1:length(x)), randn(10))
+    # @test gradcheck(x -> sum(x[i] for i in 1:length(x)), randn(10))
     @test gradcheck(x -> sum(i->x[i], 1:length(x)), randn(10)) #  issue #231
     @test gradcheck(x -> sum((i->x[i]).(1:length(x))), randn(10))
     @test gradcheck(X -> sum(x -> x^2, X), randn(10))

@@ -31,11 +31,15 @@ module forward_diff_no_inf
             ir[SSAValue(i)][:flag] |= CC.IR_FLAG_REFINED
         end
 
-        method_info = CC.MethodInfo(#=propagate_inbounds=#true, nothing)
+        info = @static if VERSION ≥ v"1.12.0-DEV.1293"
+            CC.SpecInfo(#=nargs=#length(ir.argtypes), #=isva=#false, #=propagate_inbounds=#true, nothing)
+        else
+            CC.MethodInfo(#=propagate_inbounds=#true, nothing)
+        end
         min_world = world = (interp).world
         max_world = Diffractor.get_world_counter()
-        irsv = CC.IRInterpretationState(interp, method_info, ir, mi, ir.argtypes, world, min_world, max_world)
-        (rt, nothrow) = CC._ir_abstract_constant_propagation(interp, irsv)
+        irsv = CC.IRInterpretationState(interp, info, ir, mi, ir.argtypes, world, min_world, max_world)
+        (rt, nothrow) = CC.ir_abstract_constant_propagation(interp, irsv)
         return rt
     end
 

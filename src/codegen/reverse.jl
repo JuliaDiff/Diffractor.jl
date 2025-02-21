@@ -14,12 +14,13 @@ function make_opaque_closure(interp, typ, name, meth_nargs::Int, isva, lno, ci, 
             ocm = ccall(:jl_new_opaque_closure_from_code_info, Any, (Any, Any, Any, Any, Any, Cint, Any, Cint, Cint, Any),
                 typ, Union{}, rettype, @__MODULE__, ci, lno.line, lno.file, meth_nargs, isva, ()).source
         end
-        return Expr(:new_opaque_closure, typ, Union{}, Any, ocm, revs...)
     else
         oc_nargs = Int64(meth_nargs)
-        Expr(:new_opaque_closure, typ, Union{}, Any, true,
-            Expr(:opaque_closure_method, name, oc_nargs, isva, lno, ci), revs...)
+        ocm = Expr(:opaque_closure_method, name, oc_nargs, isva, lno, ci)
     end
+    oc = Expr(:new_opaque_closure, typ, Union{}, Any, true, ocm, revs...)
+    @static VERSION < v"1.12.0-DEV.691" ? deleteat!(oc.args, 4) : nothing
+    oc
 end
 
 function diffract_ir!(ir, ci, meth, sparams::Core.SimpleVector, nargs::Int, N::Int, interp=nothing, curs=nothing)

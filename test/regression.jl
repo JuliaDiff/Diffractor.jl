@@ -85,7 +85,7 @@ z45, delta45 = frule_via_ad(DiffractorRuleConfig(), (0,1), x -> log(exp(x)), 2)
     @test gradient(x -> sum(exp.(log.(x))), [1,2,3]) == ([1,1,1],)
 
     # frule_via_ad
-    # @test gradient(x -> sum((exp∘log).(x)), [1,2,3]) == ([1,1,1],)
+    @test gradient(x -> sum((exp∘log).(x)), [1,2,3]) == ([1,1,1],)
     exp_log(x) = exp(log(x))
     @test gradient(x -> sum(exp_log.(x)), [1,2,3]) == ([1,1,1],)
     @test gradient((x,y) -> sum(x ./ y), [1 2; 3 4], [1,2]) == ([1 1; 0.5 0.5], [-3, -1.75])
@@ -133,8 +133,8 @@ end
 
 @testset "broadcast, 2nd order" begin
     # calls "split broadcasting generic" with f = unthunk
-    # @test gradient(x -> gradient(y -> sum(y .* y), x)[1] |> sum, [1,2,3.0])[1] == [2,2,2]
-    # @test gradient(x -> gradient(y -> sum(y .* x), x)[1].^3 |> sum, [1,2,3.0])[1] == [3,12,27]
+    @test gradient(x -> gradient(y -> sum(y .* y), x)[1] |> sum, [1,2,3.0])[1] == [2,2,2]
+    @test gradient(x -> gradient(y -> sum(y .* x), x)[1].^3 |> sum, [1,2,3.0])[1] == [3,12,27]
     # Control flow support not fully implemented yet for higher-order
     @test_broken gradient(x -> gradient(y -> sum(y .* 2 .* y'), x)[1] |> sum, [1,2,3.0])[1] == [12, 12, 12]
 

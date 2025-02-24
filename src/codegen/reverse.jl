@@ -683,13 +683,20 @@ function diffract_ir!(ir, ci, meth, sparams::Core.SimpleVector, nargs::Int, N::I
 end
 
 eval_globalref(x) = x
-eval_globalref(x::GlobalRef) = getglobal(x.mod, x.name)
+function eval_globalref(ref::GlobalRef)
+    isdefined(ref.mod, ref.name) || return nothing
+    getproperty(ref.mod, ref.name)
+end
 ssa_def(ir, idx::SSAValue) = ssa_def(ir, ir[idx][:inst])
 ssa_def(ir, def) = def
 
 function is_global_access(ir::Union{IRCode,IncrementalCompact}, stmt)
     isexpr(stmt, :call, 3) || return false
-    f = eval_globalref(ssa_def(ir, stmt.args[1]))
+    f = ssa_def(ir, stmt.args[1])
+    if isa(f, GlobalRef)
+        f.name === :getproperty || return false
+        f = eval_globalref(f)
+    end
     f === getproperty || return false
     from = eval_globalref(ssa_def(ir, stmt.args[2]))
     isa(from, Module) || return false

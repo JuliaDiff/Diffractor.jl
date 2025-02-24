@@ -268,6 +268,12 @@ function ChainRulesCore.rrule(::DiffractorRuleConfig, ::Type{InplaceableThunk}, 
     val, Δ->(NoTangent(), NoTangent(), Δ)
 end
 
+# XXX: We should instead skip differentiation in the IR.
+function ChainRulesCore.rrule(::DiffractorRuleConfig, ::typeof(getproperty), mod::Module, name::Symbol)
+    val = getproperty(mod, name)
+    val, Δ->(NoTangent(), NoTangent(), NoTangent())
+end
+
 Base.real(z::NoTangent) = z  # TODO should be in CRC, https://github.com/JuliaDiff/ChainRulesCore.jl/pull/581
 
 # Avoid https://github.com/JuliaDiff/ChainRulesCore.jl/pull/495

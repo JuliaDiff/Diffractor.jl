@@ -289,8 +289,6 @@ function diffract_ir!(ir, ci, meth, sparams::Core.SimpleVector, nargs::Int, N::I
             if isa(stmt, Core.ReturnNode)
                 accum!(stmt.val, Argument(2))
                 current_env = nothing
-            elseif is_global_access(ir, stmt)
-                # Treat it as a GlobalRef, dropping gradients.
             elseif isexpr(stmt, :call) || isexpr(stmt, :invoke)
                 Δ = do_accum(SSAValue(i))
                 callee = retrieve_ctx_obj(current_env, i)
@@ -455,9 +453,7 @@ function diffract_ir!(ir, ci, meth, sparams::Core.SimpleVector, nargs::Int, N::I
             end
             stmt = urs[]
 
-            if is_global_access(ir, stmt)
-                fwds[i] = ZeroTangent()
-            elseif isexpr(stmt, :call)
+            if isexpr(stmt, :call)
                 callee = insert_node_here!(Expr(:call, getfield, Argument(1), i))
                 pushfirst!(stmt.args, callee)
                 call = insert_node_here!(stmt)
@@ -569,7 +565,7 @@ function diffract_ir!(ir, ci, meth, sparams::Core.SimpleVector, nargs::Int, N::I
         if isexpr(stmt, :(=))
             stmt = stmt.args[2]
         end
-        if isexpr(stmt, :call) && !is_global_access(compact, stmt)
+        if isexpr(stmt, :call)
             compact[SSAValue(idx)] = Expr(:call, ∂⃖{N}(), stmt.args...)
             if isexpr(orig_stmt, :(=))
                 orig_stmt.args[2] = stmt
@@ -680,26 +676,4 @@ function diffract_ir!(ir, ci, meth, sparams::Core.SimpleVector, nargs::Int, N::I
     CC.verify_ir(ir, true, true)
 
     return ir
-end
-
-eval_globalref(x) = x
-function eval_globalref(ref::GlobalRef)
-    isdefined(ref.mod, ref.name) || return nothing
-    getproperty(ref.mod, ref.name)
-end
-ssa_def(ir, idx::SSAValue) = ssa_def(ir, ir[idx][:inst])
-ssa_def(ir, def) = def
-
-function is_global_access(ir::Union{IRCode,IncrementalCompact}, stmt)
-    isexpr(stmt, :call, 3) || return false
-    f = ssa_def(ir, stmt.args[1])
-    if isa(f, GlobalRef)
-        f.name === :getproperty || return false
-        f = eval_globalref(f)
-    end
-    f === getproperty || return false
-    from = eval_globalref(ssa_def(ir, stmt.args[2]))
-    isa(from, Module) || return false
-    name = stmt.args[3]
-    isa(name, QuoteNode) && isa(name.value, Symbol)
 end

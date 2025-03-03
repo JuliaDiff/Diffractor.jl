@@ -183,10 +183,10 @@ function split_critical_edges!(ir)
             bb = ir.stmts[i][:inst].args[1]
             ir.stmts[i][:inst] = nothing
             bbnew = bb + ninserted
-            insert!(cfg.blocks, bbnew, BasicBlock(i:i))
+            insert!(cfg.blocks, bbnew, BasicBlock(StmtRange(i:i)))
             bb_rename_offset[bb] += 1
             bblock = cfg.blocks[bbnew+1]
-            cfg.blocks[bbnew+1] = BasicBlock((i+1):last(bblock.stmts),
+            cfg.blocks[bbnew+1] = BasicBlock(StmtRange((i+1):last(bblock.stmts)),
                 bblock.preds, bblock.succs)
             i += 1
             while i <= last(bblock.stmts)

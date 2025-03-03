@@ -1,5 +1,5 @@
 # Utilities that should probably go into CC
-using .Compiler: IRCode, CFG, BasicBlock, BBIdxIter
+using .CC: IRCode, CFG, BasicBlock, BBIdxIter
 
 function Base.push!(cfg::CFG, bb::BasicBlock)
     @assert cfg.blocks[end].stmts.stop+1 == bb.stmts.start
@@ -30,10 +30,6 @@ if VERSION < v"1.12.0-DEV.1268"
 
     Base.copy(ir::IRCode) = CC.copy(ir)
 
-    CC.BasicBlock(x::UnitRange) =
-        BasicBlock(StmtRange(first(x), last(x)))
-    CC.BasicBlock(x::UnitRange, preds::Vector{Int}, succs::Vector{Int}) =
-        BasicBlock(StmtRange(first(x), last(x)), preds, succs)
     Base.length(c::CC.NewNodeStream) = CC.length(c)
     Base.setindex!(i::Instruction, args...) = CC.setindex!(i, args...)
     Base.size(x::CC.UnitRange) = CC.size(x)

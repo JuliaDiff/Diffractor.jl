@@ -6,7 +6,8 @@ struct ∂⃖recurse{N}; end
 
 include("recurse.jl")
 
-function generate_lambda_ex(world::UInt, source::LineNumberNode,
+# source is a Method starting from https://github.com/JuliaLang/julia/pull/57230
+function generate_lambda_ex(world::UInt, source::Union{Method,LineNumberNode},
                             args::Core.SimpleVector, sparams::Core.SimpleVector, body::Expr)
     stub = Core.GeneratedFunctionStub(identity, args, sparams)
     return stub(world, source, body)
@@ -16,7 +17,7 @@ struct NonTransformableError
     args
 end
 
-function perform_optic_transform(world::UInt, source::LineNumberNode,
+function perform_optic_transform(world::UInt, source::Union{Method,LineNumberNode},
                                  @nospecialize(ff::Type{∂⃖recurse{N}}), @nospecialize(args)) where {N}
     @assert N >= 1
 

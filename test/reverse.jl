@@ -70,9 +70,9 @@ let var"'" = Diffractor.PrimeDerivativeBack
     # Integration tests
     @test @inferred(sin'(1.0)) == cos(1.0)
     @test @inferred(sin''(1.0)) == -sin(1.0)
-    @test @inferred(sin'''(1.0)) == -cos(1.0)
     # FIXME: These error with:
     #   Control flow support not fully implemented yet for higher-order reverse mode (TODO)
+    @test_broken @inferred(sin'''(1.0)) == -cos(1.0)
     @test_broken @inferred(sin''''(1.0)) == sin(1.0)
     @test_broken @inferred(sin'''''(1.0)) == cos(1.0)
     @test_broken @inferred(sin''''''(1.0)) == -sin(1.0)

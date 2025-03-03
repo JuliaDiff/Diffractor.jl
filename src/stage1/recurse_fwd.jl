@@ -222,7 +222,7 @@ function fwd_transform!(ci::CodeInfo, mi::MethodInstance, nargs::Int, N::Int, E)
     return ci
 end
 
-function perform_fwd_transform(world::UInt, source::LineNumberNode,
+function perform_fwd_transform(world::UInt, source::Union{Method,LineNumberNode},
                                @nospecialize(ff::Type{∂☆recurse{N,E}}), @nospecialize(args)) where {N,E}
     if all(x->x <: ZeroBundle, args)
         return generate_lambda_ex(world, source,

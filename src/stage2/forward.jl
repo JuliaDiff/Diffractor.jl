@@ -21,12 +21,11 @@ end
 # unlikely to be the actual interface. For now, it is used for testing.
 function dontuse_nth_order_forward_stage2(tt::Type, order::Int=1; eras_mode = false)
     interp = ADInterpreter(; forward=true, backward=false)
-    match = Base._which(tt)
-    frame = CC.typeinf_frame(interp, match.method, match.spec_types, match.sparams, #=run_optimizer=#true)
-    mi = frame.linfo
+    mi = @ccall jl_method_lookup_by_tt(tt::Any, Base.tls_world_age()::Csize_t, #= method table =# nothing::Any)::Ref{MethodInstance}
+    ci = CC.typeinf_ext_toplevel(interp, mi, CC.SOURCE_MODE_ABI)
 
     src = CC.copy(interp.unopt[0][mi].src)
-    ir = CC.copy((@atomic :monotonic interp.opt[0][mi].inferred).ir::IRCode)
+    ir = CC.copy((@atomic :monotonic ci.inferred).ir::IRCode)
 
     # Find all Return Nodes
     vals = Pair{SSAValue, Int}[]
@@ -83,6 +82,7 @@ function dontuse_nth_order_forward_stage2(tt::Type, order::Int=1; eras_mode = fa
     end
 
     ir = forward_diff!(interp, ir, src, mi, vals; visit_custom!, transform!, eras_mode)
+    ir.argtypes[1] = Tuple{}
 
     return OpaqueClosure(ir)
 end

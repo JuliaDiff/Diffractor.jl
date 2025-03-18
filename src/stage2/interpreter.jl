@@ -289,34 +289,13 @@ function diffractor_finish(@specialize(finishfunc), state::InferenceState, inter
 end
 end
 
-@static if VERSION ≥ v"1.12.0-DEV.1823"
-@static if VERSION ≥ v"1.13.0-DEV.126" || VERSION ≥ v"1.12.0-alpha1"
+@static if VERSION ≥ v"1.12-"
 CC.finishinfer!(state::InferenceState, interp::ADInterpreter, cycleid::Int) = diffractor_finish(CC.finishinfer!, state, interp, cycleid)
-else
-CC.finishinfer!(state::InferenceState, interp::ADInterpreter) = diffractor_finish(CC.finishinfer!, state, interp)
-end
-@static if VERSION ≥ v"1.12.0-DEV.1988"
-function CC.finish!(interp::ADInterpreter, caller::InferenceState, validation_world::UInt)
+function CC.finish!(interp::ADInterpreter, caller::InferenceState, validation_world::UInt, time_before::UInt64)
     Cthulhu.set_cthulhu_source!(caller.result)
-    return @invoke CC.finish!(interp::AbstractInterpreter, caller::InferenceState, validation_world::UInt)
+    return @invoke CC.finish!(interp::AbstractInterpreter, caller::InferenceState, validation_world::UInt, time_before::UInt64)
 end
-else
-function CC.finish!(interp::ADInterpreter, caller::InferenceState)
-    Cthulhu.set_cthulhu_source!(caller.result)
-    return @invoke CC.finish!(interp::AbstractInterpreter, caller::InferenceState)
-end
-end
-
-elseif VERSION ≥ v"1.12.0-DEV.734"
-CC.finishinfer!(state::InferenceState, interp::ADInterpreter) = diffractor_finish(CC.finishinfer!, state, interp)
-function CC.finish!(interp::ADInterpreter, caller::InferenceState;
-                    can_discard_trees::Bool=false)
-    Cthulhu.set_cthulhu_source!(caller.result)
-    return @invoke CC.finish!(interp::AbstractInterpreter, caller::InferenceState;
-                                can_discard_trees)
-end
-
-elseif VERSION ≥ v"1.11.0-DEV.737"
+elseif VERSION ≥ v"1.11-"
 CC.finish(state::InferenceState, interp::ADInterpreter) = diffractor_finish(CC.finish, state, interp)
 function CC.finish!(interp::ADInterpreter, caller::InferenceState)
     result = caller.result
@@ -332,7 +311,7 @@ function CC.transform_result_for_cache(::ADInterpreter, ::MethodInstance, ::Worl
     return result.src
 end
 
-else # VERSION < v"1.11.0-DEV.737"
+else # VERSION < v"1.11-"
 CC.finish(state::InferenceState, interp::ADInterpreter) = diffractor_finish(CC.finish, state, interp)
 function CC.transform_result_for_cache(::ADInterpreter, ::MethodInstance, ::WorldRange,
                                         result::InferenceResult)

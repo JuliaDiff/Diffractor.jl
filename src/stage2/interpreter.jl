@@ -6,7 +6,7 @@ struct ADCursor <: Cthulhu.AbstractCursor
     mi::MethodInstance
     transformed::Bool
 end
-Cthulhu.get_mi(c::ADCursor) = c.mi
+# Cthulhu.get_mi(c::ADCursor) = c.mi
 ADCursor(level::Int, mi::MethodInstance) = ADCursor(level, mi, false)
 
 #=
@@ -80,12 +80,13 @@ lower_level(interp::ADInterpreter) = change_level(interp, interp.current_level -
 
 disable_forward(interp::ADInterpreter) = ADInterpreter(interp; forward=false)
 
+#=
 function Cthulhu.get_optimized_codeinst(interp::ADInterpreter, curs::ADCursor)
     @show curs
     (curs.transformed ? interp.transformed : interp.opt)[curs.level][curs.mi]
 end
 Cthulhu.AbstractCursor(interp::ADInterpreter, mi::MethodInstance) = ADCursor(0, mi, false)
-
+=#
 
 # This is a lie, but let's clean this up later
 Cthulhu.can_descend(interp::ADInterpreter, @nospecialize(key), optimize::Bool) = true
@@ -163,6 +164,7 @@ function CC.is_same_frame(interp::ADInterpreter, linfo::MethodInstance, frame::I
 end
 
 # Special handling for Recursion
+#=
 struct RecurseCallInfo <: Cthulhu.CallInfo
     vmi::Cthulhu.CallInfo # callinfo to be descended
 end
@@ -209,6 +211,7 @@ function Cthulhu.navigate(curs::ADCursor, callsite::Cthulhu.Callsite)
     end
     return ADCursor(curs.level, Cthulhu.get_mi(callsite))
 end
+=#
 
 function Cthulhu.process_info(interp::ADInterpreter, @nospecialize(info::CC.CallInfo), argtypes::Cthulhu.ArgTypes, @nospecialize(rt), optimize::Bool, @nospecialize(exct))
     if isa(info, RecurseInfo)
@@ -271,7 +274,7 @@ function CC.add_remark!(interp::ADInterpreter, sv::InferenceState, msg)
 end
 
 # TODO: `get_remarks` should get a cursor?
-Cthulhu.get_remarks(interp::ADInterpreter, key::Union{MethodInstance,InferenceResult}) = get(interp.remarks[interp.current_level], key, nothing)
+#Cthulhu.get_remarks(interp::ADInterpreter, key::Union{MethodInstance,InferenceResult}) = get(interp.remarks[interp.current_level], key, nothing)
 
 @static if VERSION ≥ v"1.13.0-DEV.126"
 function diffractor_finish(@specialize(finishfunc), state::InferenceState, interp::ADInterpreter, cycleid::Int)

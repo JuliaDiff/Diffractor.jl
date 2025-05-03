@@ -260,8 +260,7 @@ function forward_diff_no_inf!(ir::IRCode, to_diff::Vector{Pair{SSAValue,Int}};
             # TODO: Should we remember whether the callbacks wanted the arg?
             return transform!(ir, arg, order, maparg)
         elseif isa(arg, GlobalRef)
-            @assert isconst(arg)
-            return zero_bundle{order}()(getfield(arg.mod, arg.name))
+            return insert_node!(ir, pos, NewInstruction(Expr(:call, zero_bundle{order}(), arg)), #=attach_after=#true)
         elseif isa(arg, QuoteNode)
             return zero_bundle{order}()(arg.value)
         end

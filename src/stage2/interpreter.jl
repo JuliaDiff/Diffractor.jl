@@ -276,7 +276,14 @@ end
 # TODO: `get_remarks` should get a cursor?
 #Cthulhu.get_remarks(interp::ADInterpreter, key::Union{MethodInstance,InferenceResult}) = get(interp.remarks[interp.current_level], key, nothing)
 
-@static if VERSION ≥ v"1.13.0-DEV.126"
+@static if VERSION ≥ v"1.13-"
+function diffractor_finish(@specialize(finishfunc), state::InferenceState, interp::ADInterpreter, cycleid::Int, opt_cache::IdDict{MethodInstance, CodeInstance})
+    res = @invoke finishfunc(state::InferenceState, interp::AbstractInterpreter, cycleid::Int, opt_cache::IdDict{MethodInstance, CodeInstance})
+    key = CC.is_constproped(state) ? state.result : state.linfo
+    interp.unopt[interp.current_level][key] = Cthulhu.InferredSource(state)
+    return res
+end
+elseif VERSION ≥ v"1.12-"
 function diffractor_finish(@specialize(finishfunc), state::InferenceState, interp::ADInterpreter, cycleid::Int)
     res = @invoke finishfunc(state::InferenceState, interp::AbstractInterpreter, cycleid::Int)
     key = CC.is_constproped(state) ? state.result : state.linfo
@@ -292,7 +299,9 @@ function diffractor_finish(@specialize(finishfunc), state::InferenceState, inter
 end
 end
 
-@static if VERSION ≥ v"1.12-"
+@static if VERSION ≥ v"1.13-"
+CC.finishinfer!(state::InferenceState, interp::ADInterpreter, cycleid::Int, opt_cache::IdDict{MethodInstance, CodeInstance}) = diffractor_finish(CC.finishinfer!, state, interp, cycleid, opt_cache)
+elseif VERSION ≥ v"1.12-"
 CC.finishinfer!(state::InferenceState, interp::ADInterpreter, cycleid::Int) = diffractor_finish(CC.finishinfer!, state, interp, cycleid)
 function CC.finish!(interp::ADInterpreter, caller::InferenceState, validation_world::UInt, time_before::UInt64)
     Cthulhu.set_cthulhu_source!(caller.result)

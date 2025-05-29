@@ -7,6 +7,8 @@ using .CC: Const, isconstType, argtypes_to_type, tuple_tfunc, Const,
 using Core: PartialStruct
 using Base.Meta
 
+get_fname(@nospecialize(fT::DataType)) = @static VERSION ≥ v"1.13.0-DEV.647" ? fT.name.singletonname : fT.name.mt.name
+
 function CC.abstract_call_gf_by_type(interp::ADInterpreter, @nospecialize(f),
         arginfo::ArgInfo, si::StmtInfo, @nospecialize(atype), sv::InferenceState, max_methods::Int)
     (;argtypes) = arginfo
@@ -30,7 +32,7 @@ function CC.abstract_call_gf_by_type(interp::ADInterpreter, @nospecialize(f),
                 if rinterp.current_level == 1
                     clos = getfield_tfunc(call.info.rrule_rt, Const(2))
                 else
-                    name = call.info.info.results.matches[1].method.sig.parameters[2].name.mt.name
+                    name = get_fname(call.info.info.results.matches[1].method.sig.parameters[2])
                     clos = PrimClosure(name, rinterp.current_level - 1, 1, getfield_tfunc(call.info.rrule_rt, Const(2)), call.info, nothing)
                 end
             end

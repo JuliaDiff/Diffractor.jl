@@ -100,4 +100,4 @@ end
 
 end
 
-const frule_mt = methods(ChainRulesCore.frule).mt
+const frule_mt = @static VERSION ≥ v"1.13.0-DEV.647" ? nothing : methods(ChainRulesCore.frule).mt

@@ -12,6 +12,14 @@ function fwd_abstract_call_gf_by_type(interp::AbstractInterpreter, @nospecialize
         return primal_call
     end
 
+    if f === Core._apply_iterate
+        @assert !isready(primal_call) || !isa(primal_call[].info, FRuleCallInfo)
+        # For performance and to avoid inlining getting confused about the lack
+        # of UnionSplitApplyCallInfo, special case apply to skip the frule check.
+        # Note that the we still check the frule of the actually applied function.
+        return primal_call
+    end
+
     nargs = length(arginfo.argtypes)-1
     frule_preargtypes = Any[Const(ChainRulesCore.frule), Tuple{Nothing,Vararg{Any,nargs}}]
     frule_argtypes = append!(frule_preargtypes, arginfo.argtypes)
@@ -20,11 +28,6 @@ function fwd_abstract_call_gf_by_type(interp::AbstractInterpreter, @nospecialize
     local frule_call::Future{CallMeta}
     local result::Future{CallMeta} = Future{CallMeta}()
     function make_progress(_, sv)
-        if isa(primal_call[].info, UnionSplitApplyCallInfo)
-            result[] = primal_call[]
-            return true
-        end
-
         ready = false
         if !@isdefined(frule_call)
             # Here we simply check for the frule existance - we don't want to do a full

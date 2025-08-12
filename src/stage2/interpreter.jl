@@ -1,12 +1,13 @@
 using OffsetArrays
 using Cthulhu
 
-struct ADCursor <: Cthulhu.AbstractCursor
+struct ADCursor
+# struct ADCursor <: Cthulhu.AbstractCursor
     level::Int
     mi::MethodInstance
     transformed::Bool
 end
-# Cthulhu.get_mi(c::ADCursor) = c.mi
+# # Cthulhu.get_mi(c::ADCursor) = c.mi
 ADCursor(level::Int, mi::MethodInstance) = ADCursor(level, mi, false)
 
 #=
@@ -89,74 +90,74 @@ Cthulhu.AbstractCursor(interp::ADInterpreter, mi::MethodInstance) = ADCursor(0, 
 =#
 
 # This is a lie, but let's clean this up later
-Cthulhu.can_descend(interp::ADInterpreter, @nospecialize(key), optimize::Bool) = true
+# Cthulhu.can_descend(interp::ADInterpreter, @nospecialize(key), optimize::Bool) = true
 
-function Cthulhu.lookup(interp::ADInterpreter, curs::ADCursor, optimize::Bool; allow_no_src::Bool=false)
-    if !optimize
-        entry = interp.unopt[curs.level][curs.mi]
-        codeinf = src = copy(entry.src)
-        rt = entry.rt
-        infos = entry.stmt_info
-        effects = Cthulhu.get_effects(entry)
-        slottypes = src.slottypes
-        if isnothing(slottypes)
-            slottypes = Any[ Any for i = 1:length(src.slotflags) ]
-        end
-    else
-        codeinst = Cthulhu.get_optimized_codeinst(interp, curs)
-        rt = Cthulhu.codeinst_rt(codeinst)
-        opt = codeinst.inferred
-        if opt !== nothing
-            opt = opt::Cthulhu.OptimizedSource
-            src = CC.copy(opt.ir)
-            codeinf = opt.src
-            infos = src.stmts.info
-            slottypes = src.argtypes
-        elseif allow_no_src
-            # This doesn't showed up as covered, but it is (see the CI test with `coverage=false`).
-            # But with coverage on, the empty function body isn't empty due to :code_coverage_effect expressions.
-            codeinf = src = nothing
-            infos = []
-            slottypes = Any[Base.unwrap_unionall(mi.specTypes).parameters...]
-        else
-            Core.eval(Main, quote
-                interp = $interp
-                mi = $mi
-                optimize = $optimize
-            end)
-            error("couldn't find the source; inspect `Main.interp` and `Main.mi`")
-        end
-        effects = Cthulhu.get_effects(codeinst)
-    end
-    (; src, rt, infos, slottypes, codeinf, effects)
-end
+# function Cthulhu.LookupResult(interp::ADInterpreter, curs::ADCursor, optimize::Bool; allow_no_src::Bool=false)
+#     if !optimize
+#         entry = interp.unopt[curs.level][curs.mi]
+#         codeinf = src = copy(entry.src)
+#         rt = entry.rt
+#         infos = entry.stmt_info
+#         effects = Cthulhu.get_effects(entry)
+#         slottypes = src.slottypes
+#         if isnothing(slottypes)
+#             slottypes = Any[ Any for i = 1:length(src.slotflags) ]
+#         end
+#     else
+#         codeinst = Cthulhu.get_optimized_codeinst(interp, curs)
+#         rt = Cthulhu.codeinst_rt(codeinst)
+#         opt = codeinst.inferred
+#         if opt !== nothing
+#             opt = opt::Cthulhu.OptimizedSource
+#             src = CC.copy(opt.ir)
+#             codeinf = opt.src
+#             infos = src.stmts.info
+#             slottypes = src.argtypes
+#         elseif allow_no_src
+#             # This doesn't showed up as covered, but it is (see the CI test with `coverage=false`).
+#             # But with coverage on, the empty function body isn't empty due to :code_coverage_effect expressions.
+#             codeinf = src = nothing
+#             infos = []
+#             slottypes = Any[Base.unwrap_unionall(mi.specTypes).parameters...]
+#         else
+#             Core.eval(Main, quote
+#                 interp = $interp
+#                 mi = $mi
+#                 optimize = $optimize
+#             end)
+#             error("couldn't find the source; inspect `Main.interp` and `Main.mi`")
+#         end
+#         effects = Cthulhu.get_effects(codeinst)
+#     end
+#     (; src, rt, infos, slottypes, codeinf, effects)
+# end
 
-function Cthulhu.custom_toggles(interp::ADInterpreter)
-    return Cthulhu.CustomToggle[
-        Cthulhu.CustomToggle(false, 'a', "utomatic differentiation",
-            function (curs::Cthulhu.AbstractCursor)
-                if curs isa ADCursor
-                    return ADCursor(curs.level, curs.mi, true)
-                end
-                return curs
-            end,
-            function (curs::Cthulhu.AbstractCursor)
-                if curs isa ADCursor
-                    return ADCursor(curs.level, curs.mi, false)
-                end
-                return curs
-            end)
-    ]
-end
+# function Cthulhu.custom_toggles(interp::ADInterpreter)
+#     return Cthulhu.CustomToggle[
+#         Cthulhu.CustomToggle(false, 'a', "utomatic differentiation",
+#             function (curs::Cthulhu.AbstractCursor)
+#                 if curs isa ADCursor
+#                     return ADCursor(curs.level, curs.mi, true)
+#                 end
+#                 return curs
+#             end,
+#             function (curs::Cthulhu.AbstractCursor)
+#                 if curs isa ADCursor
+#                     return ADCursor(curs.level, curs.mi, false)
+#                 end
+#                 return curs
+#             end)
+#     ]
+# end
 
-# TODO: Something is going very wrong here
-function Cthulhu.get_effects(interp::ADInterpreter, mi::MethodInstance, opt::Bool)
-    if haskey(interp.unopt[0], mi)
-        return interp.unopt[0][mi].effects
-    else
-        return Effects()
-    end
-end
+# # TODO: Something is going very wrong here
+# function Cthulhu.get_effects(interp::ADInterpreter, mi::MethodInstance, opt::Bool)
+#     if haskey(interp.unopt[0], mi)
+#         return interp.unopt[0][mi].effects
+#     else
+#         return Effects()
+#     end
+# end
 
 function CC.is_same_frame(interp::ADInterpreter, linfo::MethodInstance, frame::InferenceState)
     linfo === frame.linfo || return false
@@ -213,37 +214,37 @@ function Cthulhu.navigate(curs::ADCursor, callsite::Cthulhu.Callsite)
 end
 =#
 
-function Cthulhu.process_info(interp::ADInterpreter, @nospecialize(info::CC.CallInfo), argtypes::Cthulhu.ArgTypes, @nospecialize(rt), optimize::Bool, @nospecialize(exct))
-    if isa(info, RecurseInfo)
-        newargtypes = argtypes[2:end]
-        callinfos = Cthulhu.process_info(interp, info.info, newargtypes, Cthulhu.unwrapType(widenconst(rt)), optimize, exct)
-        if length(callinfos) == 1
-            vmi = only(callinfos)
-        else
-            @assert isempty(callinfos)
-            argt = Cthulhu.unwrapType(widenconst(newargtypes[2]))::DataType
-            sig = Tuple{widenconst(newargtypes[1]), argt.parameters...}
-            vmi = Cthulhu.FailedCallInfo(sig, Union{})
-        end
-        return Any[RecurseCallInfo(vmi)]
-    elseif isa(info, RRuleInfo)
-        newargtypes = [Const(rrule); argtypes[2:end]]
-        callinfos = Cthulhu.process_info(interp, info.info, newargtypes, Cthulhu.unwrapType(widenconst(rt)), optimize, exct)
-        if length(callinfos) == 1
-            vmi = only(callinfos)
-        else
-            @assert isempty(callinfos)
-            argt = Cthulhu.unwrapType(widenconst(newargtypes[2]))::DataType
-            sig = Tuple{widenconst(newargtypes[1]), argt.parameters...}
-            vmi = Cthulhu.FailedCallInfo(sig, Union{})
-        end
-        return Any[RRuleCallInfo(vmi)]
-    elseif isa(info, CompClosInfo)
-        return Any[CompClosCallInfo(rt)]
-    end
-    return invoke(Cthulhu.process_info, Tuple{AbstractInterpreter, CC.CallInfo, Cthulhu.ArgTypes, Any, Bool},
-        interp, info, argtypes, rt, optimize)
-end
+# function Cthulhu.process_info(interp::ADInterpreter, @nospecialize(info::CC.CallInfo), argtypes::Cthulhu.ArgTypes, @nospecialize(rt), optimize::Bool, @nospecialize(exct))
+#     if isa(info, RecurseInfo)
+#         newargtypes = argtypes[2:end]
+#         callinfos = Cthulhu.process_info(interp, info.info, newargtypes, Cthulhu.unwrapType(widenconst(rt)), optimize, exct)
+#         if length(callinfos) == 1
+#             vmi = only(callinfos)
+#         else
+#             @assert isempty(callinfos)
+#             argt = Cthulhu.unwrapType(widenconst(newargtypes[2]))::DataType
+#             sig = Tuple{widenconst(newargtypes[1]), argt.parameters...}
+#             vmi = Cthulhu.FailedCallInfo(sig, Union{})
+#         end
+#         return Any[RecurseCallInfo(vmi)]
+#     elseif isa(info, RRuleInfo)
+#         newargtypes = [Const(rrule); argtypes[2:end]]
+#         callinfos = Cthulhu.process_info(interp, info.info, newargtypes, Cthulhu.unwrapType(widenconst(rt)), optimize, exct)
+#         if length(callinfos) == 1
+#             vmi = only(callinfos)
+#         else
+#             @assert isempty(callinfos)
+#             argt = Cthulhu.unwrapType(widenconst(newargtypes[2]))::DataType
+#             sig = Tuple{widenconst(newargtypes[1]), argt.parameters...}
+#             vmi = Cthulhu.FailedCallInfo(sig, Union{})
+#         end
+#         return Any[RRuleCallInfo(vmi)]
+#     elseif isa(info, CompClosInfo)
+#         return Any[CompClosCallInfo(rt)]
+#     end
+#     return invoke(Cthulhu.process_info, Tuple{AbstractInterpreter, CC.CallInfo, Cthulhu.ArgTypes, Any, Bool},
+#         interp, info, argtypes, rt, optimize)
+# end
 
 CC.InferenceParams(ei::ADInterpreter) = InferenceParams(ei.native_interpreter)
 CC.OptimizationParams(ei::ADInterpreter) = OptimizationParams(ei.native_interpreter)
